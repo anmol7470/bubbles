@@ -1,29 +1,10 @@
-import { SearchIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SearchForm } from "@/components/search-form";
-import Link from "next/link";
-import { ModeToggle } from "@/components/theme-toggle";
+import { Header } from "@/components/header";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col text-foreground">
-      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur">
-        <div className="container mx-auto flex h-16 items-center justify-between px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-lg font-semibold tracking-tight"
-          >
-            <SearchIcon className="size-5" />
-            <span>Search That</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-            <Button variant="outline" className="px-5">
-              Login
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container mx-auto flex flex-1 flex-col items-center justify-center px-6 py-20">
         <div className="w-full max-w-2xl space-y-12 text-center">
