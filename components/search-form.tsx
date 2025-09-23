@@ -55,12 +55,12 @@ export function SearchForm() {
       <Textarea
         autoFocus
         placeholder="Search anything"
-        className="min-h-[6rem] resize-none border-0 rounded-none bg-inherit px-6 py-4 text-base leading-relaxed focus-visible:ring-0 sm:text-lg"
+        className="min-h-[6rem] max-h-[12rem] resize-none border-0 rounded-none bg-inherit px-6 py-4 text-base leading-relaxed focus-visible:ring-0 sm:text-lg"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <div className="flex flex-col gap-3 bg-inherit px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex gap-3 bg-inherit px-4 py-3 items-center justify-between">
         <Select
           defaultValue={mode.name}
           onValueChange={(value) =>
