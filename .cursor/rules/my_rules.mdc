@@ -1,0 +1,10 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+- use lucide react for the icons
+- use bun as package manager
+- use shadcn components. install them with bun like so: bunx --bun shadcn@latest add <component>
+- no need to use your own colors. respect globals.css
