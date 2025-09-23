@@ -49,7 +49,7 @@ export function SearchForm() {
 
   return (
     <form
-      className="flex flex-col overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-lg backdrop-blur"
+      className="flex flex-col overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-lg"
       onSubmit={handleSubmit}
     >
       <Textarea
@@ -85,7 +85,7 @@ export function SearchForm() {
 
         <Button
           type="submit"
-          className="group inline-flex items-center gap-2 rounded-full px-6 py-2 text-sm font-semibold sm:self-end"
+          className="group inline-flex items-center gap-2 text-white rounded-full px-6 py-2 text-sm sm:self-end"
         >
           Search
           <SearchIcon />

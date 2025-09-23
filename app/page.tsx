@@ -2,10 +2,11 @@ import { SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchForm } from "@/components/search-form";
 import Link from "next/link";
+import { ModeToggle } from "@/components/theme-toggle";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-background via-background/80 to-muted text-foreground">
+    <div className="flex min-h-screen flex-col text-foreground">
       <header className="sticky top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between px-6">
           <Link
@@ -15,9 +16,12 @@ export default function Home() {
             <SearchIcon className="size-5" />
             <span>Search That</span>
           </Link>
-          <Button variant="outline" className="px-5">
-            Login
-          </Button>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <Button variant="outline" className="px-5">
+              Login
+            </Button>
+          </div>
         </div>
       </header>
 
