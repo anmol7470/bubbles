@@ -13,3 +13,5 @@ export async function getUser() {
 
   return session.user
 }
+
+export type User = NonNullable<Awaited<ReturnType<typeof getUser>>>

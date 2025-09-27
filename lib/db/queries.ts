@@ -36,12 +36,19 @@ export async function getAllChatsForUser(userId: string) {
   })
 }
 
-export async function searchUsers(query: string, userId: string) {
+export async function searchUsers(
+  query: string,
+  userId: string,
+  selectedUserIds: string[] = []
+) {
   return await db.query.user.findMany({
-    where: (user, { and, ilike, not, eq }) =>
+    where: (user, { and, ilike, not, eq, notInArray }) =>
       and(
         ilike(user.username, `%${query.split(' ').join('%')}%`),
-        not(eq(user.id, userId))
+        not(eq(user.id, userId)),
+        ...(selectedUserIds.length > 0
+          ? [notInArray(user.id, selectedUserIds)]
+          : [])
       ),
     columns: {
       id: true,

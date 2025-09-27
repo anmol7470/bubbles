@@ -1,0 +1,2 @@
+ALTER TABLE "chats" DROP CONSTRAINT "is_group_chat";--> statement-breakpoint
+ALTER TABLE "chats" ADD CONSTRAINT "is_group_chat" CHECK ("chats"."is_group_chat" = false OR "chats"."group_chat_name" IS NOT NULL);

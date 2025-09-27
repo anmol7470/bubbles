@@ -26,7 +26,7 @@ export const chats = pgTable(
   (table) => [
     check(
       'is_group_chat',
-      sql`${table.isGroupChat} = true AND ${table.groupChatName} IS NOT NULL`
+      sql`${table.isGroupChat} = false OR ${table.groupChatName} IS NOT NULL`
     ),
   ]
 )
