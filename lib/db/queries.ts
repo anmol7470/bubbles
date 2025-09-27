@@ -1,0 +1,100 @@
+'use server'
+
+import { db } from '@/lib/db'
+import { chatMembers } from '@/lib/db/schema'
+
+export async function getAllChatsForUser(userId: string) {
+  return await db.query.chats.findMany({
+    // only get chats that the user is a participant of
+    where: (chat, { exists, and, eq }) =>
+      exists(
+        db
+          .select()
+          .from(chatMembers)
+          .where(
+            and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, userId))
+          )
+      ),
+    with: {
+      members: {
+        columns: {},
+        with: {
+          user: {
+            columns: {
+              id: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: (chat, { desc }) => [
+      desc(chat.lastMessageSentAt),
+      desc(chat.createdAt),
+    ],
+  })
+}
+
+export async function searchUsers(query: string, userId: string) {
+  return await db.query.user.findMany({
+    where: (user, { and, ilike, not, eq }) =>
+      and(
+        ilike(user.username, `%${query.split(' ').join('%')}%`),
+        not(eq(user.id, userId))
+      ),
+    columns: {
+      id: true,
+      username: true,
+      image: true,
+    },
+    limit: 20,
+  })
+}
+
+export async function getChatById(chatId: string, userId: string) {
+  return await db.query.chats.findFirst({
+    // check if the chat exists and the user is a member of the chat
+    where: (chat, { eq, exists, and }) =>
+      and(
+        eq(chat.id, chatId),
+        exists(
+          db
+            .select()
+            .from(chatMembers)
+            .where(
+              and(
+                eq(chatMembers.chatId, chat.id),
+                eq(chatMembers.userId, userId)
+              )
+            )
+        )
+      ),
+    with: {
+      members: {
+        columns: {},
+        with: {
+          user: {
+            columns: {
+              id: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: (message, { asc }) => asc(message.sentAt),
+        with: {
+          sender: {
+            columns: {
+              id: true,
+              username: true,
+              image: true,
+            },
+          },
+        },
+      },
+    },
+  })
+}
