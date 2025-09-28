@@ -15,13 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { authClient } from '@/lib/auth/client'
+import { createSupabaseClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { deleteUser } from '@/lib/auth-actions'
 
 export function Settings() {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
+  const supabase = createSupabaseClient()
 
   return (
     <DropdownMenu>
@@ -43,18 +45,16 @@ export function Settings() {
           <span>User Settings</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() =>
-            authClient.signOut({
-              fetchOptions: {
-                onSuccess: () => {
-                  router.push('/login')
-                },
-                onError: (error) => {
-                  toast.error(error.error.message)
-                },
-              },
-            })
-          }
+          onClick={async () => {
+            const { error } = await supabase.auth.signOut()
+            if (error) {
+              toast.error(
+                error instanceof Error ? error.message : 'An error occurred'
+              )
+              return
+            }
+            router.push('/login')
+          }}
         >
           <LogOutIcon className="size-5" />
           <span>Sign out</span>
@@ -62,18 +62,17 @@ export function Settings() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          onClick={() =>
-            authClient.deleteUser({
-              fetchOptions: {
-                onSuccess: () => {
-                  router.push('/login')
-                },
-                onError: (error) => {
-                  toast.error(error.error.message)
-                },
-              },
-            })
-          }
+          onClick={async () => {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser()
+            if (!user) {
+              toast.error('User not found')
+              return
+            }
+
+            await deleteUser(user.id)
+          }}
         >
           <TrashIcon className="size-5" />
           <span>Delete account</span>

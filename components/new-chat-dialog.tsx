@@ -60,8 +60,8 @@ export function NewChatDialog({
 
   const handleUserSelect = (user: {
     id: string
-    username: string | null
-    image: string | null
+    username: string
+    imageUrl: string | null
   }) => {
     const newUser = { id: user.id, username: user.username! }
     setSelectedUsers((prev) => [...prev, newUser])
@@ -88,13 +88,11 @@ export function NewChatDialog({
 
       // Broadcast the new chat data to all subscribers
       if (data.chat && newChatChannel) {
-        const response = await newChatChannel.send({
+        await newChatChannel.send({
           type: 'broadcast',
           event: 'chatCreated',
           payload: { chat: data.chat },
         })
-
-        console.log('Broadcast sent:', response)
       }
 
       router.push(`/chats/${data.chat?.id}`)
@@ -202,7 +200,7 @@ export function NewChatDialog({
                           size="lg"
                         >
                           <UserAvatar
-                            image={user.image}
+                            image={user.imageUrl}
                             username={user.username}
                           />
                           <span className="text-sm font-medium">

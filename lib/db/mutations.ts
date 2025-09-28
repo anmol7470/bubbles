@@ -32,7 +32,7 @@ export async function createNewChat(
             columns: {
               id: true,
               username: true,
-              image: true,
+              imageUrl: true,
             },
           },
         },
@@ -75,7 +75,7 @@ export async function createNewChat(
             columns: {
               id: true,
               username: true,
-              image: true,
+              imageUrl: true,
             },
           },
         },

@@ -23,7 +23,7 @@ export async function getAllChatsForUser(userId: string) {
             columns: {
               id: true,
               username: true,
-              image: true,
+              imageUrl: true,
             },
           },
         },
@@ -41,7 +41,7 @@ export async function searchUsers(
   userId: string,
   selectedUserIds: string[] = []
 ) {
-  return await db.query.user.findMany({
+  return await db.query.users.findMany({
     where: (user, { and, ilike, not, eq, notInArray }) =>
       and(
         ilike(user.username, `%${query.split(' ').join('%')}%`),
@@ -53,7 +53,7 @@ export async function searchUsers(
     columns: {
       id: true,
       username: true,
-      image: true,
+      imageUrl: true,
     },
     limit: 20,
   })
@@ -85,7 +85,7 @@ export async function getChatById(chatId: string, userId: string) {
             columns: {
               id: true,
               username: true,
-              image: true,
+              imageUrl: true,
             },
           },
         },
@@ -97,7 +97,7 @@ export async function getChatById(chatId: string, userId: string) {
             columns: {
               id: true,
               username: true,
-              image: true,
+              imageUrl: true,
             },
           },
         },

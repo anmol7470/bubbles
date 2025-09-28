@@ -7,8 +7,15 @@ import {
   boolean,
   check,
 } from 'drizzle-orm/pg-core'
-import { user } from './auth'
 import { sql, relations } from 'drizzle-orm'
+
+// minimal copy of Supabase auth table
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull(),
+  imageUrl: text('image_url'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
 
 export const chats = pgTable(
   'chats',
@@ -17,7 +24,7 @@ export const chats = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     creatorId: text('creator_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     isGroupChat: boolean('is_group_chat').default(false),
     groupChatName: varchar('group_chat_name', { length: 255 }),
     lastMessageSentAt: timestamp('last_message_sent_at'),
@@ -39,7 +46,7 @@ export const chatMembers = pgTable(
       .references(() => chats.id, { onDelete: 'cascade' }),
     userId: text('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.chatId, table.userId] })]
@@ -52,7 +59,7 @@ export const messages = pgTable('messages', {
     .references(() => chats.id, { onDelete: 'cascade' }),
   senderId: text('sender_id')
     .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+    .references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   sentAt: timestamp('sent_at').defaultNow().notNull(),
   imageUrls: text('image_urls').array(),
@@ -65,10 +72,10 @@ export const chatRelations = relations(chats, ({ many }) => ({
 
 export const chatMemberRelations = relations(chatMembers, ({ one }) => ({
   chat: one(chats, { fields: [chatMembers.chatId], references: [chats.id] }),
-  user: one(user, { fields: [chatMembers.userId], references: [user.id] }),
+  user: one(users, { fields: [chatMembers.userId], references: [users.id] }),
 }))
 
 export const messageRelations = relations(messages, ({ one }) => ({
   chat: one(chats, { fields: [messages.chatId], references: [chats.id] }),
-  sender: one(user, { fields: [messages.senderId], references: [user.id] }),
+  sender: one(users, { fields: [messages.senderId], references: [users.id] }),
 }))

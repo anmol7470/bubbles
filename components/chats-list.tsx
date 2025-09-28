@@ -4,7 +4,8 @@ import { Search } from 'lucide-react'
 import { Input } from './ui/input'
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { cn, formatDate, createSupabaseClient } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
+import { createSupabaseClient } from '@/lib/supabase/client'
 import { Skeleton } from './ui/skeleton'
 import { usePathname } from 'next/navigation'
 import { getAllChatsForUser } from '@/lib/db/queries'
@@ -13,10 +14,10 @@ import { Settings } from './settings'
 import { NewChatDialog } from './new-chat-dialog'
 import { UserAvatar } from './user-avatar'
 import type {
+  User,
   SupabaseChannel,
   NewChatPayload,
   ChatWithMembers,
-  User,
 } from '@/lib/types'
 
 export function ChatsList({ user }: { user: User }) {
@@ -161,7 +162,7 @@ export function ChatsList({ user }: { user: User }) {
                           />
                         ) : (
                           <UserAvatar
-                            image={otherParticipant.image ?? null}
+                            image={otherParticipant.imageUrl ?? null}
                             username={otherParticipant.username ?? null}
                           />
                         )}

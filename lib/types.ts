@@ -1,12 +1,10 @@
-import { createSupabaseClient } from './utils'
 import { getAllChatsForUser } from './db/queries'
-import { getUser } from './auth/get-user'
+import { createSupabaseClient } from './supabase/client'
 import { z } from 'zod'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export const loginSchema = z.object({
-  usernameOrEmail: z
-    .string()
-    .min(4, 'Username or email must be at least 4 characters'),
+  email: z.email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
@@ -14,14 +12,18 @@ export type LoginFormData = z.infer<typeof loginSchema>
 
 export const signupSchema = z.object({
   email: z.email('Invalid email address'),
-  name: z.string().min(1, 'Name is required'),
   username: z.string().min(4, 'Username must be at least 4 characters'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
 export type SignupFormData = z.infer<typeof signupSchema>
 
-export type User = NonNullable<Awaited<ReturnType<typeof getUser>>>
+export type User = SupabaseUser & {
+  user_metadata: SupabaseUser['user_metadata'] & {
+    username?: string
+    imageUrl?: string
+  }
+}
 
 export type ChatWithMembers = NonNullable<
   Awaited<ReturnType<typeof getAllChatsForUser>>

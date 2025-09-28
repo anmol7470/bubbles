@@ -3,18 +3,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeftIcon } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { type SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { authClient } from '@/lib/auth/client'
 import { signupSchema, type SignupFormData } from '@/lib/types'
+import { signup } from '../../../lib/auth-actions'
 
 export default function SignupPage() {
-  const router = useRouter()
   const {
     register,
     handleSubmit,
@@ -28,20 +26,9 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
-      const { error } = await authClient.signUp.email({
-        email: data.email,
-        name: data.name,
-        username: data.username,
-        password: data.password,
-      })
-
-      if (error) {
-        throw error.message
-      }
-
-      router.push('/chats')
+      await signup(data.email, data.password, data.username)
     } catch (error) {
-      toast.error(error as string)
+      toast.error(error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setIsLoading(false)
     }
@@ -76,22 +63,6 @@ export default function SignupPage() {
               {errors.email && (
                 <p className="mt-1 text-sm text-red-400">
                   {errors.email.message}
-                </p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="name" className="mb-2 block text-sm font-medium">
-                Name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                {...register('name')}
-                className="w-full rounded-md"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-400">
-                  {errors.name.message}
                 </p>
               )}
             </div>
