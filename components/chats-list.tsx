@@ -149,7 +149,7 @@ export function ChatsList({ user }: { user: User }) {
                       key={i}
                       href={`/chats/${chat.id}`}
                       className={cn(
-                        'hover:bg-accent block rounded-lg',
+                        'hover:bg-primary/5 block rounded-lg',
                         chat.id === chatId &&
                           'bg-primary/10 hover:bg-primary/10'
                       )}
