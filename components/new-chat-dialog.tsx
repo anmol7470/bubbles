@@ -84,15 +84,14 @@ export function NewChatDialog({
         toast.info('Chat already exists')
       } else {
         toast.success('Chat created')
-      }
-
-      // Broadcast the new chat data to all subscribers
-      if (data.chat && newChatChannel) {
-        await newChatChannel.send({
-          type: 'broadcast',
-          event: 'chatCreated',
-          payload: { chat: data.chat },
-        })
+        // Broadcast the new chat data to all subscribers
+        if (data.chat && newChatChannel) {
+          await newChatChannel.send({
+            type: 'broadcast',
+            event: 'chatCreated',
+            payload: { chat: data.chat },
+          })
+        }
       }
 
       router.push(`/chats/${data.chat?.id}`)

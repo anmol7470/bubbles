@@ -121,7 +121,7 @@ export function ChatsList({ user }: { user: User }) {
             placeholder="Search your chats..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 focus-visible:ring-0"
+            className="pl-8 focus-visible:ring-0 h-10"
           />
         </div>
 

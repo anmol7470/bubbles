@@ -1,4 +1,4 @@
-import { getAllChatsForUser } from './db/queries'
+import { getAllChatsForUser, getChatById } from './db/queries'
 import { createSupabaseClient } from './supabase/client'
 import { z } from 'zod'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -28,6 +28,10 @@ export type User = SupabaseUser & {
 export type ChatWithMembers = NonNullable<
   Awaited<ReturnType<typeof getAllChatsForUser>>
 >[number]
+
+export type ChatWithMessages = NonNullable<
+  Awaited<ReturnType<typeof getChatById>>
+>
 
 export type NewChatPayload = {
   chat: ChatWithMembers
