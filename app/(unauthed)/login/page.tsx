@@ -7,20 +7,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { type SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
-
-const loginSchema = z.object({
-  usernameOrEmail: z
-    .string()
-    .min(4, 'Username or email must be at least 4 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-})
-
-type LoginFormData = z.infer<typeof loginSchema>
+import { loginSchema, type LoginFormData } from '@/lib/types'
 
 export default function LoginPage() {
   const router = useRouter()

@@ -7,20 +7,17 @@ import Link from 'next/link'
 import { cn, formatDate, createSupabaseClient } from '@/lib/utils'
 import { Skeleton } from './ui/skeleton'
 import { usePathname } from 'next/navigation'
-import type { User } from '@/lib/auth/get-user'
 import { getAllChatsForUser } from '@/lib/db/queries'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Settings } from './settings'
 import { NewChatDialog } from './new-chat-dialog'
 import { UserAvatar } from './user-avatar'
-
-type ChatWithMembers = NonNullable<
-  Awaited<ReturnType<typeof getAllChatsForUser>>
->[number]
-
-type NewChatPayload = {
-  chat: ChatWithMembers
-}
+import type {
+  SupabaseChannel,
+  NewChatPayload,
+  ChatWithMembers,
+  User,
+} from '@/lib/types'
 
 export function ChatsList({ user }: { user: User }) {
   const [search, setSearch] = useState('')
@@ -29,6 +26,9 @@ export function ChatsList({ user }: { user: User }) {
   const isChatOpen = pathname?.startsWith('/chats/') && pathname !== '/chats'
   const queryClient = useQueryClient()
   const supabase = createSupabaseClient()
+  const [newChatChannel, setNewChatChannel] = useState<SupabaseChannel | null>(
+    null
+  )
 
   const { data: chats, isLoading } = useQuery({
     queryKey: ['chats', user.id],
@@ -36,7 +36,14 @@ export function ChatsList({ user }: { user: User }) {
   })
 
   useEffect(() => {
-    const channel = supabase.channel('new-chat')
+    const channel = supabase.channel('new-chat', {
+      config: {
+        broadcast: {
+          self: true,
+        },
+      },
+    })
+    setNewChatChannel(channel)
 
     channel
       .on(
@@ -103,7 +110,7 @@ export function ChatsList({ user }: { user: User }) {
           </Link>
           <div className="flex items-center">
             <Settings />
-            <NewChatDialog user={user} />
+            <NewChatDialog user={user} newChatChannel={newChatChannel} />
           </div>
         </div>
 

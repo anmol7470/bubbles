@@ -7,20 +7,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { type SubmitHandler, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth/client'
-
-const signupSchema = z.object({
-  email: z.email('Invalid email address'),
-  name: z.string().min(1, 'Name is required'),
-  username: z.string().min(4, 'Username must be at least 4 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-})
-
-type SignupFormData = z.infer<typeof signupSchema>
+import { signupSchema, type SignupFormData } from '@/lib/types'
 
 export default function SignupPage() {
   const router = useRouter()

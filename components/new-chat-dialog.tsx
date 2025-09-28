@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import debounce from 'lodash.debounce'
 import { SquarePen, X, ArrowLeft } from 'lucide-react'
@@ -14,29 +14,27 @@ import {
   DialogTrigger,
 } from './ui/dialog'
 import { searchUsers } from '@/lib/db/queries'
-import { User } from '@/lib/auth/get-user'
 import { createNewChat } from '@/lib/db/mutations'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { createSupabaseClient } from '@/lib/utils'
+import type { SupabaseChannel, User } from '@/lib/types'
 import { UserAvatar } from './user-avatar'
 
-type SelectedUser = {
-  id: string
-  username: string
-}
-
-export function NewChatDialog({ user }: { user: User }) {
+export function NewChatDialog({
+  user,
+  newChatChannel,
+}: {
+  user: User
+  newChatChannel: SupabaseChannel | null
+}) {
   const router = useRouter()
-  const supabase = createSupabaseClient()
-  const newChatChannel = supabase.channel('new-chat')
-
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUsers, setSelectedUsers] = useState<SelectedUser[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<
+    { id: string; username: string }[]
+  >([])
   const [showGroupNameInput, setShowGroupNameInput] = useState(false)
   const [groupName, setGroupName] = useState('')
-
   const debouncedSearch = useMemo(
     () => debounce((query: string) => query, 300),
     []
@@ -81,7 +79,7 @@ export function NewChatDialog({ user }: { user: User }) {
         [user.id, ...selectedUsers.map((u) => u.id)],
         groupName
       ),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.existing) {
         toast.info('Chat already exists')
       } else {
@@ -89,18 +87,14 @@ export function NewChatDialog({ user }: { user: User }) {
       }
 
       // Broadcast the new chat data to all subscribers
-      if (data.chat) {
-        newChatChannel.subscribe((status) => {
-          if (status !== 'SUBSCRIBED') {
-            return null
-          }
-
-          newChatChannel.send({
-            type: 'broadcast',
-            event: 'chatCreated',
-            payload: { chat: data.chat },
-          })
+      if (data.chat && newChatChannel) {
+        const response = await newChatChannel.send({
+          type: 'broadcast',
+          event: 'chatCreated',
+          payload: { chat: data.chat },
         })
+
+        console.log('Broadcast sent:', response)
       }
 
       router.push(`/chats/${data.chat?.id}`)
@@ -138,12 +132,6 @@ export function NewChatDialog({ user }: { user: User }) {
       setSearchQuery('')
     }
   }
-
-  useEffect(() => {
-    return () => {
-      supabase.removeChannel(newChatChannel)
-    }
-  }, [supabase, newChatChannel])
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
