@@ -1,8 +1,8 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { chatMembers, chats } from '@/lib/db/schema'
-import { sql } from 'drizzle-orm'
+import { chatMembers, chats, messages } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 
 export async function createNewChat(
   userId: string,
@@ -84,4 +84,48 @@ export async function createNewChat(
   })
 
   return { existing: false, chat: newChat }
+}
+
+export async function sendMessage(
+  chatId: string,
+  userId: string,
+  content: string,
+  imageUrls?: string[]
+) {
+  const messageId = crypto.randomUUID()
+
+  await db.transaction(async (tx) => {
+    const [message] = await tx
+      .insert(messages)
+      .values({
+        id: messageId,
+        chatId,
+        senderId: userId,
+        content,
+        imageUrls,
+      })
+      .returning()
+
+    await tx
+      .update(chats)
+      .set({
+        lastMessageSentAt: message.sentAt,
+        lastMessageContent: message.content,
+      })
+      .where(eq(chats.id, chatId))
+  })
+
+  // Return the message with sender data
+  return await db.query.messages.findFirst({
+    where: (msg, { eq }) => eq(msg.id, messageId),
+    with: {
+      sender: {
+        columns: {
+          id: true,
+          username: true,
+          imageUrl: true,
+        },
+      },
+    },
+  })
 }

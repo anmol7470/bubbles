@@ -9,5 +9,5 @@ alwaysApply: true
 - use shadcn components. install them with bun like so: bunx --bun shadcn@latest add <component>
 - no need to use your own colors. respect globals.css
 - use tanstack query for fetching data and calling mutations
-- write queries in lib/db/queries.ts file and mutations in lib/db/mutations.ts file
+- write queries in client/lib/db/queries.ts file and mutations in client/lib/db/mutations.ts file
 - use drizzle-orm's relational api for queries

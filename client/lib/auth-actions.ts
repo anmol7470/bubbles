@@ -60,12 +60,8 @@ export async function signup(
 export async function deleteUser(userId: string) {
   const supabaseAdmin = await createSupabaseAdminClient()
 
-  await Promise.all([
-    db.delete(users).where(eq(users.id, userId)),
-    supabaseAdmin.deleteUser(userId),
-  ]).catch((error) => {
-    throw new Error(error.message)
-  })
+  await db.delete(users).where(eq(users.id, userId))
+  await supabaseAdmin.deleteUser(userId)
 
   revalidatePath('/', 'layout')
   redirect('/login')

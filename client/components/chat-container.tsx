@@ -1,7 +1,7 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ImagePlusIcon, Loader2Icon, SmilePlusIcon, XIcon } from 'lucide-react'
@@ -14,6 +14,8 @@ import { Button } from './ui/button'
 import type { User } from '@/lib/types'
 import { UserAvatar } from './user-avatar'
 import { getChatById } from '@/lib/db/queries'
+import { sendMessage } from '@/lib/db/mutations'
+import { useMessageChannel } from '@/lib/realtime/message'
 
 export function ChatContainer({
   chatId,
@@ -27,24 +29,58 @@ export function ChatContainer({
   const [message, setMessage] = useState('')
   const messageInputRef = useRef<HTMLInputElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const messageChannel = useMessageChannel(chatId)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
     queryFn: () => getChatById(chatId, user.id),
   })
 
-  // If chat is not found, route away
-  useEffect(() => {
-    if (!isLoading && !chat) {
-      toast.error(`Chat ${chatId} not found`)
-      router.push('/chats')
-    }
-  }, [isLoading, chat, router, chatId])
-
   const otherParticipant = useMemo(() => {
     if (!chat || chat.isGroupChat) return null
     return chat.members.filter((member) => member.user.id !== user.id)[0].user
   }, [chat, user.id])
+
+  const { mutateAsync: sendMessageMutation, isPending: isSendingMessage } =
+    useMutation({
+      mutationFn: ({ content }: { content: string }) =>
+        sendMessage(chatId, user.id, content),
+      onSuccess: async (messageData) => {
+        if (messageData && messageChannel) {
+          // Broadcast the new message to all subscribers of this chat
+          await messageChannel.send({
+            type: 'broadcast',
+            event: 'newMessage',
+            payload: { message: messageData, chatId },
+          })
+        }
+      },
+      onError: (error) => {
+        toast.error('Failed to send message')
+        console.error('Error sending message:', error)
+      },
+    })
+
+  // If chat is not found, route away
+  if (!isLoading && !chat) {
+    toast.error(`Chat ${chatId} not found`)
+    router.push('/chats')
+    return null
+  }
+
+  const handleSendMessage = async () => {
+    if (message.trim() === '') return
+
+    const messageContent = message.trim()
+    setMessage('') // Clear input immediately for better UX
+
+    try {
+      await sendMessageMutation({ content: messageContent })
+    } catch {
+      // Error already handled in onError
+      setMessage(messageContent) // Restore message on error
+    }
+  }
 
   return (
     <div className="bg-muted dark:bg-background flex flex-1 flex-col overflow-hidden">
@@ -55,7 +91,7 @@ export function ChatContainer({
       ) : (
         chat && (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="bg-background/80 flex h-14 items-center gap-3 border-b border-gray-200 px-4 dark:border-zinc-800">
+            <div className="bg-background/80 flex h-14 items-center gap-3 border-b border-neutral-300 px-4 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 {chat.isGroupChat ? (
                   <UserAvatar
@@ -87,11 +123,10 @@ export function ChatContainer({
             <Messages messages={chat?.messages ?? []} currentUserId={user.id} />
 
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault()
                 if (message.trim() === '') return
-                // TODO: Send message
-                setMessage('')
+                await handleSendMessage()
               }}
               className="flex items-center gap-2 px-3 pb-3"
             >
@@ -112,6 +147,7 @@ export function ChatContainer({
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type a message..."
                   className="bg-background dark:bg-input/30 pl-12 pr-4 focus-visible:ring-0 h-10"
+                  disabled={isSendingMessage}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()

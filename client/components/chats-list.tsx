@@ -2,90 +2,31 @@
 
 import { Search } from 'lucide-react'
 import { Input } from './ui/input'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { cn, formatDate } from '@/lib/utils'
-import { createSupabaseClient } from '@/lib/supabase/client'
 import { Skeleton } from './ui/skeleton'
 import { usePathname } from 'next/navigation'
 import { getAllChatsForUser } from '@/lib/db/queries'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Settings } from './settings'
 import { NewChatDialog } from './new-chat-dialog'
 import { UserAvatar } from './user-avatar'
-import type {
-  User,
-  SupabaseChannel,
-  NewChatPayload,
-  ChatWithMembers,
-} from '@/lib/types'
+import { useChatChannel } from '@/lib/realtime/chat'
+import type { User } from '@/lib/types'
 
 export function ChatsList({ user }: { user: User }) {
-  const [search, setSearch] = useState('')
   const pathname = usePathname()
+  const [search, setSearch] = useState('')
   const chatId = pathname.split('/chats/')[1]
   const isChatOpen = pathname?.startsWith('/chats/') && pathname !== '/chats'
-  const queryClient = useQueryClient()
-  const supabase = createSupabaseClient()
-  const [newChatChannel, setNewChatChannel] = useState<SupabaseChannel | null>(
-    null
-  )
 
   const { data: chats, isLoading } = useQuery({
     queryKey: ['chats', user.id],
     queryFn: () => getAllChatsForUser(user.id),
   })
 
-  useEffect(() => {
-    const channel = supabase.channel('new-chat', {
-      config: {
-        broadcast: {
-          self: true,
-        },
-      },
-    })
-    setNewChatChannel(channel)
-
-    channel
-      .on(
-        'broadcast' as const,
-        { event: 'chatCreated' },
-        (payload: { payload: NewChatPayload }) => {
-          const { chat } = payload.payload
-
-          // Check if the current user is a member of this new chat
-          const isUserMember = chat.members.some(
-            (member) => member.user.id === user.id
-          )
-
-          if (isUserMember) {
-            // Add the new chat to the existing chats list
-            queryClient.setQueryData(
-              ['chats', user.id],
-              (oldChats: ChatWithMembers[]) => {
-                if (!oldChats) return [chat]
-
-                // Check if chat already exists to avoid duplicates
-                const chatExists = oldChats.some(
-                  (existingChat) => existingChat.id === chat.id
-                )
-
-                if (!chatExists) {
-                  return [chat, ...oldChats]
-                }
-
-                return oldChats
-              }
-            )
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, user.id, queryClient])
+  const newChatChannel = useChatChannel(user, chats)
 
   const filteredChats = useMemo(() => {
     return chats?.filter((chat) =>
@@ -139,14 +80,14 @@ export function ChatsList({ user }: { user: User }) {
           ) : (
             <div className="flex flex-col gap-1">
               {filteredChats &&
-                filteredChats.map((chat, i) => {
+                filteredChats.map((chat) => {
                   const otherParticipant = chat.members.filter(
                     (member) => member.user.id !== user.id
                   )[0].user
 
                   return (
                     <Link
-                      key={i}
+                      key={chat.id}
                       href={`/chats/${chat.id}`}
                       className={cn(
                         'hover:bg-primary/5 block rounded-lg',

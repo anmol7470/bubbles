@@ -37,6 +37,11 @@ export type NewChatPayload = {
   chat: ChatWithMembers
 }
 
+export type NewMessagePayload = {
+  message: ChatWithMessages['messages'][number]
+  chatId: string
+}
+
 export type SupabaseChannel = ReturnType<
   ReturnType<typeof createSupabaseClient>['channel']
 >
