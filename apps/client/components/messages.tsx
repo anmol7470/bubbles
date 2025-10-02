@@ -3,20 +3,39 @@
 import { cn, formatDate } from '@/lib/utils'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { Button } from './ui/button'
-import { ArrowDownIcon } from 'lucide-react'
+import {
+  ArrowDownIcon,
+  CopyIcon,
+  TrashIcon,
+  PencilIcon,
+  BanIcon,
+} from 'lucide-react'
 import { UserAvatar } from './user-avatar'
 import type { ChatWithMessages } from '@/lib/types'
 import Image from 'next/image'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { deleteMessage } from '@/lib/db/mutations'
+import { useWsClient } from './ws-client'
+import { toast } from 'sonner'
 
 export function Messages({
   isGroupChat,
   messages,
   currentUserId,
+  chatId,
+  participants,
   typingUsers = [],
 }: {
   isGroupChat: boolean
   messages: ChatWithMessages['messages']
   currentUserId: string
+  chatId: string
+  participants: string[]
   typingUsers?: { userId: string; username: string }[]
 }) {
   return (
@@ -43,7 +62,12 @@ export function Messages({
                   <p className="text-muted-foreground self-end px-1 text-xs">
                     {formatDate(m.sentAt)}
                   </p>
-                  <MessageContent message={m} isOwn={true} />
+                  <MessageContent
+                    message={m}
+                    isOwn={true}
+                    chatId={chatId}
+                    participants={participants}
+                  />
                 </div>
               ) : (
                 <div className="flex items-end gap-2.5 max-w-[75%]">
@@ -64,7 +88,12 @@ export function Messages({
                         {formatDate(m.sentAt)}
                       </span>
                     </div>
-                    <MessageContent message={m} isOwn={false} />
+                    <MessageContent
+                      message={m}
+                      isOwn={false}
+                      chatId={chatId}
+                      participants={participants}
+                    />
                   </div>
                 </div>
               )}
@@ -142,13 +171,68 @@ function TypingIndicator({
 function MessageContent({
   message,
   isOwn,
+  chatId,
+  participants,
 }: {
   message: ChatWithMessages['messages'][number]
   isOwn: boolean
+  chatId: string
+  participants: string[]
 }) {
+  const { socket } = useWsClient()
   const imageCount = message.imageUrls?.length ?? 0
 
-  return (
+  const handleDelete = async () => {
+    try {
+      await deleteMessage(message.id, chatId)
+
+      if (socket) {
+        socket.emit('messageDeleted', {
+          messageId: message.id,
+          chatId,
+          participants,
+        })
+      }
+
+      toast.success('Message deleted')
+    } catch (error) {
+      toast.error('Failed to delete message')
+      console.error('Error deleting message:', error)
+    }
+  }
+
+  const handleCopy = () => {
+    if (message.content) {
+      navigator.clipboard.writeText(message.content)
+      toast.success('Message copied to clipboard')
+    }
+  }
+
+  const handleEdit = () => {
+    // TODO: Implement edit functionality
+    toast.info('Edit functionality coming soon')
+  }
+
+  // Show deleted message UI
+  if (message.isDeleted) {
+    return (
+      <div
+        className={cn(
+          'rounded-xl px-3 py-2 text-sm italic flex items-center gap-1',
+          isOwn
+            ? 'self-end bg-primary/20 text-muted-foreground'
+            : 'self-start bg-primary/5 text-muted-foreground'
+        )}
+      >
+        <BanIcon className="size-4 flex-shrink-0" />
+        <span>
+          {isOwn ? 'You deleted this message' : 'This message was deleted'}
+        </span>
+      </div>
+    )
+  }
+
+  const messageContent = (
     <div className="flex flex-col gap-2">
       {imageCount > 0 && (
         <div
@@ -187,5 +271,34 @@ function MessageContent({
         </div>
       )}
     </div>
+  )
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger>{messageContent}</ContextMenuTrigger>
+      <ContextMenuContent>
+        {isOwn ? (
+          <>
+            <ContextMenuItem onClick={handleCopy}>
+              <CopyIcon />
+              Copy message
+            </ContextMenuItem>
+            <ContextMenuItem onClick={handleEdit}>
+              <PencilIcon />
+              Edit message
+            </ContextMenuItem>
+            <ContextMenuItem onClick={handleDelete} variant="destructive">
+              <TrashIcon />
+              Delete message
+            </ContextMenuItem>
+          </>
+        ) : (
+          <ContextMenuItem onClick={handleCopy}>
+            <CopyIcon />
+            Copy message
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

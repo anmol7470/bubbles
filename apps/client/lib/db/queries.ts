@@ -28,9 +28,31 @@ export async function getAllChatsForUser(userId: string) {
           },
         },
       },
+      messages: {
+        orderBy: (message, { desc }) => desc(message.sentAt),
+        limit: 1,
+        columns: {
+          id: true,
+          content: true,
+          sentAt: true,
+          isDeleted: true,
+          senderId: true,
+          imageUrls: true,
+        },
+        with: {
+          sender: {
+            columns: {
+              id: true,
+              username: true,
+            },
+          },
+        },
+      },
     },
     orderBy: (chat, { desc, sql }) => [
-      desc(sql`COALESCE(${chat.lastMessageSentAt}, ${chat.createdAt})`),
+      desc(
+        sql`(SELECT COALESCE(MAX(sent_at), ${chat.createdAt}) FROM messages WHERE chat_id = ${chat.id})`
+      ),
     ],
   })
 }

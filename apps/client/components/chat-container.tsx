@@ -238,6 +238,8 @@ export function ChatContainer({
               isGroupChat={chat?.isGroupChat ?? false}
               messages={chat?.messages ?? []}
               currentUserId={user.id}
+              chatId={chatId}
+              participants={chat?.members.map((m) => m.user.id) ?? []}
               typingUsers={typingUsers[chatId] || []}
             />
 

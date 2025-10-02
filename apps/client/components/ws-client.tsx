@@ -11,6 +11,7 @@ import type {
   NewMessagePayload,
   TypingPayload,
   StopTypingPayload,
+  DeleteMessagePayload,
 } from '@/lib/types'
 
 type TypingState = {
@@ -97,16 +98,25 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
               chat.id === payload.chatId
                 ? {
                     ...chat,
-                    lastMessageContent: payload.message.content,
-                    lastMessageSentAt: payload.message.sentAt,
+                    messages: [
+                      {
+                        id: payload.message.id,
+                        content: payload.message.content,
+                        sentAt: payload.message.sentAt,
+                        isDeleted: false,
+                        senderId: payload.message.senderId,
+                        imageUrls: payload.message.imageUrls ?? null,
+                        sender: payload.message.sender,
+                      },
+                    ],
                   }
                 : chat
             )
 
-            // Sort by lastMessageSentAt (most recent first)
+            // Sort by latest message sentAt (most recent first)
             return updatedChats.sort((a, b) => {
-              const aTime = a.lastMessageSentAt ?? a.createdAt
-              const bTime = b.lastMessageSentAt ?? b.createdAt
+              const aTime = a.messages?.[0]?.sentAt ?? a.createdAt
+              const bTime = b.messages?.[0]?.sentAt ?? b.createdAt
               return new Date(bTime).getTime() - new Date(aTime).getTime()
             })
           }
@@ -148,6 +158,48 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
             [payload.chatId]: updatedTypers,
           }
         })
+      })
+
+      socket.on('messageDeleted', (payload: DeleteMessagePayload) => {
+        const isUserMember = payload.participants.some(
+          (participant) => participant === userId
+        )
+
+        if (isUserMember) {
+          // Update the chat messages view
+          queryClient.setQueryData(
+            ['chat', payload.chatId],
+            (oldChat: ChatWithMessages) => {
+              if (!oldChat) return undefined
+              return {
+                ...oldChat,
+                messages: oldChat.messages.map((msg) =>
+                  msg.id === payload.messageId
+                    ? { ...msg, isDeleted: true }
+                    : msg
+                ),
+              }
+            }
+          )
+
+          // Update the chats list if this is the latest message
+          queryClient.setQueryData(
+            ['chats', userId],
+            (oldChats: ChatWithMembers[]) => {
+              if (!oldChats) return oldChats
+
+              return oldChats.map((chat) =>
+                chat.id === payload.chatId &&
+                chat.messages?.[0]?.id === payload.messageId
+                  ? {
+                      ...chat,
+                      messages: [{ ...chat.messages[0], isDeleted: true }],
+                    }
+                  : chat
+              )
+            }
+          )
+        }
       })
 
       return socket

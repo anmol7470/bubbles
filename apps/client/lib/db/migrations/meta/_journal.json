@@ -15,6 +15,27 @@
       "when": 1759376242880,
       "tag": "0001_warm_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1759439448267,
+      "tag": "0002_complete_lyja",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1759440076073,
+      "tag": "0003_outgoing_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1759443294756,
+      "tag": "0004_sparkling_dragon_man",
+      "breakpoints": true
     }
   ]
 }

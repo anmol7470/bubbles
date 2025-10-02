@@ -1,6 +1,6 @@
 'use client'
 
-import { Search } from 'lucide-react'
+import { Search, BanIcon } from 'lucide-react'
 import { Input } from './ui/input'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -113,12 +113,12 @@ export function ChatsList({ user }: { user: User }) {
                             </div>
                             <div className="text-muted-foreground ml-2 shrink-0 text-xs">
                               {formatDate(
-                                chat.lastMessageSentAt ?? chat.createdAt
+                                chat.messages[0]?.sentAt ?? chat.createdAt
                               )}
                             </div>
                           </div>
                           <div className="text-muted-foreground truncate text-sm">
-                            {displayLastMessage(chat)}
+                            {displayLastMessage(chat, user.id)}
                           </div>
                         </div>
                       </div>
@@ -133,17 +133,40 @@ export function ChatsList({ user }: { user: User }) {
   )
 }
 
-function displayLastMessage(chat: ChatWithMembers) {
-  // If there's no last message content at all (newly created chat)
-  if (!chat.lastMessageContent && !chat.lastMessageSentAt) {
+function displayLastMessage(chat: ChatWithMembers, currentUserId: string) {
+  const lastMessage = chat.messages?.[0]
+
+  // If there's no last message at all (newly created chat)
+  if (!lastMessage) {
     return 'Say hello 👋'
   }
 
+  const isOwnMessage = lastMessage.senderId === currentUserId
+  const senderPrefix = isOwnMessage
+    ? 'You: '
+    : `${lastMessage.sender?.username}: `
+
+  // If message is deleted
+  if (lastMessage.isDeleted) {
+    return (
+      <span className="flex items-center gap-1">
+        <BanIcon className="size-3.5 flex-shrink-0" />
+        <span>
+          {isOwnMessage ? 'You' : lastMessage.sender?.username} deleted this
+          message
+        </span>
+      </span>
+    )
+  }
+
+  const imageCount = lastMessage.imageUrls?.length ?? 0
+
   // If content is empty but there was a message sent (image-only message)
-  if (!chat.lastMessageContent || chat.lastMessageContent.trim() === '') {
-    return 'Sent an image'
+  if (!lastMessage.content || lastMessage.content.trim() === '') {
+    const imageText = imageCount > 1 ? 'images' : 'an image'
+    return `${senderPrefix}Sent ${imageText}`
   }
 
   // Regular text message (with or without images)
-  return chat.lastMessageContent
+  return `${senderPrefix}${lastMessage.content}`
 }

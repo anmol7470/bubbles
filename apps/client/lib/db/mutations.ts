@@ -4,6 +4,35 @@ import { db } from '@/lib/db'
 import { chatMembers, chats, messages } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
+// Shared query configuration for fetching chats with full data
+const chatWithFullData = {
+  members: {
+    columns: {},
+    with: {
+      user: {
+        columns: { id: true, username: true, imageUrl: true },
+      },
+    },
+  },
+  messages: {
+    orderBy: (message: any, { desc }: any) => desc(message.sentAt),
+    limit: 1,
+    columns: {
+      id: true,
+      content: true,
+      sentAt: true,
+      isDeleted: true,
+      senderId: true,
+      imageUrls: true,
+    },
+    with: {
+      sender: {
+        columns: { id: true, username: true },
+      },
+    },
+  },
+}
+
 export async function createNewChat(
   userId: string,
   selectedUsers: string[],
@@ -11,15 +40,12 @@ export async function createNewChat(
 ) {
   const isGroupChat = selectedUsers.length > 2
 
-  // Only check for existing DMs (not group chats)
-  // Group chats can have duplicates with the same participants
-  let existingChat = null
+  // Check for existing DM (group chats can have duplicates)
   if (!isGroupChat) {
-    existingChat = await db.query.chats.findFirst({
+    const existingChat = await db.query.chats.findFirst({
       where: (chat, { exists, and, eq, inArray, sql }) =>
         and(
           eq(chat.isGroupChat, false),
-          // Check that both users are members of this chat
           exists(
             db
               .select({ count: sql<number>`count(*)` })
@@ -33,20 +59,7 @@ export async function createNewChat(
               .having(sql`count(*) = 2`)
           )
         ),
-      with: {
-        members: {
-          columns: {},
-          with: {
-            user: {
-              columns: {
-                id: true,
-                username: true,
-                imageUrl: true,
-              },
-            },
-          },
-        },
-      },
+      with: chatWithFullData,
     })
 
     if (existingChat) {
@@ -54,7 +67,7 @@ export async function createNewChat(
     }
   }
 
-  // Create new chat if no existing chat found
+  // Create new chat
   const newChatId = crypto.randomUUID()
 
   await db.transaction(async (tx) => {
@@ -65,7 +78,6 @@ export async function createNewChat(
       ...(groupChatName && { groupChatName }),
     })
 
-    // selectedUsers also includes the current user
     await tx.insert(chatMembers).values(
       selectedUsers.map((userId) => ({
         chatId: newChatId,
@@ -74,23 +86,10 @@ export async function createNewChat(
     )
   })
 
-  // Fetch the newly created chat with full data
+  // Fetch with full data
   const newChat = await db.query.chats.findFirst({
     where: (chat, { eq }) => eq(chat.id, newChatId),
-    with: {
-      members: {
-        columns: {},
-        with: {
-          user: {
-            columns: {
-              id: true,
-              username: true,
-              imageUrl: true,
-            },
-          },
-        },
-      },
-    },
+    with: chatWithFullData,
   })
 
   return { existing: false, chat: newChat }
@@ -104,25 +103,19 @@ export async function sendMessage(
   content: string,
   imageUrls?: string[]
 ) {
-  await db.transaction(async (tx) => {
-    const [message] = await tx
-      .insert(messages)
-      .values({
-        id: messageId,
-        sentAt,
-        chatId,
-        senderId: userId,
-        content,
-        imageUrls,
-      })
-      .returning()
-
-    await tx
-      .update(chats)
-      .set({
-        lastMessageSentAt: message.sentAt,
-        lastMessageContent: message.content,
-      })
-      .where(eq(chats.id, chatId))
+  await db.insert(messages).values({
+    id: messageId,
+    sentAt,
+    chatId,
+    senderId: userId,
+    content,
+    imageUrls,
   })
+}
+
+export async function deleteMessage(messageId: string, chatId: string) {
+  await db
+    .update(messages)
+    .set({ isDeleted: true })
+    .where(eq(messages.id, messageId))
 }

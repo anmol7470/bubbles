@@ -55,4 +55,10 @@ export type StopTypingPayload = {
   participants: string[]
 }
 
+export type DeleteMessagePayload = {
+  messageId: string
+  chatId: string
+  participants: string[]
+}
+
 export type StorageBucket = 'attachments' | 'profile_pics'
