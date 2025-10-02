@@ -125,7 +125,11 @@ export function ChatContainer({
               </Button>
             </div>
 
-            <Messages messages={chat?.messages ?? []} currentUserId={user.id} />
+            <Messages
+              isGroupChat={chat?.isGroupChat ?? false}
+              messages={chat?.messages ?? []}
+              currentUserId={user.id}
+            />
 
             <form
               onSubmit={async (e) => {

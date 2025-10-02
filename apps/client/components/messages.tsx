@@ -8,9 +8,11 @@ import { UserAvatar } from './user-avatar'
 import type { ChatWithMessages } from '@/lib/types'
 
 export function Messages({
+  isGroupChat,
   messages,
   currentUserId,
 }: {
+  isGroupChat: boolean
   messages: ChatWithMessages['messages']
   currentUserId: string
 }) {
@@ -44,15 +46,19 @@ export function Messages({
                 </>
               ) : (
                 <div className="flex max-w-[60%] items-end gap-2.5">
-                  <UserAvatar
-                    image={sender?.imageUrl}
-                    username={sender?.username}
-                  />
+                  {isGroupChat && (
+                    <UserAvatar
+                      image={sender?.imageUrl}
+                      username={sender?.username}
+                    />
+                  )}
                   <div className="flex w-full flex-col gap-1">
                     <div className="flex items-center gap-2 px-1">
-                      <span className="text-sm font-medium">
-                        {sender?.username ?? 'Unknown'}
-                      </span>
+                      {isGroupChat && (
+                        <span className="text-sm font-medium">
+                          {sender?.username ?? 'Unknown'}
+                        </span>
+                      )}
                       <span className="text-muted-foreground text-xs">
                         {formatDate(m.sentAt)}
                       </span>

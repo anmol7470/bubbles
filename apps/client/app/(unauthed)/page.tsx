@@ -10,7 +10,7 @@ export default function Home() {
           Bubbles
         </h1>
         <p className="text-muted-foreground text-md text-center">
-          A real-time messaging app built with Next.js and Supabase
+          A real-time messaging app built with Next.js, Supabase, and Socket.io
         </p>
       </div>
       <Link

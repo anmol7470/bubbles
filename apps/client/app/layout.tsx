@@ -19,7 +19,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Bubbles',
-  description: 'A real-time messaging app built with Next.js and Supabase',
+  description:
+    'A real-time messaging app built with Next.js, Supabase, and Socket.io',
 }
 
 export default function RootLayout({

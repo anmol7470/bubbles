@@ -116,7 +116,7 @@ export function ChatsList({ user }: { user: User }) {
                                 formatDate(chat.lastMessageSentAt)}
                             </div>
                           </div>
-                          <div className="text-muted-foreground line-clamp-2 truncate text-sm">
+                          <div className="text-muted-foreground truncate text-sm">
                             {chat.lastMessageContent || 'Say hello 👋'}
                           </div>
                         </div>
