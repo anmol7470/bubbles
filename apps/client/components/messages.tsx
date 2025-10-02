@@ -23,7 +23,7 @@ export function Messages({
       resize="smooth"
       initial="instant"
     >
-      <StickToBottom.Content className="mb-4 flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <StickToBottom.Content className="mb-4 flex flex-1 flex-col gap-4 overflow-y-auto p-4">
         {messages.map((m) => {
           const sender = m.sender
           const isOwn = (sender?.id ?? m.sender?.id) === currentUserId
@@ -32,28 +32,26 @@ export function Messages({
             <div
               key={m.id}
               className={cn(
-                'flex flex-col gap-2',
+                'flex w-full',
                 isOwn ? 'justify-end' : 'justify-start'
               )}
             >
               {isOwn ? (
-                <>
+                <div className="flex flex-col gap-1 max-w-[75%]">
                   <p className="text-muted-foreground self-end px-1 text-xs">
                     {formatDate(m.sentAt)}
                   </p>
-                  <div className="flex flex-col gap-2 max-w-[70%] self-end">
-                    <MessageContent message={m} isOwn={true} />
-                  </div>
-                </>
+                  <MessageContent message={m} isOwn={true} />
+                </div>
               ) : (
-                <div className="flex max-w-[60%] items-end gap-2.5">
+                <div className="flex items-end gap-2.5 max-w-[75%]">
                   {isGroupChat && (
                     <UserAvatar
                       image={sender?.imageUrl}
                       username={sender?.username}
                     />
                   )}
-                  <div className="flex w-full flex-col gap-1">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 px-1">
                       {isGroupChat && (
                         <span className="text-sm font-medium">
@@ -64,9 +62,7 @@ export function Messages({
                         {formatDate(m.sentAt)}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <MessageContent message={m} isOwn={false} />
-                    </div>
+                    <MessageContent message={m} isOwn={false} />
                   </div>
                 </div>
               )}
@@ -106,47 +102,34 @@ function MessageContent({
   const imageCount = message.imageUrls?.length ?? 0
 
   return (
-    <>
-      {imageCount > 0 &&
-        (imageCount === 1 ? (
-          <div
-            className={cn(
-              'w-full flex',
-              isOwn ? 'justify-end' : 'justify-start'
-            )}
-          >
-            <div className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700">
+    <div className="flex flex-col gap-2">
+      {imageCount > 0 && (
+        <div
+          className={cn(
+            'flex flex-wrap gap-2',
+            isOwn ? 'justify-end' : 'justify-start'
+          )}
+        >
+          {message.imageUrls!.map((url, index) => (
+            <div
+              key={index}
+              className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700 flex-shrink-0"
+            >
               <Image
-                src={message.imageUrls![0]}
-                alt="Image 1"
+                src={url}
+                alt={`Message image ${index + 1}`}
                 fill
                 className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(message.imageUrls![0], '_blank')}
+                onClick={() => window.open(url, '_blank')}
               />
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
-            {message.imageUrls!.map((url, index) => (
-              <div
-                key={index}
-                className="relative aspect-square rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700"
-              >
-                <Image
-                  src={url}
-                  alt={`Image ${index + 1}`}
-                  fill
-                  className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(url, '_blank')}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
+          ))}
+        </div>
+      )}
       {message.content && (
         <div
           className={cn(
-            'rounded-xl px-3 py-2 text-sm whitespace-pre-wrap',
+            'rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
             isOwn
               ? 'self-end bg-primary text-primary-foreground dark:text-foreground'
               : 'self-start bg-primary/10'
@@ -155,6 +138,6 @@ function MessageContent({
           {message.content}
         </div>
       )}
-    </>
+    </div>
   )
 }

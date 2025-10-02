@@ -169,7 +169,7 @@ export function ChatContainer({
         .upload(filePath, image)
 
       if (error) {
-        throw new Error(`Failed to upload image: ${error.message}`)
+        throw new Error(`Failed to upload ${image.name}: ${error.message}`)
       }
 
       // Get public URL
@@ -198,17 +198,25 @@ export function ChatContainer({
       // Upload images if any
       if (imagesToUpload.length > 0) {
         setIsUploadingImages(true)
-        toast.promise(
-          uploadImagesToSupabase(imagesToUpload).then((urls: string[]) => {
-            imageUrls = urls
-            setIsUploadingImages(false)
-          }),
-          {
+        try {
+          const uploadPromise = uploadImagesToSupabase(imagesToUpload)
+          toast.promise(uploadPromise, {
             loading: 'Uploading images...',
             success: 'Images uploaded successfully',
-            error: 'Failed to upload images',
-          }
-        )
+            error: (error) =>
+              error instanceof Error
+                ? error.message
+                : 'Failed to upload images',
+          })
+          imageUrls = await uploadPromise
+          setIsUploadingImages(false)
+        } catch (uploadError) {
+          setIsUploadingImages(false)
+          // Restore message and images on upload error
+          setMessage(messageContent)
+          setSelectedImages(imagesToUpload)
+          return
+        }
       }
 
       await sendMessageMutation({
