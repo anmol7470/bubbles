@@ -29,9 +29,8 @@ export async function getAllChatsForUser(userId: string) {
         },
       },
     },
-    orderBy: (chat, { desc }) => [
-      desc(chat.lastMessageSentAt),
-      desc(chat.createdAt),
+    orderBy: (chat, { desc, sql }) => [
+      desc(sql`COALESCE(${chat.lastMessageSentAt}, ${chat.createdAt})`),
     ],
   })
 }

@@ -44,7 +44,7 @@ export function ChatContainer({
   })
 
   const otherParticipant = useMemo(() => {
-    if (!chat || chat.isGroupChat) return null
+    if (!chat || chat.isGroupChat || !chat.members) return null
     return chat.members.filter((member) => member.user.id !== user.id)[0].user
   }, [chat, user.id])
 

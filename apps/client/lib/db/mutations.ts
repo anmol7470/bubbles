@@ -2,46 +2,56 @@
 
 import { db } from '@/lib/db'
 import { chatMembers, chats, messages } from '@/lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 export async function createNewChat(
   userId: string,
   selectedUsers: string[],
   groupChatName?: string
 ) {
-  // Check if a chat already exists with exactly these participants
-  const existingChat = await db.query.chats.findFirst({
-    where: (chat, { exists, and, eq, inArray }) =>
-      exists(
-        db
-          .select({ count: sql<number>`count(*)` })
-          .from(chatMembers)
-          .where(
-            and(
-              eq(chatMembers.chatId, chat.id),
-              inArray(chatMembers.userId, selectedUsers)
-            )
+  const isGroupChat = selectedUsers.length > 2
+
+  // Only check for existing DMs (not group chats)
+  // Group chats can have duplicates with the same participants
+  let existingChat = null
+  if (!isGroupChat) {
+    existingChat = await db.query.chats.findFirst({
+      where: (chat, { exists, and, eq, inArray, sql }) =>
+        and(
+          eq(chat.isGroupChat, false),
+          // Check that both users are members of this chat
+          exists(
+            db
+              .select({ count: sql<number>`count(*)` })
+              .from(chatMembers)
+              .where(
+                and(
+                  eq(chatMembers.chatId, chat.id),
+                  inArray(chatMembers.userId, selectedUsers)
+                )
+              )
+              .having(sql`count(*) = 2`)
           )
-          .having(sql`count(*) = ${selectedUsers.length}`)
-      ),
-    with: {
-      members: {
-        columns: {},
-        with: {
-          user: {
-            columns: {
-              id: true,
-              username: true,
-              imageUrl: true,
+        ),
+      with: {
+        members: {
+          columns: {},
+          with: {
+            user: {
+              columns: {
+                id: true,
+                username: true,
+                imageUrl: true,
+              },
             },
           },
         },
       },
-    },
-  })
+    })
 
-  if (existingChat) {
-    return { existing: true, chat: existingChat }
+    if (existingChat) {
+      return { existing: true, chat: existingChat }
+    }
   }
 
   // Create new chat if no existing chat found
@@ -51,7 +61,7 @@ export async function createNewChat(
     await tx.insert(chats).values({
       id: newChatId,
       creatorId: userId,
-      isGroupChat: selectedUsers.length > 2,
+      isGroupChat,
       ...(groupChatName && { groupChatName }),
     })
 

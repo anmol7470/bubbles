@@ -61,7 +61,7 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
           queryClient.setQueryData(
             ['chat', payload.chatId],
             (oldChat: ChatWithMessages) => {
-              if (!oldChat) return [payload.message]
+              if (!oldChat) return undefined
               return {
                 ...oldChat,
                 messages: [...oldChat.messages, payload.message],
@@ -75,7 +75,7 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
           (oldChats: ChatWithMembers[]) => {
             if (!oldChats) return oldChats
 
-            return oldChats.map((chat) =>
+            const updatedChats = oldChats.map((chat) =>
               chat.id === payload.chatId
                 ? {
                     ...chat,
@@ -84,6 +84,13 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
                   }
                 : chat
             )
+
+            // Sort by lastMessageSentAt (most recent first)
+            return updatedChats.sort((a, b) => {
+              const aTime = a.lastMessageSentAt ?? a.createdAt
+              const bTime = b.lastMessageSentAt ?? b.createdAt
+              return new Date(bTime).getTime() - new Date(aTime).getTime()
+            })
           }
         )
       })

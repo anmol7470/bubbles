@@ -112,8 +112,9 @@ export function ChatsList({ user }: { user: User }) {
                                 : otherParticipant.username}
                             </div>
                             <div className="text-muted-foreground ml-2 shrink-0 text-xs">
-                              {chat.lastMessageSentAt &&
-                                formatDate(chat.lastMessageSentAt)}
+                              {formatDate(
+                                chat.lastMessageSentAt ?? chat.createdAt
+                              )}
                             </div>
                           </div>
                           <div className="text-muted-foreground truncate text-sm">

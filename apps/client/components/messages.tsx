@@ -103,33 +103,53 @@ function MessageContent({
   message: ChatWithMessages['messages'][number]
   isOwn: boolean
 }) {
+  const imageCount = message.imageUrls?.length ?? 0
+
   return (
     <>
-      {message.imageUrls && message.imageUrls.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {message.imageUrls.map((url, index) => (
-            <div
-              key={index}
-              className="relative w-48 h-48 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700"
-            >
+      {imageCount > 0 &&
+        (imageCount === 1 ? (
+          <div
+            className={cn(
+              'w-full flex',
+              isOwn ? 'justify-end' : 'justify-start'
+            )}
+          >
+            <div className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700">
               <Image
-                src={url}
-                alt={`Image ${index + 1}`}
+                src={message.imageUrls![0]}
+                alt="Image 1"
                 fill
                 className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(url, '_blank')}
+                onClick={() => window.open(message.imageUrls![0], '_blank')}
               />
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 w-full">
+            {message.imageUrls!.map((url, index) => (
+              <div
+                key={index}
+                className="relative aspect-square rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700"
+              >
+                <Image
+                  src={url}
+                  alt={`Image ${index + 1}`}
+                  fill
+                  className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => window.open(url, '_blank')}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
       {message.content && (
         <div
           className={cn(
-            'self-start rounded-xl px-3 py-2 text-sm whitespace-pre-wrap',
+            'rounded-xl px-3 py-2 text-sm whitespace-pre-wrap',
             isOwn
-              ? 'bg-primary text-primary-foreground dark:text-foreground'
-              : 'bg-primary/10'
+              ? 'self-end bg-primary text-primary-foreground dark:text-foreground'
+              : 'self-start bg-primary/10'
           )}
         >
           {message.content}
