@@ -40,6 +40,7 @@ export type NewChatPayload = {
 export type NewMessagePayload = {
   message: ChatWithMessages['messages'][number]
   chatId: string
+  participants: string[]
 }
 
 export type SupabaseChannel = ReturnType<

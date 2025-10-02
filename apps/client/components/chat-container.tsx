@@ -15,7 +15,7 @@ import type { User } from '@/lib/types'
 import { UserAvatar } from './user-avatar'
 import { getChatById } from '@/lib/db/queries'
 import { sendMessage } from '@/lib/db/mutations'
-import { useMessageChannel } from '@/lib/realtime/message'
+import { useWsClient } from './ws-client'
 
 export function ChatContainer({
   chatId,
@@ -24,12 +24,12 @@ export function ChatContainer({
   chatId: string
   user: User
 }) {
+  const wsClient = useWsClient()
   const router = useRouter()
   const { theme } = useTheme()
   const [message, setMessage] = useState('')
   const messageInputRef = useRef<HTMLInputElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
-  const messageChannel = useMessageChannel(chatId)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
@@ -46,18 +46,23 @@ export function ChatContainer({
       mutationFn: ({ content }: { content: string }) =>
         sendMessage(chatId, user.id, content),
       onSuccess: async (messageData) => {
-        if (messageData && messageChannel) {
-          // Broadcast the new message to all subscribers of this chat
-          await messageChannel.send({
-            type: 'broadcast',
-            event: 'newMessage',
-            payload: { message: messageData, chatId },
+        // Add sender client side to match messages object in getChatByID query
+        const messageDataWithSender = {
+          ...messageData.message,
+          sender: {
+            id: user.id,
+            username: user.user_metadata.username!,
+            imageUrl: user.user_metadata.imageUrl ?? null,
+          },
+        }
+
+        if (messageData && wsClient) {
+          wsClient.emit('newMessage', {
+            message: messageDataWithSender,
+            chatId,
+            participants: messageData.participants.map((p) => p.userId),
           })
         }
-      },
-      onError: (error) => {
-        toast.error('Failed to send message')
-        console.error('Error sending message:', error)
       },
     })
 
@@ -72,7 +77,7 @@ export function ChatContainer({
     if (message.trim() === '') return
 
     const messageContent = message.trim()
-    setMessage('') // Clear input immediately for better UX
+    setMessage('')
 
     try {
       await sendMessageMutation({ content: messageContent })

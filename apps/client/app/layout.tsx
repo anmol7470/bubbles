@@ -5,6 +5,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { QueryClientProvider } from '@/components/query-client-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { WsClientProvider } from '@/components/ws-client'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,15 +33,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <QueryClientProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-          </ThemeProvider>
-          <Toaster />
+          <WsClientProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+            <Toaster />
+          </WsClientProvider>
         </QueryClientProvider>
       </body>
     </html>

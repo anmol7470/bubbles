@@ -1,11 +1,14 @@
 {
+  "name": "bubbles",
   "devDependencies": {
-    "mprocs": "^0.7.3",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.8"
   },
   "scripts": {
     "format": "prettier --write .",
-    "install-deps": "bun install && cd client && bun install && cd ../ws && bun install",
-    "dev": "mprocs \"cd client && bun run dev\" \"cd ws && bun run index.ts\""
-  }
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types"
+  },
+  "packageManager": "pnpm@10.17.1"
 }

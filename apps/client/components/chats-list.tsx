@@ -12,7 +12,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Settings } from './settings'
 import { NewChatDialog } from './new-chat-dialog'
 import { UserAvatar } from './user-avatar'
-import { useChatChannel } from '@/lib/realtime/chat'
 import type { User } from '@/lib/types'
 
 export function ChatsList({ user }: { user: User }) {
@@ -25,8 +24,6 @@ export function ChatsList({ user }: { user: User }) {
     queryKey: ['chats', user.id],
     queryFn: () => getAllChatsForUser(user.id),
   })
-
-  const newChatChannel = useChatChannel(user, chats)
 
   const filteredChats = useMemo(() => {
     return chats?.filter((chat) =>
@@ -52,7 +49,7 @@ export function ChatsList({ user }: { user: User }) {
           </Link>
           <div className="flex items-center">
             <Settings />
-            <NewChatDialog user={user} newChatChannel={newChatChannel} />
+            <NewChatDialog user={user} />
           </div>
         </div>
 

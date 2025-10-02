@@ -17,16 +17,12 @@ import { searchUsers } from '@/lib/db/queries'
 import { createNewChat } from '@/lib/db/mutations'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import type { SupabaseChannel, User } from '@/lib/types'
+import type { User } from '@/lib/types'
 import { UserAvatar } from './user-avatar'
+import { useWsClient } from './ws-client'
 
-export function NewChatDialog({
-  user,
-  newChatChannel,
-}: {
-  user: User
-  newChatChannel: SupabaseChannel | null
-}) {
+export function NewChatDialog({ user }: { user: User }) {
+  const wsClient = useWsClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -85,11 +81,9 @@ export function NewChatDialog({
       } else {
         toast.success('Chat created')
         // Broadcast the new chat data to all subscribers
-        if (data.chat && newChatChannel) {
-          await newChatChannel.send({
-            type: 'broadcast',
-            event: 'chatCreated',
-            payload: { chat: data.chat },
+        if (data.chat && wsClient) {
+          wsClient.emit('chatCreated', {
+            chat: data.chat,
           })
         }
       }

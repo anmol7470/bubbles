@@ -93,6 +93,7 @@ export async function sendMessage(
   imageUrls?: string[]
 ) {
   const messageId = crypto.randomUUID()
+  let insertedMessage: typeof messages.$inferSelect
 
   await db.transaction(async (tx) => {
     const [message] = await tx
@@ -106,6 +107,8 @@ export async function sendMessage(
       })
       .returning()
 
+    insertedMessage = message
+
     await tx
       .update(chats)
       .set({
@@ -115,17 +118,12 @@ export async function sendMessage(
       .where(eq(chats.id, chatId))
   })
 
-  // Return the message with sender data
-  return await db.query.messages.findFirst({
-    where: (msg, { eq }) => eq(msg.id, messageId),
-    with: {
-      sender: {
-        columns: {
-          id: true,
-          username: true,
-          imageUrl: true,
-        },
-      },
+  const participants = await db.query.chatMembers.findMany({
+    columns: {
+      userId: true,
     },
+    where: (chatMember, { eq }) => eq(chatMember.chatId, chatId),
   })
+
+  return { message: insertedMessage!, participants }
 }
