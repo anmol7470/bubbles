@@ -60,7 +60,7 @@ export const messages = pgTable('messages', {
   senderId: text('sender_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  content: text('content').notNull(),
+  content: text('content').default('').notNull(),
   sentAt: timestamp('sent_at').defaultNow().notNull(),
   imageUrls: text('image_urls').array(),
 })

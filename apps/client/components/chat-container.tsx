@@ -16,6 +16,8 @@ import { UserAvatar } from './user-avatar'
 import { getChatById } from '@/lib/db/queries'
 import { sendMessage } from '@/lib/db/mutations'
 import { useWsClient } from './ws-client'
+import { createSupabaseClient } from '@/lib/supabase/client'
+import Image from 'next/image'
 
 export function ChatContainer({
   chatId,
@@ -30,6 +32,9 @@ export function ChatContainer({
   const [message, setMessage] = useState('')
   const messageInputRef = useRef<HTMLInputElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [isUploadingImages, setIsUploadingImages] = useState(false)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
@@ -43,26 +48,46 @@ export function ChatContainer({
 
   const { mutateAsync: sendMessageMutation, isPending: isSendingMessage } =
     useMutation({
-      mutationFn: ({ content }: { content: string }) =>
-        sendMessage(chatId, user.id, content),
-      onSuccess: async (messageData) => {
-        // Add sender client side to match messages object in getChatByID query
-        const messageDataWithSender = {
-          ...messageData.message,
-          sender: {
-            id: user.id,
-            username: user.user_metadata.username!,
-            imageUrl: user.user_metadata.imageUrl ?? null,
-          },
-        }
-
-        if (messageData && wsClient) {
-          wsClient.emit('newMessage', {
-            message: messageDataWithSender,
+      mutationFn: ({
+        content,
+        sentAt,
+        messageId,
+        imageUrls,
+      }: {
+        content: string
+        sentAt: Date
+        messageId: string
+        imageUrls?: string[]
+      }) => sendMessage(messageId, sentAt, chatId, user.id, content, imageUrls),
+      // Emit socket message instantly before server responds
+      onMutate: ({ content, sentAt, messageId, imageUrls }) => {
+        if (chat && wsClient) {
+          const optimisticMessage = {
+            id: messageId,
             chatId,
-            participants: messageData.participants.map((p) => p.userId),
+            senderId: user.id,
+            content,
+            sentAt,
+            imageUrls: imageUrls ?? null,
+            sender: {
+              id: user.id,
+              username: user.user_metadata.username!,
+              imageUrl: user.user_metadata.imageUrl ?? null,
+            },
+          }
+
+          wsClient.emit('newMessage', {
+            message: optimisticMessage,
+            chatId,
+            participants: chat.members.map((m) => m.user.id),
           })
         }
+      },
+      onSettled: () => {
+        // Use requestAnimationFrame to ensure input is enabled before focusing
+        requestAnimationFrame(() => {
+          messageInputRef.current?.focus()
+        })
       },
     })
 
@@ -70,20 +95,109 @@ export function ChatContainer({
   if (!isLoading && !chat) {
     toast.error(`Chat ${chatId} not found`)
     router.push('/chats')
-    return null
+  }
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    // Filter out duplicates based on name and size
+    const uniqueNewFiles = files.filter((newFile) => {
+      return !selectedImages.some(
+        (existingFile) =>
+          existingFile.name === newFile.name &&
+          existingFile.size === newFile.size
+      )
+    })
+
+    if (uniqueNewFiles.length < files.length) {
+      const duplicateCount = files.length - uniqueNewFiles.length
+      toast.error(
+        `${duplicateCount} duplicate image${duplicateCount > 1 ? 's' : ''} skipped`
+      )
+    }
+
+    // Limit to 5 images total
+    const remainingSlots = 5 - selectedImages.length
+    const newImages = uniqueNewFiles.slice(0, remainingSlots)
+
+    if (uniqueNewFiles.length > remainingSlots) {
+      toast.error(`You can only upload up to 5 images at a time`)
+    }
+
+    if (newImages.length > 0) {
+      setSelectedImages((prev) => [...prev, ...newImages])
+    }
+
+    // Reset input value so the same file can be selected again
+    event.target.value = ''
+  }
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const uploadImagesToSupabase = async (images: File[]): Promise<string[]> => {
+    const supabase = createSupabaseClient()
+    const uploadedUrls: string[] = []
+
+    for (const image of images) {
+      const fileExt = image.name.split('.').pop()
+      const fileName = `${crypto.randomUUID()}.${fileExt}`
+      const filePath = `${user.id}/${fileName}`
+
+      const { data, error } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, image)
+
+      if (error) {
+        throw new Error(`Failed to upload image: ${error.message}`)
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('attachments').getPublicUrl(data.path)
+
+      uploadedUrls.push(publicUrl)
+    }
+
+    return uploadedUrls
   }
 
   const handleSendMessage = async () => {
-    if (message.trim() === '') return
+    if (message.trim() === '' && selectedImages.length === 0) return
 
-    const messageContent = message.trim()
+    const messageContent = message.trim() || ''
+    const imagesToUpload = [...selectedImages]
+
     setMessage('')
+    setSelectedImages([])
 
     try {
-      await sendMessageMutation({ content: messageContent })
-    } catch {
-      // Error already handled in onError
-      setMessage(messageContent) // Restore message on error
+      let imageUrls: string[] | undefined = undefined
+
+      // Upload images if any
+      if (imagesToUpload.length > 0) {
+        setIsUploadingImages(true)
+        imageUrls = await uploadImagesToSupabase(imagesToUpload)
+        setIsUploadingImages(false)
+      }
+
+      await sendMessageMutation({
+        content: messageContent,
+        sentAt: new Date(),
+        messageId: crypto.randomUUID(),
+        imageUrls,
+      })
+    } catch (error) {
+      setIsUploadingImages(false)
+      // Restore message and images on error
+      setMessage(messageContent)
+      setSelectedImages(imagesToUpload)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to send message'
+      )
     }
   }
 
@@ -134,64 +248,111 @@ export function ChatContainer({
             <form
               onSubmit={async (e) => {
                 e.preventDefault()
-                if (message.trim() === '') return
+                if (message.trim() === '' && selectedImages.length === 0) return
                 await handleSendMessage()
               }}
-              className="flex items-center gap-2 px-3 pb-3"
+              className="flex flex-col gap-2 px-3 py-2 border-t border-neutral-300 dark:border-zinc-800"
             >
-              <div className="relative flex-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Select image"
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 h-8 w-8"
-                >
-                  <ImagePlusIcon className="size-5" />
-                </Button>
-                <Input
-                  ref={messageInputRef}
-                  autoFocus
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="bg-background dark:bg-input/30 pl-12 pr-4 focus-visible:ring-0 h-10"
-                  disabled={isSendingMessage}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      e.currentTarget.form?.requestSubmit()
-                    }
-                  }}
-                />
-              </div>
-              <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-                <PopoverTrigger asChild>
+              {/* Image Preview */}
+              {selectedImages.length > 0 && (
+                <div className="flex gap-2 flex-wrap px-1">
+                  {selectedImages.map((image, index) => (
+                    <div
+                      key={index}
+                      className="relative w-20 h-20 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700 bg-muted"
+                    >
+                      <Image
+                        src={URL.createObjectURL(image)}
+                        alt={`Selected image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-1 right-1 h-5 w-5 rounded-full shadow-md"
+                        onClick={() => removeImage(index)}
+                      >
+                        <XIcon className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
-                    aria-label="Open emoji picker"
+                    variant="ghost"
+                    aria-label="Select image"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 h-8 w-8"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={
+                      selectedImages.length >= 5 ||
+                      isSendingMessage ||
+                      isUploadingImages
+                    }
                   >
-                    <SmilePlusIcon className="size-5" />
+                    <ImagePlusIcon className="size-5" />
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="end"
-                  className="w-fit overflow-hidden p-0"
-                >
-                  <EmojiPicker
-                    lazyLoadEmojis
-                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
-                    width={320}
-                    onEmojiClick={(emoji) => {
-                      setMessage((prev) => prev + emoji.emoji)
-                      messageInputRef.current?.focus()
-                      setEmojiOpen(false)
+                  <input
+                    type="file"
+                    className="hidden"
+                    ref={imageInputRef}
+                    onChange={handleImageSelect}
+                    accept="image/*"
+                    multiple
+                  />
+                  <Input
+                    ref={messageInputRef}
+                    autoFocus
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder={
+                      isUploadingImages
+                        ? 'Uploading images...'
+                        : 'Type a message...'
+                    }
+                    className="bg-background dark:bg-input/30 pl-12 pr-4 focus-visible:ring-0 h-10"
+                    disabled={isSendingMessage || isUploadingImages}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        e.currentTarget.form?.requestSubmit()
+                      }
                     }}
                   />
-                </PopoverContent>
-              </Popover>
+                </div>
+                <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      aria-label="Open emoji picker"
+                    >
+                      <SmilePlusIcon className="size-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="w-fit overflow-hidden p-0"
+                  >
+                    <EmojiPicker
+                      lazyLoadEmojis
+                      theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                      width={320}
+                      onEmojiClick={(emoji) => {
+                        setMessage((prev) => prev + emoji.emoji)
+                        messageInputRef.current?.focus()
+                        setEmojiOpen(false)
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </form>
           </div>
         )

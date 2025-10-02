@@ -87,27 +87,25 @@ export async function createNewChat(
 }
 
 export async function sendMessage(
+  messageId: string,
+  sentAt: Date,
   chatId: string,
   userId: string,
   content: string,
   imageUrls?: string[]
 ) {
-  const messageId = crypto.randomUUID()
-  let insertedMessage: typeof messages.$inferSelect
-
   await db.transaction(async (tx) => {
     const [message] = await tx
       .insert(messages)
       .values({
         id: messageId,
+        sentAt,
         chatId,
         senderId: userId,
         content,
         imageUrls,
       })
       .returning()
-
-    insertedMessage = message
 
     await tx
       .update(chats)
@@ -117,13 +115,4 @@ export async function sendMessage(
       })
       .where(eq(chats.id, chatId))
   })
-
-  const participants = await db.query.chatMembers.findMany({
-    columns: {
-      userId: true,
-    },
-    where: (chatMember, { eq }) => eq(chatMember.chatId, chatId),
-  })
-
-  return { message: insertedMessage!, participants }
 }

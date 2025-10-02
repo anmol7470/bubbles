@@ -3,9 +3,10 @@
 import { cn, formatDate } from '@/lib/utils'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { Button } from './ui/button'
-import { ArrowDown } from 'lucide-react'
+import { ArrowDownIcon } from 'lucide-react'
 import { UserAvatar } from './user-avatar'
 import type { ChatWithMessages } from '@/lib/types'
+import Image from 'next/image'
 
 export function Messages({
   isGroupChat,
@@ -40,8 +41,8 @@ export function Messages({
                   <p className="text-muted-foreground self-end px-1 text-xs">
                     {formatDate(m.sentAt)}
                   </p>
-                  <div className="bg-primary text-primary-foreground max-w-[70%] self-end rounded-xl px-3 py-2 text-sm whitespace-pre-wrap">
-                    {m.content}
+                  <div className="flex flex-col gap-2 max-w-[70%] self-end">
+                    <MessageContent message={m} isOwn={true} />
                   </div>
                 </>
               ) : (
@@ -63,8 +64,8 @@ export function Messages({
                         {formatDate(m.sentAt)}
                       </span>
                     </div>
-                    <div className="dark:bg-accent bg-primary/10 text-foreground self-start rounded-xl px-3 py-2 text-sm whitespace-pre-wrap">
-                      {m.content}
+                    <div className="flex flex-col gap-2">
+                      <MessageContent message={m} isOwn={false} />
                     </div>
                   </div>
                 </div>
@@ -86,11 +87,54 @@ function ScrollToBottom() {
       <Button
         size="icon"
         variant="outline"
-        className="absolute bottom-3 left-[50%] translate-x-[-50%] rounded-full shadow-lg"
+        className="absolute bottom-3 left-[50%] translate-x-[-50%] rounded-full"
         onClick={() => scrollToBottom()}
       >
-        <ArrowDown className="size-5" />
+        <ArrowDownIcon className="size-5" />
       </Button>
     )
+  )
+}
+
+function MessageContent({
+  message,
+  isOwn,
+}: {
+  message: ChatWithMessages['messages'][number]
+  isOwn: boolean
+}) {
+  return (
+    <>
+      {message.imageUrls && message.imageUrls.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {message.imageUrls.map((url, index) => (
+            <div
+              key={index}
+              className="relative w-48 h-48 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700"
+            >
+              <Image
+                src={url}
+                alt={`Image ${index + 1}`}
+                fill
+                className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(url, '_blank')}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {message.content && (
+        <div
+          className={cn(
+            'self-start rounded-xl px-3 py-2 text-sm whitespace-pre-wrap',
+            isOwn
+              ? 'bg-primary text-primary-foreground dark:text-foreground'
+              : 'bg-primary/10'
+          )}
+        >
+          {message.content}
+        </div>
+      )}
+    </>
   )
 }

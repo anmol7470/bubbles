@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Settings } from './settings'
 import { NewChatDialog } from './new-chat-dialog'
 import { UserAvatar } from './user-avatar'
-import type { User } from '@/lib/types'
+import type { ChatWithMembers, User } from '@/lib/types'
 
 export function ChatsList({ user }: { user: User }) {
   const pathname = usePathname()
@@ -117,7 +117,7 @@ export function ChatsList({ user }: { user: User }) {
                             </div>
                           </div>
                           <div className="text-muted-foreground truncate text-sm">
-                            {chat.lastMessageContent || 'Say hello 👋'}
+                            {displayLastMessage(chat)}
                           </div>
                         </div>
                       </div>
@@ -130,4 +130,19 @@ export function ChatsList({ user }: { user: User }) {
       </div>
     </div>
   )
+}
+
+function displayLastMessage(chat: ChatWithMembers) {
+  // If there's no last message content at all (newly created chat)
+  if (!chat.lastMessageContent && !chat.lastMessageSentAt) {
+    return 'Say hello 👋'
+  }
+
+  // If content is empty but there was a message sent (image-only message)
+  if (!chat.lastMessageContent || chat.lastMessageContent.trim() === '') {
+    return 'Sent an image'
+  }
+
+  // Regular text message (with or without images)
+  return chat.lastMessageContent
 }
