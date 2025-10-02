@@ -54,3 +54,5 @@ export type StopTypingPayload = {
   userId: string
   participants: string[]
 }
+
+export type StorageBucket = 'attachments' | 'profile_pics'

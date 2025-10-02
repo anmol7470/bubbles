@@ -1,8 +1,12 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { createSupabaseClient } from '@/lib/supabase/client'
+import type { StorageBucket } from '@/lib/types'
 
-export function useImageUpload(userId: string) {
+export function useImageUpload(
+  userId: string,
+  bucket: StorageBucket = 'attachments'
+) {
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isUploadingImages, setIsUploadingImages] = useState(false)
 
@@ -56,7 +60,7 @@ export function useImageUpload(userId: string) {
         const filePath = `${userId}/${fileName}`
 
         const { data, error } = await supabase.storage
-          .from('attachments')
+          .from(bucket)
           .upload(filePath, image)
 
         if (error) {
@@ -66,7 +70,7 @@ export function useImageUpload(userId: string) {
         // Get public URL
         const {
           data: { publicUrl },
-        } = supabase.storage.from('attachments').getPublicUrl(data.path)
+        } = supabase.storage.from(bucket).getPublicUrl(data.path)
 
         uploadedUrls.push(publicUrl)
       }

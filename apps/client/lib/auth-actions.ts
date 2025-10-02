@@ -57,6 +57,41 @@ export async function signup(
   redirect('/chats')
 }
 
+export async function updateUsername(userId: string, newUsername: string) {
+  const supabaseAdmin = await createSupabaseAdminClient()
+
+  const { error: metadataError } = await supabaseAdmin.updateUserById(userId, {
+    user_metadata: { username: newUsername },
+  })
+
+  if (metadataError) {
+    throw new Error(metadataError.message)
+  }
+
+  await db
+    .update(users)
+    .set({ username: newUsername })
+    .where(eq(users.id, userId))
+
+  revalidatePath('/', 'layout')
+}
+
+export async function updateProfileImage(userId: string, imageUrl: string) {
+  const supabaseAdmin = await createSupabaseAdminClient()
+
+  const { error: metadataError } = await supabaseAdmin.updateUserById(userId, {
+    user_metadata: { imageUrl },
+  })
+
+  if (metadataError) {
+    throw new Error(metadataError.message)
+  }
+
+  await db.update(users).set({ imageUrl }).where(eq(users.id, userId))
+
+  revalidatePath('/', 'layout')
+}
+
 export async function deleteUser(userId: string) {
   const supabaseAdmin = await createSupabaseAdminClient()
 
