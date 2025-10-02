@@ -18,6 +18,8 @@ import { sendMessage } from '@/lib/db/mutations'
 import { useWsClient } from './ws-client'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import Image from 'next/image'
+import { useDropzone } from 'react-dropzone'
+import { cn } from '@/lib/utils'
 
 export function ChatContainer({
   chatId,
@@ -97,8 +99,7 @@ export function ChatContainer({
     router.push('/chats')
   }
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
+  const processFiles = (files: File[]) => {
     if (files.length === 0) return
 
     // Filter out duplicates based on name and size
@@ -128,10 +129,27 @@ export function ChatContainer({
     if (newImages.length > 0) {
       setSelectedImages((prev) => [...prev, ...newImages])
     }
+  }
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    processFiles(files)
     // Reset input value so the same file can be selected again
     event.target.value = ''
   }
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      processFiles(acceptedFiles)
+    },
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+    },
+    noClick: true,
+    noKeyboard: true,
+    disabled:
+      selectedImages.length >= 5 || isSendingMessage || isUploadingImages,
+  })
 
   const removeImage = (index: number) => {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index))
@@ -180,8 +198,17 @@ export function ChatContainer({
       // Upload images if any
       if (imagesToUpload.length > 0) {
         setIsUploadingImages(true)
-        imageUrls = await uploadImagesToSupabase(imagesToUpload)
-        setIsUploadingImages(false)
+        toast.promise(
+          uploadImagesToSupabase(imagesToUpload).then((urls: string[]) => {
+            imageUrls = urls
+            setIsUploadingImages(false)
+          }),
+          {
+            loading: 'Uploading images...',
+            success: 'Images uploaded successfully',
+            error: 'Failed to upload images',
+          }
+        )
       }
 
       await sendMessageMutation({
@@ -202,7 +229,22 @@ export function ChatContainer({
   }
 
   return (
-    <div className="bg-muted dark:bg-background flex flex-1 flex-col overflow-hidden">
+    <div
+      {...getRootProps()}
+      className={cn(
+        'bg-muted dark:bg-background flex flex-1 flex-col overflow-hidden relative',
+        isDragActive && 'ring-2 ring-primary ring-inset'
+      )}
+    >
+      <input {...getInputProps()} />
+      {isDragActive && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <ImagePlusIcon className="size-12" />
+            <p className="text-lg font-medium">Drop images here</p>
+          </div>
+        </div>
+      )}
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <Loader2Icon className="animate-spin" />
