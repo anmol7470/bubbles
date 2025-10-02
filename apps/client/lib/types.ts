@@ -1,5 +1,4 @@
 import { getAllChatsForUser, getChatById } from './db/queries'
-import { createSupabaseClient } from './supabase/client'
 import { z } from 'zod'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -43,6 +42,15 @@ export type NewMessagePayload = {
   participants: string[]
 }
 
-export type SupabaseChannel = ReturnType<
-  ReturnType<typeof createSupabaseClient>['channel']
->
+export type TypingPayload = {
+  chatId: string
+  userId: string
+  username: string
+  participants: string[]
+}
+
+export type StopTypingPayload = {
+  chatId: string
+  userId: string
+  participants: string[]
+}

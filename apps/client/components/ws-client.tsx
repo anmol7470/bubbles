@@ -9,14 +9,32 @@ import type {
   ChatWithMembers,
   ChatWithMessages,
   NewMessagePayload,
+  TypingPayload,
+  StopTypingPayload,
 } from '@/lib/types'
 
-export const WsClientContext = createContext<Socket | null>(null)
+type TypingState = {
+  [chatId: string]: {
+    userId: string
+    username: string
+  }[]
+}
+
+type WsClientContextType = {
+  socket: Socket | null
+  typingUsers: TypingState
+}
+
+export const WsClientContext = createContext<WsClientContextType>({
+  socket: null,
+  typingUsers: {},
+})
 
 export function WsClientProvider({ children }: { children: React.ReactNode }) {
   const supabase = createSupabaseClient()
   const queryClient = useQueryClient()
   const [socket, setSocket] = useState<Socket | null>(null)
+  const [typingUsers, setTypingUsers] = useState<TypingState>({})
 
   useEffect(() => {
     const initializeSocket = async () => {
@@ -95,6 +113,43 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
         )
       })
 
+      socket.on('typing', (payload: TypingPayload) => {
+        setTypingUsers((prev) => {
+          const chatTypers = prev[payload.chatId] || []
+          const alreadyTyping = chatTypers.some(
+            (user) => user.userId === payload.userId
+          )
+          if (alreadyTyping) return prev
+
+          return {
+            ...prev,
+            [payload.chatId]: [
+              ...chatTypers,
+              { userId: payload.userId, username: payload.username },
+            ],
+          }
+        })
+      })
+
+      socket.on('stopTyping', (payload: StopTypingPayload) => {
+        setTypingUsers((prev) => {
+          const chatTypers = prev[payload.chatId] || []
+          const updatedTypers = chatTypers.filter(
+            (user) => user.userId !== payload.userId
+          )
+
+          if (updatedTypers.length === 0) {
+            const { [payload.chatId]: _, ...rest } = prev
+            return rest
+          }
+
+          return {
+            ...prev,
+            [payload.chatId]: updatedTypers,
+          }
+        })
+      })
+
       return socket
     }
 
@@ -109,7 +164,11 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, queryClient])
 
-  return <WsClientContext value={socket}>{children}</WsClientContext>
+  return (
+    <WsClientContext value={{ socket, typingUsers }}>
+      {children}
+    </WsClientContext>
+  )
 }
 
 export function useWsClient() {

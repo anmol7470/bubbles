@@ -12,10 +12,12 @@ export function Messages({
   isGroupChat,
   messages,
   currentUserId,
+  typingUsers = [],
 }: {
   isGroupChat: boolean
   messages: ChatWithMessages['messages']
   currentUserId: string
+  typingUsers?: { userId: string; username: string }[]
 }) {
   return (
     <StickToBottom
@@ -69,6 +71,12 @@ export function Messages({
             </div>
           )
         })}
+        {typingUsers.length > 0 && (
+          <TypingIndicator
+            typingUsers={typingUsers}
+            isGroupChat={isGroupChat}
+          />
+        )}
         <ScrollToBottom />
       </StickToBottom.Content>
     </StickToBottom>
@@ -89,6 +97,45 @@ function ScrollToBottom() {
         <ArrowDownIcon className="size-5" />
       </Button>
     )
+  )
+}
+
+function TypingIndicator({
+  typingUsers,
+  isGroupChat,
+}: {
+  typingUsers: { userId: string; username: string }[]
+  isGroupChat: boolean
+}) {
+  const typingText = () => {
+    if (typingUsers.length === 1) {
+      return isGroupChat
+        ? `${typingUsers[0].username} is typing...`
+        : 'typing...'
+    } else if (typingUsers.length === 2) {
+      return `${typingUsers[0].username} and ${typingUsers[1].username} are typing...`
+    } else {
+      return 'Multiple people are typing...'
+    }
+  }
+
+  return (
+    <div className="flex w-full justify-start">
+      <div className="flex items-end gap-2.5 max-w-[75%]">
+        <div className="flex flex-col gap-1">
+          <div className="rounded-xl px-3 py-2 bg-primary/10 flex items-center gap-1">
+            <span className="text-muted-foreground text-xs">
+              {typingText()}
+            </span>
+            <div className="flex gap-1 ml-1">
+              <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -119,6 +166,7 @@ function MessageContent({
                 src={url}
                 alt={`Message image ${index + 1}`}
                 fill
+                sizes="100vw"
                 className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => window.open(url, '_blank')}
               />

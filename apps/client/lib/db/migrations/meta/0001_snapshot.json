@@ -34,12 +34,8 @@
           "name": "chat_members_chat_id_chats_id_fk",
           "tableFrom": "chat_members",
           "tableTo": "chats",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chat_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -47,12 +43,8 @@
           "name": "chat_members_user_id_users_id_fk",
           "tableFrom": "chat_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -60,10 +52,7 @@
       "compositePrimaryKeys": {
         "chat_members_chat_id_user_id_pk": {
           "name": "chat_members_chat_id_user_id_pk",
-          "columns": [
-            "chat_id",
-            "user_id"
-          ]
+          "columns": ["chat_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -126,12 +115,8 @@
           "name": "chats_creator_id_users_id_fk",
           "tableFrom": "chats",
           "tableTo": "users",
-          "columnsFrom": [
-            "creator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["creator_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -196,12 +181,8 @@
           "name": "messages_chat_id_chats_id_fk",
           "tableFrom": "messages",
           "tableTo": "chats",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chat_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -209,12 +190,8 @@
           "name": "messages_sender_id_users_id_fk",
           "tableFrom": "messages",
           "tableTo": "users",
-          "columnsFrom": [
-            "sender_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sender_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

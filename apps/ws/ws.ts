@@ -43,6 +43,44 @@ export async function setupWebsocket(io: Server) {
         })
       }
     )
+
+    socket.on(
+      'typing',
+      (data: {
+        chatId: string
+        userId: string
+        username: string
+        participants: string[]
+      }) => {
+        // Emit to all participants except the sender
+        data.participants
+          .filter((participant: string) => participant !== data.userId)
+          .forEach((participant: string) => {
+            io.to(userRoom(participant)).emit('typing', {
+              chatId: data.chatId,
+              userId: data.userId,
+              username: data.username,
+              participants: data.participants,
+            })
+          })
+      }
+    )
+
+    socket.on(
+      'stopTyping',
+      (data: { chatId: string; userId: string; participants: string[] }) => {
+        // Emit to all participants except the sender
+        data.participants
+          .filter((participant: string) => participant !== data.userId)
+          .forEach((participant: string) => {
+            io.to(userRoom(participant)).emit('stopTyping', {
+              chatId: data.chatId,
+              userId: data.userId,
+              participants: data.participants,
+            })
+          })
+      }
+    )
   })
 }
 

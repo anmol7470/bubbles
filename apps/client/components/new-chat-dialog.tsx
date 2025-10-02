@@ -22,7 +22,7 @@ import { UserAvatar } from './user-avatar'
 import { useWsClient } from './ws-client'
 
 export function NewChatDialog({ user }: { user: User }) {
-  const wsClient = useWsClient()
+  const { socket } = useWsClient()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,8 +81,8 @@ export function NewChatDialog({ user }: { user: User }) {
       } else {
         toast.success('Chat created')
         // Broadcast the new chat data to all subscribers
-        if (data.chat && wsClient) {
-          wsClient.emit('chatCreated', {
+        if (data.chat && socket) {
+          socket.emit('chatCreated', {
             chat: data.chat,
           })
         }

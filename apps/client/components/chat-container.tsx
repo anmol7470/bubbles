@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ImagePlusIcon, Loader2Icon, SmilePlusIcon, XIcon } from 'lucide-react'
@@ -28,7 +28,7 @@ export function ChatContainer({
   chatId: string
   user: User
 }) {
-  const wsClient = useWsClient()
+  const { socket, typingUsers } = useWsClient()
   const router = useRouter()
   const { theme } = useTheme()
   const [message, setMessage] = useState('')
@@ -37,6 +37,8 @@ export function ChatContainer({
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isUploadingImages, setIsUploadingImages] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
@@ -47,6 +49,58 @@ export function ChatContainer({
     if (!chat || chat.isGroupChat || !chat.members) return null
     return chat.members.filter((member) => member.user.id !== user.id)[0].user
   }, [chat, user.id])
+
+  const emitTyping = useCallback(() => {
+    if (socket && chat) {
+      socket.emit('typing', {
+        chatId,
+        userId: user.id,
+        username: user.user_metadata.username!,
+        participants: chat.members.map((m) => m.user.id),
+      })
+    }
+  }, [socket, chat, chatId, user.id, user.user_metadata.username])
+
+  const emitStopTyping = useCallback(() => {
+    if (socket && chat) {
+      socket.emit('stopTyping', {
+        chatId,
+        userId: user.id,
+        participants: chat.members.map((m) => m.user.id),
+      })
+    }
+  }, [socket, chat, chatId, user.id])
+
+  // Handle typing indicator logic
+  const handleTyping = useCallback(() => {
+    if (!isTyping) {
+      setIsTyping(true)
+      emitTyping()
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    // Set new timeout to stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false)
+      emitStopTyping()
+    }, 2000)
+  }, [isTyping, emitTyping, emitStopTyping])
+
+  // Clean up typing timeout on unmount or chat change
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      if (isTyping) {
+        emitStopTyping()
+      }
+    }
+  }, [chatId, isTyping, emitStopTyping])
 
   const { mutateAsync: sendMessageMutation, isPending: isSendingMessage } =
     useMutation({
@@ -63,7 +117,16 @@ export function ChatContainer({
       }) => sendMessage(messageId, sentAt, chatId, user.id, content, imageUrls),
       // Emit socket message instantly before server responds
       onMutate: ({ content, sentAt, messageId, imageUrls }) => {
-        if (chat && wsClient) {
+        if (chat && socket) {
+          // Stop typing when sending message
+          if (isTyping) {
+            setIsTyping(false)
+            emitStopTyping()
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current)
+            }
+          }
+
           const optimisticMessage = {
             id: messageId,
             chatId,
@@ -78,7 +141,7 @@ export function ChatContainer({
             },
           }
 
-          wsClient.emit('newMessage', {
+          socket.emit('newMessage', {
             message: optimisticMessage,
             chatId,
             participants: chat.members.map((m) => m.user.id),
@@ -293,6 +356,7 @@ export function ChatContainer({
               isGroupChat={chat?.isGroupChat ?? false}
               messages={chat?.messages ?? []}
               currentUserId={user.id}
+              typingUsers={typingUsers[chatId] || []}
             />
 
             <form
@@ -359,7 +423,18 @@ export function ChatContainer({
                     ref={messageInputRef}
                     autoFocus
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
+                    onChange={(e) => {
+                      setMessage(e.target.value)
+                      if (e.target.value.length > 0) {
+                        handleTyping()
+                      } else if (isTyping) {
+                        setIsTyping(false)
+                        emitStopTyping()
+                        if (typingTimeoutRef.current) {
+                          clearTimeout(typingTimeoutRef.current)
+                        }
+                      }
+                    }}
                     placeholder={
                       isUploadingImages
                         ? 'Uploading images...'
