@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ImagePlusIcon, Loader2Icon, SmilePlusIcon, XIcon } from 'lucide-react'
@@ -16,10 +16,11 @@ import { UserAvatar } from './user-avatar'
 import { getChatById } from '@/lib/db/queries'
 import { sendMessage } from '@/lib/db/mutations'
 import { useWsClient } from './ws-client'
-import { createSupabaseClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
 import { cn } from '@/lib/utils'
+import { useTypingIndicator } from '@/hooks/use-typing-indicator'
+import { useImageUpload } from '@/hooks/use-image-upload'
 
 export function ChatContainer({
   chatId,
@@ -35,72 +36,34 @@ export function ChatContainer({
   const messageInputRef = useRef<HTMLInputElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
-  const [selectedImages, setSelectedImages] = useState<File[]>([])
-  const [isUploadingImages, setIsUploadingImages] = useState(false)
-  const [isTyping, setIsTyping] = useState(false)
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
     queryFn: () => getChatById(chatId, user.id),
   })
 
-  const otherParticipant = useMemo(() => {
-    if (!chat || chat.isGroupChat || !chat.members) return null
-    return chat.members.filter((member) => member.user.id !== user.id)[0].user
-  }, [chat, user.id])
+  const { isTyping, handleTyping, stopTyping } = useTypingIndicator(
+    socket,
+    chat,
+    chatId,
+    user.id,
+    user.user_metadata.username!
+  )
 
-  const emitTyping = useCallback(() => {
-    if (socket && chat) {
-      socket.emit('typing', {
-        chatId,
-        userId: user.id,
-        username: user.user_metadata.username!,
-        participants: chat.members.map((m) => m.user.id),
-      })
-    }
-  }, [socket, chat, chatId, user.id, user.user_metadata.username])
+  const {
+    selectedImages,
+    isUploadingImages,
+    processFiles,
+    removeImage,
+    uploadWithProgress,
+    clearImages,
+    setSelectedImages,
+  } = useImageUpload(user.id)
 
-  const emitStopTyping = useCallback(() => {
-    if (socket && chat) {
-      socket.emit('stopTyping', {
-        chatId,
-        userId: user.id,
-        participants: chat.members.map((m) => m.user.id),
-      })
-    }
-  }, [socket, chat, chatId, user.id])
-
-  // Handle typing indicator logic
-  const handleTyping = useCallback(() => {
-    if (!isTyping) {
-      setIsTyping(true)
-      emitTyping()
-    }
-
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-
-    // Set new timeout to stop typing after 2 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false)
-      emitStopTyping()
-    }, 2000)
-  }, [isTyping, emitTyping, emitStopTyping])
-
-  // Clean up typing timeout on unmount or chat change
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current)
-      }
-      if (isTyping) {
-        emitStopTyping()
-      }
-    }
-  }, [chatId, isTyping, emitStopTyping])
+  const otherParticipant =
+    chat?.isGroupChat || !chat?.members
+      ? null
+      : chat.members.filter((member) => member.user.id !== user.id)[0].user
 
   const { mutateAsync: sendMessageMutation, isPending: isSendingMessage } =
     useMutation({
@@ -120,11 +83,7 @@ export function ChatContainer({
         if (chat && socket) {
           // Stop typing when sending message
           if (isTyping) {
-            setIsTyping(false)
-            emitStopTyping()
-            if (typingTimeoutRef.current) {
-              clearTimeout(typingTimeoutRef.current)
-            }
+            stopTyping()
           }
 
           const optimisticMessage = {
@@ -162,38 +121,6 @@ export function ChatContainer({
     router.push('/chats')
   }
 
-  const processFiles = (files: File[]) => {
-    if (files.length === 0) return
-
-    // Filter out duplicates based on name and size
-    const uniqueNewFiles = files.filter((newFile) => {
-      return !selectedImages.some(
-        (existingFile) =>
-          existingFile.name === newFile.name &&
-          existingFile.size === newFile.size
-      )
-    })
-
-    if (uniqueNewFiles.length < files.length) {
-      const duplicateCount = files.length - uniqueNewFiles.length
-      toast.error(
-        `${duplicateCount} duplicate image${duplicateCount > 1 ? 's' : ''} skipped`
-      )
-    }
-
-    // Limit to 5 images total
-    const remainingSlots = 5 - selectedImages.length
-    const newImages = uniqueNewFiles.slice(0, remainingSlots)
-
-    if (uniqueNewFiles.length > remainingSlots) {
-      toast.error(`You can only upload up to 5 images at a time`)
-    }
-
-    if (newImages.length > 0) {
-      setSelectedImages((prev) => [...prev, ...newImages])
-    }
-  }
-
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     processFiles(files)
@@ -214,38 +141,6 @@ export function ChatContainer({
       selectedImages.length >= 5 || isSendingMessage || isUploadingImages,
   })
 
-  const removeImage = (index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const uploadImagesToSupabase = async (images: File[]): Promise<string[]> => {
-    const supabase = createSupabaseClient()
-    const uploadedUrls: string[] = []
-
-    for (const image of images) {
-      const fileExt = image.name.split('.').pop()
-      const fileName = `${crypto.randomUUID()}.${fileExt}`
-      const filePath = `${user.id}/${fileName}`
-
-      const { data, error } = await supabase.storage
-        .from('attachments')
-        .upload(filePath, image)
-
-      if (error) {
-        throw new Error(`Failed to upload ${image.name}: ${error.message}`)
-      }
-
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('attachments').getPublicUrl(data.path)
-
-      uploadedUrls.push(publicUrl)
-    }
-
-    return uploadedUrls
-  }
-
   const handleSendMessage = async () => {
     if (message.trim() === '' && selectedImages.length === 0) return
 
@@ -253,28 +148,16 @@ export function ChatContainer({
     const imagesToUpload = [...selectedImages]
 
     setMessage('')
-    setSelectedImages([])
+    clearImages()
 
     try {
       let imageUrls: string[] | undefined = undefined
 
       // Upload images if any
       if (imagesToUpload.length > 0) {
-        setIsUploadingImages(true)
         try {
-          const uploadPromise = uploadImagesToSupabase(imagesToUpload)
-          toast.promise(uploadPromise, {
-            loading: 'Uploading images...',
-            success: 'Images uploaded successfully',
-            error: (error) =>
-              error instanceof Error
-                ? error.message
-                : 'Failed to upload images',
-          })
-          imageUrls = await uploadPromise
-          setIsUploadingImages(false)
+          imageUrls = await uploadWithProgress(imagesToUpload)
         } catch (uploadError) {
-          setIsUploadingImages(false)
           // Restore message and images on upload error
           setMessage(messageContent)
           setSelectedImages(imagesToUpload)
@@ -289,7 +172,6 @@ export function ChatContainer({
         imageUrls,
       })
     } catch (error) {
-      setIsUploadingImages(false)
       // Restore message and images on error
       setMessage(messageContent)
       setSelectedImages(imagesToUpload)
@@ -428,11 +310,7 @@ export function ChatContainer({
                       if (e.target.value.length > 0) {
                         handleTyping()
                       } else if (isTyping) {
-                        setIsTyping(false)
-                        emitStopTyping()
-                        if (typingTimeoutRef.current) {
-                          clearTimeout(typingTimeoutRef.current)
-                        }
+                        stopTyping()
                       }
                     }}
                     placeholder={
