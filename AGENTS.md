@@ -1,7 +1,3 @@
----
-alwaysApply: true
----
-
 Project structure:
 apps/client -> nextjs client app
 apps/ws -> bun/socket.io websocket server

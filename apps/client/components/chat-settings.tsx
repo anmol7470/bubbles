@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
-import { ArrowLeftIcon, Search, X, ImageIcon, XIcon } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { ArrowLeftIcon, SearchIcon, ImageIcon, XIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { UserAvatar } from './user-avatar'
@@ -19,6 +19,7 @@ import {
 import { getChatById } from '@/lib/db/queries'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
+import { useImageUpload } from '@/hooks/use-image-upload'
 
 type ChatSettingsProps = {
   chatId: string
@@ -27,12 +28,18 @@ type ChatSettingsProps = {
 
 export function ChatSettings({ chatId, user }: ChatSettingsProps) {
   const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [memberSearch, setMemberSearch] = useState('')
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  const {
+    selectedImages,
+    previewUrls,
+    fileInputRef,
+    handleFileSelect,
+    triggerFileSelect,
+    clearSingleImage,
+  } = useImageUpload(user.id, 'avatars', { maxImages: 1 })
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
@@ -50,7 +57,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     : otherParticipant?.username
 
   const chatDisplayImage = chat?.isGroupChat
-    ? previewUrl || chat.groupChatImageUrl || null
+    ? previewUrls[0] || chat.groupChatImageUrl || null
     : (otherParticipant?.imageUrl ?? null)
 
   const filteredMembers = useMemo(() => {
@@ -80,44 +87,8 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     setIsEditingName(false)
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    const file = files[0]
-
-    // Clean up previous preview URL
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-
-    // Create preview URL and set selected file
-    const preview = URL.createObjectURL(file)
-    setPreviewUrl(preview)
-    setSelectedFile(file)
-  }
-
   const handleSaveImage = () => {
-    // TODO: Implement save image mutation
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-    setPreviewUrl(null)
-    setSelectedFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  const handleCancelImageSelect = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-    setPreviewUrl(null)
-    setSelectedFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+    clearSingleImage()
   }
 
   if (isLoading) {
@@ -176,12 +147,14 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handleImageSelect}
+              onChange={handleFileSelect}
             />
             <div className="relative group">
               <div
                 className="relative cursor-pointer"
-                onClick={() => !selectedFile && fileInputRef.current?.click()}
+                onClick={() =>
+                  selectedImages.length === 0 && triggerFileSelect()
+                }
               >
                 <div className="h-20 w-20 rounded-full overflow-hidden bg-secondary/50 flex items-center justify-center border-2 border-transparent group-hover:border-primary/50 transition-colors">
                   {chatDisplayImage ? (
@@ -201,14 +174,14 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                     </div>
                   )}
                 </div>
-                {chatDisplayImage && !selectedFile && (
+                {chatDisplayImage && selectedImages.length === 0 && (
                   <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <ImageIcon className="h-6 w-6 text-white" />
                   </div>
                 )}
               </div>
             </div>
-            {selectedFile && (
+            {selectedImages.length > 0 && (
               <div className="flex gap-1">
                 <Button size="sm" className="text-xs" onClick={handleSaveImage}>
                   Save
@@ -217,7 +190,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                   size="sm"
                   variant="ghost"
                   className="text-xs"
-                  onClick={handleCancelImageSelect}
+                  onClick={clearSingleImage}
                 >
                   <XIcon className="size-4" />
                 </Button>
@@ -290,7 +263,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
               </h3>
 
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <SearchIcon className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search members..."
                   value={memberSearch}
@@ -304,7 +277,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                     className="absolute right-0 top-1/2 h-9 w-9 -translate-y-1/2"
                     onClick={() => setMemberSearch('')}
                   >
-                    <X className="size-4" />
+                    <XIcon className="size-4" />
                   </Button>
                 )}
               </div>

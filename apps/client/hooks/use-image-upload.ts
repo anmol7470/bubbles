@@ -1,20 +1,36 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { createSupabaseClient } from '@/lib/supabase/client'
 import type { StorageBucket } from '@/lib/types'
 
 export function useImageUpload(
   userId: string,
-  bucket: StorageBucket = 'attachments'
+  bucket: StorageBucket = 'attachments',
+  options: {
+    maxImages?: number
+    autoPreview?: boolean
+  } = {}
 ) {
+  const { maxImages = 5, autoPreview = true } = options
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [isUploadingImages, setIsUploadingImages] = useState(false)
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [previewUrls])
+
+  const createPreviews = useCallback((files: File[]) => {
+    return files.map((file) => URL.createObjectURL(file))
+  }, [])
 
   const processFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return
 
-      // Filter out duplicates based on name and size
       const uniqueNewFiles = files.filter((newFile) => {
         return !selectedImages.some(
           (existingFile) =>
@@ -30,23 +46,51 @@ export function useImageUpload(
         )
       }
 
-      // Limit to 5 images total
-      const remainingSlots = 5 - selectedImages.length
+      const remainingSlots = maxImages - selectedImages.length
       const newImages = uniqueNewFiles.slice(0, remainingSlots)
 
       if (uniqueNewFiles.length > remainingSlots) {
-        toast.error(`You can only upload up to 5 images at a time`)
+        toast.error(`You can only upload up to ${maxImages} images at a time`)
       }
 
       if (newImages.length > 0) {
         setSelectedImages((prev) => [...prev, ...newImages])
+        if (autoPreview) {
+          const newPreviews = createPreviews(newImages)
+          setPreviewUrls((prev) => [...prev, ...newPreviews])
+        }
       }
     },
-    [selectedImages]
+    [selectedImages, maxImages, autoPreview, createPreviews]
   )
 
-  const removeImage = useCallback((index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+  const removeImage = useCallback(
+    (index: number) => {
+      setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+      if (autoPreview) {
+        setPreviewUrls((prev) => {
+          const newUrls = prev.filter((_, i) => i !== index)
+          if (prev[index]) {
+            URL.revokeObjectURL(prev[index])
+          }
+          return newUrls
+        })
+      }
+    },
+    [autoPreview]
+  )
+
+  const handleFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files || [])
+      processFiles(files)
+      event.target.value = ''
+    },
+    [processFiles]
+  )
+
+  const triggerFileSelect = useCallback(() => {
+    fileInputRef.current?.click()
   }, [])
 
   const uploadImages = useCallback(
@@ -77,7 +121,7 @@ export function useImageUpload(
 
       return uploadedUrls
     },
-    [userId]
+    [userId, bucket]
   )
 
   const uploadWithProgress = useCallback(
@@ -104,15 +148,48 @@ export function useImageUpload(
 
   const clearImages = useCallback(() => {
     setSelectedImages([])
-  }, [])
+    if (autoPreview) {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+      setPreviewUrls([])
+    }
+  }, [autoPreview, previewUrls])
+
+  const selectSingleImage = useCallback(
+    (file: File) => {
+      if (autoPreview) {
+        previewUrls.forEach((url) => URL.revokeObjectURL(url))
+        const preview = URL.createObjectURL(file)
+        setPreviewUrls([preview])
+      }
+      setSelectedImages([file])
+    },
+    [autoPreview, previewUrls]
+  )
+
+  const clearSingleImage = useCallback(() => {
+    if (autoPreview && previewUrls[0]) {
+      URL.revokeObjectURL(previewUrls[0])
+      setPreviewUrls([])
+    }
+    setSelectedImages([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [autoPreview, previewUrls])
 
   return {
     selectedImages,
     isUploadingImages,
+    previewUrls,
+    fileInputRef,
     processFiles,
     removeImage,
     uploadWithProgress,
     clearImages,
     setSelectedImages,
+    handleFileSelect,
+    triggerFileSelect,
+    selectSingleImage,
+    clearSingleImage,
   }
 }

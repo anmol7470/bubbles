@@ -36,7 +36,6 @@ export function ChatContainer({
   const [message, setMessage] = useState('')
   const messageInputRef = useRef<HTMLInputElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
-  const imageInputRef = useRef<HTMLInputElement | null>(null)
 
   const { data: chat, isLoading } = useQuery({
     queryKey: ['chat', chatId],
@@ -54,11 +53,15 @@ export function ChatContainer({
   const {
     selectedImages,
     isUploadingImages,
+    previewUrls,
+    fileInputRef,
     processFiles,
     removeImage,
     uploadWithProgress,
     clearImages,
     setSelectedImages,
+    handleFileSelect,
+    triggerFileSelect,
   } = useImageUpload(user.id)
 
   const otherParticipant =
@@ -126,13 +129,6 @@ export function ChatContainer({
     router.push('/chats')
   }
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    processFiles(files)
-    // Reset input value so the same file can be selected again
-    event.target.value = ''
-  }
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
       processFiles(acceptedFiles)
@@ -162,7 +158,7 @@ export function ChatContainer({
       if (imagesToUpload.length > 0) {
         try {
           imageUrls = await uploadWithProgress(imagesToUpload)
-        } catch (uploadError) {
+        } catch {
           // Restore message and images on upload error
           setMessage(messageContent)
           setSelectedImages(imagesToUpload)
@@ -262,13 +258,13 @@ export function ChatContainer({
               {/* Image Preview */}
               {selectedImages.length > 0 && (
                 <div className="flex gap-2 flex-wrap px-1">
-                  {selectedImages.map((image, index) => (
+                  {previewUrls.map((previewUrl, index) => (
                     <div
                       key={index}
                       className="relative w-20 h-20 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700 bg-muted"
                     >
                       <Image
-                        src={URL.createObjectURL(image)}
+                        src={previewUrl}
                         alt={`Selected image ${index + 1}`}
                         fill
                         className="object-cover"
@@ -294,7 +290,7 @@ export function ChatContainer({
                     variant="ghost"
                     aria-label="Select image"
                     className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 h-8 w-8"
-                    onClick={() => imageInputRef.current?.click()}
+                    onClick={triggerFileSelect}
                     disabled={
                       selectedImages.length >= 5 ||
                       isSendingMessage ||
@@ -306,8 +302,8 @@ export function ChatContainer({
                   <input
                     type="file"
                     className="hidden"
-                    ref={imageInputRef}
-                    onChange={handleImageSelect}
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
                     accept="image/*"
                     multiple
                   />

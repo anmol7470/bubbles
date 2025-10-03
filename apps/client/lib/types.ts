@@ -85,4 +85,4 @@ export type EditMessagePayload = {
   deletedImageUrls?: string[]
 }
 
-export type StorageBucket = 'attachments' | 'profile_pics'
+export type StorageBucket = 'attachments' | 'avatars'

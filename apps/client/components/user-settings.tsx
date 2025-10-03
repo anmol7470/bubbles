@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,6 @@ interface UserSettingsProps {
 
 export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState(user.user_metadata.username || '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDeleteChatsConfirm, setShowDeleteChatsConfirm] = useState(false)
@@ -48,10 +47,16 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const [currentImageUrl, setCurrentImageUrl] = useState(
     user.user_metadata.imageUrl || ''
   )
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
-  const { uploadWithProgress } = useImageUpload(user.id, 'profile_pics')
+  const {
+    selectedImages,
+    previewUrls,
+    fileInputRef,
+    uploadWithProgress,
+    handleFileSelect,
+    triggerFileSelect,
+    clearSingleImage,
+  } = useImageUpload(user.id, 'avatars', { maxImages: 1 })
 
   const { mutateAsync: updateUsernameMutation, isPending: isUpdatingUsername } =
     useMutation({
@@ -80,14 +85,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       },
       onSuccess: (imageUrl) => {
         setCurrentImageUrl(imageUrl)
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl)
-        }
-        setPreviewUrl(null)
-        setSelectedFile(null)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
+        clearSingleImage()
         toast.success(
           imageUrl
             ? 'Profile picture updated successfully'
@@ -103,15 +101,6 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
     },
   })
 
-  // Cleanup preview URL when component unmounts or preview changes
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
-    }
-  }, [previewUrl])
-
   const handleUpdateUsername = async () => {
     if (!username.trim()) {
       toast.error('Username cannot be empty')
@@ -126,41 +115,13 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
     await updateUsernameMutation(username)
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    const file = files[0]
-
-    // Clean up previous preview URL
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-
-    // Create preview URL and set selected file
-    const preview = URL.createObjectURL(file)
-    setPreviewUrl(preview)
-    setSelectedFile(file)
-  }
-
   const handleSaveImage = async () => {
-    if (!selectedFile) return
+    if (selectedImages.length === 0) return
 
     await updateImageMutation({
-      file: selectedFile,
+      file: selectedImages[0],
       imageUrl: '',
     })
-  }
-
-  const handleCancelImageSelect = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-    }
-    setPreviewUrl(null)
-    setSelectedFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }
 
   return (
@@ -179,9 +140,9 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
               <Label className="text-sm font-medium">Profile Picture</Label>
               <div className="flex items-center gap-4">
                 <div className="h-20 w-20 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                  {previewUrl || currentImageUrl ? (
+                  {previewUrls[0] || currentImageUrl ? (
                     <Image
-                      src={previewUrl || currentImageUrl}
+                      src={previewUrls[0] || currentImageUrl}
                       alt="Profile"
                       className="h-full w-full object-cover"
                       width={80}
@@ -197,19 +158,19 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={handleImageSelect}
+                    onChange={handleFileSelect}
                     disabled={isUpdatingImage}
                   />
                   <div className="flex justify-between gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUpdatingImage || !!selectedFile}
+                      onClick={triggerFileSelect}
+                      disabled={isUpdatingImage || selectedImages.length > 0}
                     >
                       Change Picture
                     </Button>
-                    {selectedFile && (
+                    {selectedImages.length > 0 && (
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -221,7 +182,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={handleCancelImageSelect}
+                          onClick={clearSingleImage}
                           disabled={isUpdatingImage}
                         >
                           Cancel
@@ -229,7 +190,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                       </div>
                     )}
                   </div>
-                  {currentImageUrl && !selectedFile && (
+                  {currentImageUrl && selectedImages.length === 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
