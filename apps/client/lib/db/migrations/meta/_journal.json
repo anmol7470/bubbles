@@ -50,6 +50,13 @@
       "when": 1759463962873,
       "tag": "0006_lowly_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1759477051583,
+      "tag": "0007_mixed_hannibal_king",
+      "breakpoints": true
     }
   ]
 }

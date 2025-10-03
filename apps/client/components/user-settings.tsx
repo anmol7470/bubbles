@@ -18,7 +18,13 @@ import {
 } from '@/lib/auth-actions'
 import { useMutation } from '@tanstack/react-query'
 import { useImageUpload } from '@/hooks/use-image-upload'
-import { ImageIcon, TrashIcon, Trash2Icon, XIcon } from 'lucide-react'
+import {
+  ImageIcon,
+  TrashIcon,
+  Trash2Icon,
+  XIcon,
+  EraserIcon,
+} from 'lucide-react'
 import { ConfirmationDialog } from './confirmation-dialog'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
@@ -38,6 +44,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const [username, setUsername] = useState(user.user_metadata.username || '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDeleteChatsConfirm, setShowDeleteChatsConfirm] = useState(false)
+  const [showClearChatsConfirm, setShowClearChatsConfirm] = useState(false)
   const [currentImageUrl, setCurrentImageUrl] = useState(
     user.user_metadata.imageUrl || ''
   )
@@ -270,6 +277,14 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
+                  onClick={() => setShowClearChatsConfirm(true)}
+                >
+                  <EraserIcon className="size-4 mr-2" />
+                  Clear All Chats
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
                   onClick={() => setShowDeleteChatsConfirm(true)}
                 >
                   <Trash2Icon className="size-4 mr-2" />
@@ -296,6 +311,18 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
         title="Delete Account"
         description="Are you sure you want to delete your account? This action is irreversible and all your data will be permanently deleted."
         confirmText="Delete Account"
+      />
+
+      <ConfirmationDialog
+        open={showClearChatsConfirm}
+        onOpenChange={setShowClearChatsConfirm}
+        onConfirm={() => {
+          // TODO: Implement clear all chats
+          setShowClearChatsConfirm(false)
+        }}
+        title="Clear All Chats"
+        description="Are you sure you want to clear all chats? This will remove all messages but keep the chat conversations."
+        confirmText="Clear Chats"
       />
 
       <ConfirmationDialog

@@ -1,6 +1,6 @@
 {
-  "id": "f33a9192-f485-4e2a-ab45-15323ee0d4ee",
-  "prevId": "2dc2fa21-b992-445d-be68-1b9b8f9bc051",
+  "id": "3bd24e1c-6183-4336-a6f0-08747ce98a0f",
+  "prevId": "f33a9192-f485-4e2a-ab45-15323ee0d4ee",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -93,6 +93,12 @@
         "group_chat_name": {
           "name": "group_chat_name",
           "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "group_chat_image_url": {
+          "name": "group_chat_image_url",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }

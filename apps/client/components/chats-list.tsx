@@ -72,7 +72,9 @@ export function ChatsList({ user }: { user: User }) {
             </div>
           ) : filteredChats && filteredChats.length === 0 ? (
             <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-              No chats found. Create one to start chatting.
+              {search
+                ? `No chats found for "${search}"`
+                : 'No chats found. Create one to start chatting.'}
             </div>
           ) : (
             <div className="flex flex-col gap-1">
