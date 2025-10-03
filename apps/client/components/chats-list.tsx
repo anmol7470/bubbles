@@ -17,7 +17,7 @@ import type { ChatWithMembers, User } from '@/lib/types'
 export function ChatsList({ user }: { user: User }) {
   const pathname = usePathname()
   const [search, setSearch] = useState('')
-  const chatId = pathname.split('/chats/')[1]
+  const chatId = pathname.split('/chats/')[1]?.split('/')[0]
   const isChatOpen = pathname?.startsWith('/chats/') && pathname !== '/chats'
 
   const { data: chats, isLoading } = useQuery({

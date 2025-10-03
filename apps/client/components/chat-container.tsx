@@ -21,6 +21,7 @@ import { useDropzone } from 'react-dropzone'
 import { cn } from '@/lib/utils'
 import { useTypingIndicator } from '@/hooks/use-typing-indicator'
 import { useImageUpload } from '@/hooks/use-image-upload'
+import Link from 'next/link'
 
 export function ChatContainer({
   chatId,
@@ -210,7 +211,10 @@ export function ChatContainer({
         chat && (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="bg-background/80 flex h-14 items-center gap-3 border-b border-neutral-300 px-4 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
+              <Link
+                className="flex items-center gap-2"
+                href={`/chats/${chatId}/settings`}
+              >
                 {chat.isGroupChat ? (
                   <UserAvatar
                     image={null}
@@ -227,7 +231,7 @@ export function ChatContainer({
                     ? chat.groupChatName
                     : otherParticipant?.username}
                 </div>
-              </div>
+              </Link>
               <Button
                 variant="outline"
                 size="icon"
