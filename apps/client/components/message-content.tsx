@@ -16,6 +16,8 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Textarea } from './ui/textarea'
+import { Button } from './ui/button'
+import Linkify from 'linkify-react'
 
 export function MessageContent({
   message,
@@ -197,12 +199,15 @@ export function MessageContent({
                   sizes="100vw"
                   className="object-cover"
                 />
-                <button
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="destructive"
                   onClick={() => handleDeleteImage(url)}
-                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 h-5 w-5 rounded-full shadow-md"
                 >
                   <XIcon className="size-4" />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -264,7 +269,15 @@ export function MessageContent({
               : 'self-start bg-primary/10'
           )}
         >
-          {message.content}
+          <Linkify
+            options={{
+              className: 'underline hover:opacity-80 transition-opacity',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            }}
+          >
+            {message.content}
+          </Linkify>
         </div>
       )}
     </div>
