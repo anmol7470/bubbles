@@ -20,7 +20,6 @@ import { useMutation } from '@tanstack/react-query'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import { ImageIcon, TrashIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { ConfirmationDialog } from './confirmation-dialog'
-import { useRouter } from 'next/navigation'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { Label } from './ui/label'
@@ -33,7 +32,6 @@ interface UserSettingsProps {
 }
 
 export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
-  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState(user.user_metadata.username || '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -59,16 +57,18 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       mutationFn: async ({
         file,
         imageUrl,
+        type,
       }: {
         file?: File
         imageUrl: string
+        type: 'change' | 'delete'
       }) => {
         let finalImageUrl = imageUrl
         if (file) {
           const [uploadedUrl] = await uploadWithProgress([file])
           finalImageUrl = uploadedUrl
         }
-        await updateProfileImage(user.id, finalImageUrl)
+        await updateProfileImage(user.id, finalImageUrl, type, currentImageUrl)
         return finalImageUrl
       },
       onSuccess: (imageUrl) => {
@@ -136,7 +136,11 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const handleSaveImage = async () => {
     if (!selectedFile) return
 
-    await updateImageMutation({ file: selectedFile, imageUrl: '' })
+    await updateImageMutation({
+      file: selectedFile,
+      imageUrl: '',
+      type: 'change',
+    })
   }
 
   const handleCancelImageSelect = () => {
@@ -221,7 +225,10 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                       variant="ghost"
                       size="sm"
                       onClick={async () =>
-                        await updateImageMutation({ imageUrl: '' })
+                        await updateImageMutation({
+                          imageUrl: '',
+                          type: 'delete',
+                        })
                       }
                       disabled={isUpdatingImage}
                       className="text-destructive self-start"

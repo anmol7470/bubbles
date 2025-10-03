@@ -144,7 +144,7 @@ export async function editMessage(
 }
 
 // Delete images from any bucket in Supabase storage using public URLs
-async function deleteImagesFromStorage(imageUrls: string[]) {
+export async function deleteImagesFromStorage(imageUrls: string[]) {
   const supabase = await createSupabaseClient()
 
   // Group file paths by bucket

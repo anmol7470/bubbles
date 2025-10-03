@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { deleteImagesFromStorage } from '@/lib/db/mutations'
 
 export async function login(email: string, password: string) {
   const supabase = await createSupabaseClient()
@@ -76,8 +77,18 @@ export async function updateUsername(userId: string, newUsername: string) {
   revalidatePath('/', 'layout')
 }
 
-export async function updateProfileImage(userId: string, imageUrl: string) {
+export async function updateProfileImage(
+  userId: string,
+  imageUrl: string,
+  type: 'change' | 'delete' = 'change',
+  oldImageUrl?: string
+) {
   const supabaseAdmin = await createSupabaseAdminClient()
+
+  // Delete old image from storage if type is delete
+  if (type === 'delete' && oldImageUrl) {
+    await deleteImagesFromStorage([oldImageUrl])
+  }
 
   const { error: metadataError } = await supabaseAdmin.updateUserById(userId, {
     user_metadata: { imageUrl },
