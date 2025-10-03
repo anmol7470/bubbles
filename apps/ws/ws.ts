@@ -85,12 +85,34 @@ export async function setupWebsocket(io: Server) {
     socket.on(
       'messageDeleted',
       (data: { messageId: string; chatId: string; participants: string[] }) => {
-        // Emit to all participants
         data.participants.forEach((participant: string) => {
           io.to(userRoom(participant)).emit('messageDeleted', {
             messageId: data.messageId,
             chatId: data.chatId,
             participants: data.participants,
+          })
+        })
+      }
+    )
+
+    socket.on(
+      'messageEdited',
+      (data: {
+        messageId: string
+        chatId: string
+        content: string
+        imageUrls: string[] | null
+        participants: string[]
+        deletedImageUrls?: string[]
+      }) => {
+        data.participants.forEach((participant: string) => {
+          io.to(userRoom(participant)).emit('messageEdited', {
+            messageId: data.messageId,
+            chatId: data.chatId,
+            content: data.content,
+            imageUrls: data.imageUrls,
+            participants: data.participants,
+            deletedImageUrls: data.deletedImageUrls,
           })
         })
       }

@@ -61,4 +61,13 @@ export type DeleteMessagePayload = {
   participants: string[]
 }
 
+export type EditMessagePayload = {
+  messageId: string
+  chatId: string
+  content: string
+  imageUrls: string[] | null
+  participants: string[]
+  deletedImageUrls?: string[]
+}
+
 export type StorageBucket = 'attachments' | 'profile_pics'

@@ -3,6 +3,7 @@
 import { db } from '@/lib/db'
 import { chatMembers, chats, messages } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { createSupabaseClient } from '@/lib/supabase/server'
 
 // Shared query configuration for fetching chats with full data
 const chatWithFullData = {
@@ -113,9 +114,66 @@ export async function sendMessage(
   })
 }
 
-export async function deleteMessage(messageId: string, chatId: string) {
-  await db
+export async function deleteMessage(messageId: string) {
+  const message = await db
     .update(messages)
     .set({ isDeleted: true })
     .where(eq(messages.id, messageId))
+    .returning()
+
+  const imageUrls = message[0].imageUrls
+  if (imageUrls && imageUrls.length > 0) {
+    await deleteImagesFromStorage(imageUrls)
+  }
+}
+
+export async function editMessage(
+  messageId: string,
+  newContent: string,
+  imageUrls: string[] | null,
+  deletedImageUrls?: string[]
+) {
+  if (deletedImageUrls && deletedImageUrls.length > 0) {
+    await deleteImagesFromStorage(deletedImageUrls)
+  }
+
+  await db
+    .update(messages)
+    .set({ content: newContent, isEdited: true, imageUrls })
+    .where(eq(messages.id, messageId))
+}
+
+// Delete images from any bucket in Supabase storage using public URLs
+async function deleteImagesFromStorage(imageUrls: string[]) {
+  const supabase = await createSupabaseClient()
+
+  // Group file paths by bucket
+  const bucketMap: Record<string, string[]> = {}
+
+  for (const url of imageUrls) {
+    const urlObj = new URL(url)
+    const pathParts = urlObj.pathname.split('/object/public/')
+
+    if (pathParts.length < 2) continue // skips invalid URLs
+
+    const [bucketName, ...filePathParts] = pathParts[1].split('/')
+    const filePath = filePathParts.join('/')
+
+    if (!bucketMap[bucketName]) {
+      bucketMap[bucketName] = []
+    }
+
+    bucketMap[bucketName].push(filePath)
+  }
+
+  // Delete from each bucket
+  for (const [bucket, filePaths] of Object.entries(bucketMap)) {
+    const { error } = await supabase.storage.from(bucket).remove(filePaths)
+
+    if (error) {
+      throw new Error(
+        `Error deleting from bucket "${bucket}": ${error.message}`
+      )
+    }
+  }
 }

@@ -3,25 +3,11 @@
 import { cn, formatDate } from '@/lib/utils'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { Button } from './ui/button'
-import {
-  ArrowDownIcon,
-  CopyIcon,
-  TrashIcon,
-  PencilIcon,
-  BanIcon,
-} from 'lucide-react'
+import { ArrowDownIcon } from 'lucide-react'
 import { UserAvatar } from './user-avatar'
 import type { ChatWithMessages } from '@/lib/types'
-import Image from 'next/image'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
-import { deleteMessage } from '@/lib/db/mutations'
-import { useWsClient } from './ws-client'
-import { toast } from 'sonner'
+import { useState } from 'react'
+import { MessageContent } from './message-content'
 
 export function Messages({
   isGroupChat,
@@ -38,6 +24,8 @@ export function Messages({
   participants: string[]
   typingUsers?: { userId: string; username: string }[]
 }) {
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+
   return (
     <StickToBottom
       className="relative min-h-0 flex-1"
@@ -61,12 +49,18 @@ export function Messages({
                 <div className="flex flex-col gap-1 max-w-[75%]">
                   <p className="text-muted-foreground self-end px-1 text-xs">
                     {formatDate(m.sentAt)}
+                    {m.isEdited && !m.isDeleted && (
+                      <span className="ml-2 text-xs italic">(edited)</span>
+                    )}
                   </p>
                   <MessageContent
                     message={m}
                     isOwn={true}
                     chatId={chatId}
                     participants={participants}
+                    isEditing={editingMessageId === m.id}
+                    onEditStart={() => setEditingMessageId(m.id)}
+                    onEditEnd={() => setEditingMessageId(null)}
                   />
                 </div>
               ) : (
@@ -86,6 +80,9 @@ export function Messages({
                       )}
                       <span className="text-muted-foreground text-xs">
                         {formatDate(m.sentAt)}
+                        {m.isEdited && !m.isDeleted && (
+                          <span className="ml-2 text-xs italic">(edited)</span>
+                        )}
                       </span>
                     </div>
                     <MessageContent
@@ -93,6 +90,9 @@ export function Messages({
                       isOwn={false}
                       chatId={chatId}
                       participants={participants}
+                      isEditing={false}
+                      onEditStart={() => {}}
+                      onEditEnd={() => {}}
                     />
                   </div>
                 </div>
@@ -165,140 +165,5 @@ function TypingIndicator({
         </div>
       </div>
     </div>
-  )
-}
-
-function MessageContent({
-  message,
-  isOwn,
-  chatId,
-  participants,
-}: {
-  message: ChatWithMessages['messages'][number]
-  isOwn: boolean
-  chatId: string
-  participants: string[]
-}) {
-  const { socket } = useWsClient()
-  const imageCount = message.imageUrls?.length ?? 0
-
-  const handleDelete = async () => {
-    try {
-      await deleteMessage(message.id, chatId)
-
-      if (socket) {
-        socket.emit('messageDeleted', {
-          messageId: message.id,
-          chatId,
-          participants,
-        })
-      }
-
-      toast.success('Message deleted')
-    } catch (error) {
-      toast.error('Failed to delete message')
-      console.error('Error deleting message:', error)
-    }
-  }
-
-  const handleCopy = () => {
-    if (message.content) {
-      navigator.clipboard.writeText(message.content)
-      toast.success('Message copied to clipboard')
-    }
-  }
-
-  const handleEdit = () => {
-    // TODO: Implement edit functionality
-    toast.info('Edit functionality coming soon')
-  }
-
-  // Show deleted message UI
-  if (message.isDeleted) {
-    return (
-      <div
-        className={cn(
-          'rounded-xl px-3 py-2 text-sm italic flex items-center gap-1',
-          isOwn
-            ? 'self-end bg-primary/20 text-muted-foreground'
-            : 'self-start bg-primary/5 text-muted-foreground'
-        )}
-      >
-        <BanIcon className="size-4 flex-shrink-0" />
-        <span>
-          {isOwn ? 'You deleted this message' : 'This message was deleted'}
-        </span>
-      </div>
-    )
-  }
-
-  const messageContent = (
-    <div className="flex flex-col gap-2">
-      {imageCount > 0 && (
-        <div
-          className={cn(
-            'flex flex-wrap gap-2',
-            isOwn ? 'justify-end' : 'justify-start'
-          )}
-        >
-          {message.imageUrls!.map((url, index) => (
-            <div
-              key={index}
-              className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700 flex-shrink-0"
-            >
-              <Image
-                src={url}
-                alt={`Message image ${index + 1}`}
-                fill
-                sizes="100vw"
-                className="object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(url, '_blank')}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-      {message.content && (
-        <div
-          className={cn(
-            'rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
-            isOwn
-              ? 'self-end bg-primary text-primary-foreground dark:text-foreground'
-              : 'self-start bg-primary/10'
-          )}
-        >
-          {message.content}
-        </div>
-      )}
-    </div>
-  )
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger>{messageContent}</ContextMenuTrigger>
-      <ContextMenuContent>
-        {isOwn ? (
-          <>
-            <ContextMenuItem onClick={handleCopy}>
-              <CopyIcon />
-              Copy message
-            </ContextMenuItem>
-            <ContextMenuItem onClick={handleEdit}>
-              <PencilIcon />
-              Edit message
-            </ContextMenuItem>
-            <ContextMenuItem onClick={handleDelete} variant="destructive">
-              <TrashIcon />
-              Delete message
-            </ContextMenuItem>
-          </>
-        ) : (
-          <ContextMenuItem onClick={handleCopy}>
-            <CopyIcon />
-            Copy message
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
   )
 }

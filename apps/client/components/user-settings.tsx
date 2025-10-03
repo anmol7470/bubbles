@@ -16,14 +16,9 @@ import {
   updateProfileImage,
   deleteUser,
 } from '@/lib/auth-actions'
+import { useMutation } from '@tanstack/react-query'
 import { useImageUpload } from '@/hooks/use-image-upload'
-import {
-  ImageIcon,
-  TrashIcon,
-  Trash2Icon,
-  EraserIcon,
-  XIcon,
-} from 'lucide-react'
+import { ImageIcon, TrashIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { ConfirmationDialog } from './confirmation-dialog'
 import { useRouter } from 'next/navigation'
 import type { User } from '@/lib/types'
@@ -41,10 +36,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState(user.user_metadata.username || '')
-  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false)
-  const [isUpdatingImage, setIsUpdatingImage] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showClearChatsConfirm, setShowClearChatsConfirm] = useState(false)
   const [showDeleteChatsConfirm, setShowDeleteChatsConfirm] = useState(false)
   const [currentImageUrl, setCurrentImageUrl] = useState(
     user.user_metadata.imageUrl || ''
@@ -53,6 +45,53 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const { uploadWithProgress } = useImageUpload(user.id, 'profile_pics')
+
+  const { mutateAsync: updateUsernameMutation, isPending: isUpdatingUsername } =
+    useMutation({
+      mutationFn: (newUsername: string) => updateUsername(user.id, newUsername),
+      onSuccess: () => {
+        toast.success('Username updated successfully')
+      },
+    })
+
+  const { mutateAsync: updateImageMutation, isPending: isUpdatingImage } =
+    useMutation({
+      mutationFn: async ({
+        file,
+        imageUrl,
+      }: {
+        file?: File
+        imageUrl: string
+      }) => {
+        let finalImageUrl = imageUrl
+        if (file) {
+          const [uploadedUrl] = await uploadWithProgress([file])
+          finalImageUrl = uploadedUrl
+        }
+        await updateProfileImage(user.id, finalImageUrl)
+        return finalImageUrl
+      },
+      onSuccess: (imageUrl) => {
+        setCurrentImageUrl(imageUrl)
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl)
+        }
+        setPreviewUrl(null)
+        setSelectedFile(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+        toast.success(
+          imageUrl
+            ? 'Profile picture updated successfully'
+            : 'Profile picture removed'
+        )
+      },
+    })
+
+  const { mutateAsync: deleteUserMutation } = useMutation({
+    mutationFn: () => deleteUser(user.id),
+  })
 
   // Cleanup preview URL when component unmounts or preview changes
   useEffect(() => {
@@ -74,18 +113,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       return
     }
 
-    setIsUpdatingUsername(true)
-    try {
-      await updateUsername(user.id, username)
-      toast.success('Username updated successfully')
-      router.refresh()
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to update username'
-      )
-    } finally {
-      setIsUpdatingUsername(false)
-    }
+    await updateUsernameMutation(username)
   }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,33 +136,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const handleSaveImage = async () => {
     if (!selectedFile) return
 
-    setIsUpdatingImage(true)
-    try {
-      const [imageUrl] = await uploadWithProgress([selectedFile])
-      await updateProfileImage(user.id, imageUrl)
-      setCurrentImageUrl(imageUrl)
-
-      // Clean up preview and selected file
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-      }
-      setPreviewUrl(null)
-      setSelectedFile(null)
-
-      toast.success('Profile picture updated successfully')
-      router.refresh()
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to update profile picture'
-      )
-    } finally {
-      setIsUpdatingImage(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    }
+    await updateImageMutation({ file: selectedFile, imageUrl: '' })
   }
 
   const handleCancelImageSelect = () => {
@@ -145,16 +147,6 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
     setSelectedFile(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
-    }
-  }
-
-  const handleDeleteAccount = async () => {
-    try {
-      await deleteUser(user.id)
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to delete account'
-      )
     }
   }
 
@@ -228,19 +220,9 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={async () => {
-                        setIsUpdatingImage(true)
-                        try {
-                          await updateProfileImage(user.id, '')
-                          setCurrentImageUrl('')
-                          toast.success('Profile picture removed')
-                          router.refresh()
-                        } catch (error) {
-                          toast.error('Failed to remove profile picture')
-                        } finally {
-                          setIsUpdatingImage(false)
-                        }
-                      }}
+                      onClick={async () =>
+                        await updateImageMutation({ imageUrl: '' })
+                      }
                       disabled={isUpdatingImage}
                       className="text-destructive self-start"
                     >
@@ -280,14 +262,6 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => setShowClearChatsConfirm(true)}
-                >
-                  <EraserIcon className="size-4 mr-2" />
-                  Clear All Chats
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
                   onClick={() => setShowDeleteChatsConfirm(true)}
                 >
                   <Trash2Icon className="size-4 mr-2" />
@@ -310,22 +284,10 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       <ConfirmationDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        onConfirm={handleDeleteAccount}
+        onConfirm={async () => await deleteUserMutation()}
         title="Delete Account"
         description="Are you sure you want to delete your account? This action is irreversible and all your data will be permanently deleted."
         confirmText="Delete Account"
-      />
-
-      <ConfirmationDialog
-        open={showClearChatsConfirm}
-        onOpenChange={setShowClearChatsConfirm}
-        onConfirm={() => {
-          // TODO: Implement clear all chats
-          setShowClearChatsConfirm(false)
-        }}
-        title="Clear All Chats"
-        description="Are you sure you want to clear all chat messages? This action is irreversible."
-        confirmText="Clear Chats"
       />
 
       <ConfirmationDialog

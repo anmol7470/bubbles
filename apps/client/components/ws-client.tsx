@@ -12,6 +12,7 @@ import type {
   TypingPayload,
   StopTypingPayload,
   DeleteMessagePayload,
+  EditMessagePayload,
 } from '@/lib/types'
 
 type TypingState = {
@@ -194,6 +195,59 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
                   ? {
                       ...chat,
                       messages: [{ ...chat.messages[0], isDeleted: true }],
+                    }
+                  : chat
+              )
+            }
+          )
+        }
+      })
+
+      socket.on('messageEdited', (payload: EditMessagePayload) => {
+        const isUserMember = payload.participants.some(
+          (participant) => participant === userId
+        )
+
+        if (isUserMember) {
+          // Update the chat messages view
+          queryClient.setQueryData(
+            ['chat', payload.chatId],
+            (oldChat: ChatWithMessages) => {
+              if (!oldChat) return undefined
+              return {
+                ...oldChat,
+                messages: oldChat.messages.map((msg) =>
+                  msg.id === payload.messageId
+                    ? {
+                        ...msg,
+                        content: payload.content,
+                        imageUrls: payload.imageUrls,
+                        isEdited: true,
+                      }
+                    : msg
+                ),
+              }
+            }
+          )
+
+          // Update the chats list if this is the latest message
+          queryClient.setQueryData(
+            ['chats', userId],
+            (oldChats: ChatWithMembers[]) => {
+              if (!oldChats) return oldChats
+
+              return oldChats.map((chat) =>
+                chat.id === payload.chatId &&
+                chat.messages?.[0]?.id === payload.messageId
+                  ? {
+                      ...chat,
+                      messages: [
+                        {
+                          ...chat.messages[0],
+                          content: payload.content,
+                          imageUrls: payload.imageUrls,
+                        },
+                      ],
                     }
                   : chat
               )
