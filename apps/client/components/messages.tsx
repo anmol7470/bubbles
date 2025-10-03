@@ -26,6 +26,26 @@ export function Messages({
 }) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
 
+  // Helper function to determine if a message should show header info
+  const shouldShowHeader = (currentIndex: number) => {
+    if (currentIndex === 0) return true
+
+    const currentMsg = messages[currentIndex]
+    const previousMsg = messages[currentIndex - 1]
+
+    // Different sender = new group
+    const currentSenderId = currentMsg.sender?.id ?? currentMsg.senderId
+    const previousSenderId = previousMsg.sender?.id ?? previousMsg.senderId
+    if (currentSenderId !== previousSenderId) return true
+
+    // Time gap > 2 minutes = new group
+    const currentTime = new Date(currentMsg.sentAt).getTime()
+    const previousTime = new Date(previousMsg.sentAt).getTime()
+    const timeDiffMinutes = (currentTime - previousTime) / 1000 / 60
+
+    return timeDiffMinutes > 2
+  }
+
   return (
     <StickToBottom
       className="relative min-h-0 flex-1"
@@ -33,26 +53,30 @@ export function Messages({
       initial="instant"
     >
       <StickToBottom.Content className="mb-4 flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {messages.map((m) => {
+        {messages.map((m, index) => {
           const sender = m.sender
           const isOwn = (sender?.id ?? m.sender?.id) === currentUserId
+          const showHeader = shouldShowHeader(index)
 
           return (
             <div
               key={m.id}
               className={cn(
                 'flex w-full',
-                isOwn ? 'justify-end' : 'justify-start'
+                isOwn ? 'justify-end' : 'justify-start',
+                !showHeader && '-mt-3'
               )}
             >
               {isOwn ? (
                 <div className="flex flex-col gap-1 max-w-[75%]">
-                  <p className="text-muted-foreground self-end px-1 text-xs">
-                    {formatDate(m.sentAt)}
-                    {m.isEdited && !m.isDeleted && (
-                      <span className="ml-2 text-xs italic">(edited)</span>
-                    )}
-                  </p>
+                  {showHeader && (
+                    <p className="text-muted-foreground self-end px-1 text-xs">
+                      {formatDate(m.sentAt)}
+                      {m.isEdited && !m.isDeleted && (
+                        <span className="ml-2 text-xs italic">(edited)</span>
+                      )}
+                    </p>
+                  )}
                   <MessageContent
                     message={m}
                     isOwn={true}
@@ -66,25 +90,33 @@ export function Messages({
               ) : (
                 <div className="flex items-end gap-2.5 max-w-[75%]">
                   {isGroupChat && (
-                    <UserAvatar
-                      image={sender?.imageUrl}
-                      username={sender?.username}
-                    />
+                    <div className="w-10 h-10 flex-shrink-0">
+                      {showHeader && (
+                        <UserAvatar
+                          image={sender?.imageUrl}
+                          username={sender?.username}
+                        />
+                      )}
+                    </div>
                   )}
                   <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 px-1">
-                      {isGroupChat && (
-                        <span className="text-sm font-medium">
-                          {sender?.username ?? 'Unknown'}
-                        </span>
-                      )}
-                      <span className="text-muted-foreground text-xs">
-                        {formatDate(m.sentAt)}
-                        {m.isEdited && !m.isDeleted && (
-                          <span className="ml-2 text-xs italic">(edited)</span>
+                    {showHeader && (
+                      <div className="flex items-center gap-2 px-1">
+                        {isGroupChat && (
+                          <span className="text-sm font-medium">
+                            {sender?.username ?? 'Unknown'}
+                          </span>
                         )}
-                      </span>
-                    </div>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDate(m.sentAt)}
+                          {m.isEdited && !m.isDeleted && (
+                            <span className="ml-2 text-xs italic">
+                              (edited)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                     <MessageContent
                       message={m}
                       isOwn={false}
