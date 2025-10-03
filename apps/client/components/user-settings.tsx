@@ -59,18 +59,16 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       mutationFn: async ({
         file,
         imageUrl,
-        type,
       }: {
         file?: File
         imageUrl: string
-        type: 'change' | 'delete'
       }) => {
         let finalImageUrl = imageUrl
         if (file) {
           const [uploadedUrl] = await uploadWithProgress([file])
           finalImageUrl = uploadedUrl
         }
-        await updateProfileImage(user.id, finalImageUrl, type, currentImageUrl)
+        await updateProfileImage(user.id, finalImageUrl, currentImageUrl)
         return finalImageUrl
       },
       onSuccess: (imageUrl) => {
@@ -144,7 +142,6 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
     await updateImageMutation({
       file: selectedFile,
       imageUrl: '',
-      type: 'change',
     })
   }
 
@@ -232,7 +229,6 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                       onClick={async () =>
                         await updateImageMutation({
                           imageUrl: '',
-                          type: 'delete',
                         })
                       }
                       disabled={isUpdatingImage}

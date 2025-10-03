@@ -89,13 +89,12 @@ export async function updateUsername(userId: string, newUsername: string) {
 export async function updateProfileImage(
   userId: string,
   imageUrl: string,
-  type: 'change' | 'delete' = 'change',
   oldImageUrl?: string
 ) {
   const supabaseAdmin = await createSupabaseAdminClient()
 
-  // Delete old image from storage if type is delete
-  if (type === 'delete' && oldImageUrl) {
+  // Delete old image from storage if it exists and is different from new one
+  if (oldImageUrl && oldImageUrl !== imageUrl) {
     await deleteImagesFromStorage([oldImageUrl])
   }
 
