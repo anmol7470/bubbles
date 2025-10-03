@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { chatMembers, chats, messages } from '@/lib/db/schema'
+import { chatMembers, chats, messages, messageImages } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { createSupabaseClient } from '@/lib/supabase/server'
 
@@ -24,11 +24,13 @@ const chatWithFullData = {
       sentAt: true,
       isDeleted: true,
       senderId: true,
-      imageUrls: true,
     },
     with: {
       sender: {
         columns: { id: true, username: true },
+      },
+      images: {
+        columns: { id: true, imageUrl: true },
       },
     },
   },
@@ -104,27 +106,50 @@ export async function sendMessage(
   content: string,
   imageUrls?: string[]
 ) {
-  await db.insert(messages).values({
-    id: messageId,
-    sentAt,
-    chatId,
-    senderId: userId,
-    content,
-    imageUrls,
+  await db.transaction(async (tx) => {
+    await tx.insert(messages).values({
+      id: messageId,
+      sentAt,
+      chatId,
+      senderId: userId,
+      content,
+    })
+
+    if (imageUrls && imageUrls.length > 0) {
+      await tx.insert(messageImages).values(
+        imageUrls.map((url) => ({
+          id: crypto.randomUUID(),
+          messageId,
+          imageUrl: url,
+        }))
+      )
+    }
   })
 }
 
 export async function deleteMessage(messageId: string) {
-  const message = await db
-    .update(messages)
-    .set({ isDeleted: true })
-    .where(eq(messages.id, messageId))
-    .returning()
+  await db.transaction(async (tx) => {
+    // Get image URLs before deleting
+    const images = await tx.query.messageImages.findMany({
+      where: (img, { eq }) => eq(img.messageId, messageId),
+      columns: { imageUrl: true },
+    })
 
-  const imageUrls = message[0].imageUrls
-  if (imageUrls && imageUrls.length > 0) {
-    await deleteImagesFromStorage(imageUrls)
-  }
+    // Mark message as deleted
+    await tx
+      .update(messages)
+      .set({ isDeleted: true })
+      .where(eq(messages.id, messageId))
+
+    // Delete images from storage if any
+    if (images.length > 0) {
+      const imageUrls = images.map((img) => img.imageUrl)
+      await deleteImagesFromStorage(imageUrls)
+    }
+
+    // Delete image records
+    await tx.delete(messageImages).where(eq(messageImages.messageId, messageId))
+  })
 }
 
 export async function editMessage(
@@ -133,14 +158,53 @@ export async function editMessage(
   imageUrls: string[] | null,
   deletedImageUrls?: string[]
 ) {
-  if (deletedImageUrls && deletedImageUrls.length > 0) {
-    await deleteImagesFromStorage(deletedImageUrls)
-  }
+  await db.transaction(async (tx) => {
+    // Delete removed images from storage
+    if (deletedImageUrls && deletedImageUrls.length > 0) {
+      await deleteImagesFromStorage(deletedImageUrls)
 
-  await db
-    .update(messages)
-    .set({ content: newContent, isEdited: true, imageUrls })
-    .where(eq(messages.id, messageId))
+      // Remove deleted image records from database
+      const existingImages = await tx.query.messageImages.findMany({
+        where: (img, { eq }) => eq(img.messageId, messageId),
+        columns: { id: true, imageUrl: true },
+      })
+
+      const imageIdsToDelete = existingImages
+        .filter((img) => deletedImageUrls.includes(img.imageUrl))
+        .map((img) => img.id)
+
+      for (const imageId of imageIdsToDelete) {
+        await tx.delete(messageImages).where(eq(messageImages.id, imageId))
+      }
+    }
+
+    // Update message content
+    await tx
+      .update(messages)
+      .set({ content: newContent, isEdited: true })
+      .where(eq(messages.id, messageId))
+
+    // Handle new images (if imageUrls is provided and has new URLs)
+    if (imageUrls && imageUrls.length > 0) {
+      const existingImages = await tx.query.messageImages.findMany({
+        where: (img, { eq }) => eq(img.messageId, messageId),
+        columns: { imageUrl: true },
+      })
+
+      const existingUrls = existingImages.map((img) => img.imageUrl)
+      const newUrls = imageUrls.filter((url) => !existingUrls.includes(url))
+
+      if (newUrls.length > 0) {
+        await tx.insert(messageImages).values(
+          newUrls.map((url) => ({
+            id: crypto.randomUUID(),
+            messageId,
+            imageUrl: url,
+          }))
+        )
+      }
+    }
+  })
 }
 
 // Delete images from any bucket in Supabase storage using public URLs

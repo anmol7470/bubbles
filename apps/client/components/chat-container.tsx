@@ -92,7 +92,11 @@ export function ChatContainer({
             senderId: user.id,
             content,
             sentAt,
-            imageUrls: imageUrls ?? null,
+            images:
+              imageUrls?.map((url) => ({
+                id: crypto.randomUUID(),
+                imageUrl: url,
+              })) ?? [],
             sender: {
               id: user.id,
               username: user.user_metadata.username!,

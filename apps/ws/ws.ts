@@ -101,7 +101,7 @@ export async function setupWebsocket(io: Server) {
         messageId: string
         chatId: string
         content: string
-        imageUrls: string[] | null
+        images: { id: string; imageUrl: string }[]
         participants: string[]
         deletedImageUrls?: string[]
       }) => {
@@ -110,7 +110,7 @@ export async function setupWebsocket(io: Server) {
             messageId: data.messageId,
             chatId: data.chatId,
             content: data.content,
-            imageUrls: data.imageUrls,
+            images: data.images,
             participants: data.participants,
             deletedImageUrls: data.deletedImageUrls,
           })

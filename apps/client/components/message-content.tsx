@@ -35,11 +35,10 @@ export function MessageContent({
   onEditEnd: () => void
 }) {
   const { socket } = useWsClient()
-  const imageCount = message.imageUrls?.length ?? 0
+  const imageUrls = message.images?.map((img) => img.imageUrl) ?? []
+  const imageCount = imageUrls.length
   const [editContent, setEditContent] = useState(message.content)
-  const [editImageUrls, setEditImageUrls] = useState<string[]>(
-    message.imageUrls ?? []
-  )
+  const [editImageUrls, setEditImageUrls] = useState<string[]>(imageUrls)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-focus textarea when editing starts
@@ -90,7 +89,11 @@ export function MessageContent({
           messageId: message.id,
           chatId,
           content,
-          imageUrls,
+          images:
+            imageUrls?.map((url) => ({
+              id: crypto.randomUUID(),
+              imageUrl: url,
+            })) ?? [],
           participants,
           deletedImageUrls,
         })
@@ -122,8 +125,7 @@ export function MessageContent({
       return
     }
 
-    const originalImageUrls = message.imageUrls ?? []
-    const deletedImageUrls = originalImageUrls.filter(
+    const deletedImageUrls = imageUrls.filter(
       (url) => !editImageUrls.includes(url)
     )
 
@@ -136,7 +138,7 @@ export function MessageContent({
 
   const handleCancelEdit = () => {
     setEditContent(message.content)
-    setEditImageUrls(message.imageUrls ?? [])
+    setEditImageUrls(imageUrls)
     onEditEnd()
   }
 
@@ -236,7 +238,7 @@ export function MessageContent({
             isOwn ? 'justify-end' : 'justify-start'
           )}
         >
-          {message.imageUrls!.map((url, index) => (
+          {imageUrls.map((url, index) => (
             <div
               key={index}
               className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-lg overflow-hidden border border-neutral-300 dark:border-zinc-700 flex-shrink-0"

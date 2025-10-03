@@ -18,3 +18,4 @@ Break down complex components into smaller components.
 Use kebab-case naming convention for file names.
 Use Drizzle ORM's relational api for database queries.
 Generate migrations using `pnpm db:generate` and apply them using `pnpm db:migrate` inside the `apps/client` directory.
+Use Drizzle's transactions for multiple database operations together.

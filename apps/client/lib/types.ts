@@ -37,7 +37,19 @@ export type NewChatPayload = {
 }
 
 export type NewMessagePayload = {
-  message: ChatWithMessages['messages'][number]
+  message: {
+    id: string
+    chatId: string
+    senderId: string
+    content: string
+    sentAt: Date
+    images: { id: string; imageUrl: string }[]
+    sender: {
+      id: string
+      username: string
+      imageUrl: string | null
+    }
+  }
   chatId: string
   participants: string[]
 }
@@ -65,7 +77,7 @@ export type EditMessagePayload = {
   messageId: string
   chatId: string
   content: string
-  imageUrls: string[] | null
+  images: { id: string; imageUrl: string }[]
   participants: string[]
   deletedImageUrls?: string[]
 }

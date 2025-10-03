@@ -98,7 +98,10 @@ export async function updateProfileImage(
     throw new Error(metadataError.message)
   }
 
-  await db.update(users).set({ imageUrl }).where(eq(users.id, userId))
+  await db
+    .update(users)
+    .set({ imageUrl: imageUrl ?? null })
+    .where(eq(users.id, userId))
 
   revalidatePath('/', 'layout')
 }

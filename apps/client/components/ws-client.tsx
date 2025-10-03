@@ -105,8 +105,9 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
                         content: payload.message.content,
                         sentAt: payload.message.sentAt,
                         isDeleted: false,
+                        isEdited: false,
                         senderId: payload.message.senderId,
-                        imageUrls: payload.message.imageUrls ?? null,
+                        images: payload.message.images ?? [],
                         sender: payload.message.sender,
                       },
                     ],
@@ -221,7 +222,7 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
                     ? {
                         ...msg,
                         content: payload.content,
-                        imageUrls: payload.imageUrls,
+                        images: payload.images ?? [],
                         isEdited: true,
                       }
                     : msg
@@ -245,7 +246,7 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
                         {
                           ...chat.messages[0],
                           content: payload.content,
-                          imageUrls: payload.imageUrls,
+                          images: payload.images ?? [],
                         },
                       ],
                     }

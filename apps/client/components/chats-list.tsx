@@ -159,7 +159,7 @@ function displayLastMessage(chat: ChatWithMembers, currentUserId: string) {
     )
   }
 
-  const imageCount = lastMessage.imageUrls?.length ?? 0
+  const imageCount = lastMessage.images?.length ?? 0
 
   // If content is empty but there was a message sent (image-only message)
   if (!lastMessage.content || lastMessage.content.trim() === '') {

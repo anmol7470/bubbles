@@ -67,7 +67,6 @@ export const messages = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     content: text('content').default('').notNull(),
     sentAt: timestamp('sent_at').defaultNow().notNull(),
-    imageUrls: text('image_urls').array(),
     isDeleted: boolean('is_deleted').default(false),
     isEdited: boolean('is_edited').default(false),
   },
@@ -75,6 +74,19 @@ export const messages = pgTable(
     index('messages_chat_id_sent_at_idx').on(table.chatId, table.sentAt.desc()),
     index('messages_sender_id_idx').on(table.senderId),
   ]
+)
+
+export const messageImages = pgTable(
+  'message_images',
+  {
+    id: text('id').primaryKey(),
+    messageId: text('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    imageUrl: text('image_url').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('message_images_message_id_idx').on(table.messageId)]
 )
 
 export const chatRelations = relations(chats, ({ many }) => ({
@@ -87,7 +99,15 @@ export const chatMemberRelations = relations(chatMembers, ({ one }) => ({
   user: one(users, { fields: [chatMembers.userId], references: [users.id] }),
 }))
 
-export const messageRelations = relations(messages, ({ one }) => ({
+export const messageRelations = relations(messages, ({ one, many }) => ({
   chat: one(chats, { fields: [messages.chatId], references: [chats.id] }),
   sender: one(users, { fields: [messages.senderId], references: [users.id] }),
+  images: many(messageImages),
+}))
+
+export const messageImageRelations = relations(messageImages, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageImages.messageId],
+    references: [messages.id],
+  }),
 }))

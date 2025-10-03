@@ -37,13 +37,18 @@ export async function getAllChatsForUser(userId: string) {
           sentAt: true,
           isDeleted: true,
           senderId: true,
-          imageUrls: true,
         },
         with: {
           sender: {
             columns: {
               id: true,
               username: true,
+            },
+          },
+          images: {
+            columns: {
+              id: true,
+              imageUrl: true,
             },
           },
         },
@@ -118,6 +123,12 @@ export async function getChatById(chatId: string, userId: string) {
             columns: {
               id: true,
               username: true,
+              imageUrl: true,
+            },
+          },
+          images: {
+            columns: {
+              id: true,
               imageUrl: true,
             },
           },
