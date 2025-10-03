@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { signupSchema, type SignupFormData } from '@/lib/types'
-import { signup } from '../../../lib/auth-actions'
+import { signup } from '@/lib/auth-actions'
 
 export default function SignupPage() {
   const {

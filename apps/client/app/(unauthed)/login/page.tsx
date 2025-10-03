@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { loginSchema, type LoginFormData } from '@/lib/types'
-import { login } from '../../../lib/auth-actions'
+import { login } from '@/lib/auth-actions'
 
 export default function LoginPage() {
   const {

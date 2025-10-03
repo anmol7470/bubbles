@@ -212,12 +212,19 @@ export function NewChatDialog({ user }: { user: User }) {
           ) : (
             /* Group Name Input */
             <div className="space-y-2">
-              <Input
-                placeholder="Enter group name..."
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                autoFocus
-              />
+              <div className="relative">
+                <Input
+                  placeholder="Enter group name..."
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  maxLength={50}
+                  autoFocus
+                  className="pr-12"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  {groupName.length}/50
+                </div>
+              </div>
             </div>
           )}
         </div>

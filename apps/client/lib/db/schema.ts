@@ -31,7 +31,7 @@ export const chats = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     isGroupChat: boolean('is_group_chat').default(false),
-    groupChatName: varchar('group_chat_name', { length: 255 }),
+    groupChatName: varchar('group_chat_name', { length: 50 }),
   },
   (table) => [
     check(
