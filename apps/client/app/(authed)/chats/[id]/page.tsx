@@ -1,5 +1,5 @@
 import { ChatContainer } from '@/components/chat-container'
-import { createSupabaseClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/cached'
 import { redirect } from 'next/navigation'
 
 export default async function ChatPage({
@@ -9,8 +9,7 @@ export default async function ChatPage({
 }) {
   const { id } = await params
 
-  const supabase = await createSupabaseClient()
-  const { data, error } = await supabase.auth.getUser()
+  const { data, error } = await getCachedUser()
   if (error || !data?.user) {
     redirect('/login')
   }

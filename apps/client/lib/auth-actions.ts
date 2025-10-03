@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createSupabaseClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
@@ -22,7 +21,6 @@ export async function login(email: string, password: string) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/chats')
 }
 
 export async function signup(
@@ -55,7 +53,18 @@ export async function signup(
   }
 
   revalidatePath('/', 'layout')
-  redirect('/chats')
+}
+
+export async function signout() {
+  const supabase = await createSupabaseClient()
+
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/', 'layout')
 }
 
 export async function updateUsername(userId: string, newUsername: string) {
@@ -113,5 +122,4 @@ export async function deleteUser(userId: string) {
   await supabaseAdmin.deleteUser(userId)
 
   revalidatePath('/', 'layout')
-  redirect('/login')
 }

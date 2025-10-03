@@ -1,5 +1,5 @@
 import { ChatsList } from '@/components/chats-list'
-import { createSupabaseClient } from '@/lib/supabase/server'
+import { getCachedUser } from '@/lib/supabase/cached'
 import { redirect } from 'next/navigation'
 
 export default async function AuthedLayout({
@@ -7,8 +7,7 @@ export default async function AuthedLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createSupabaseClient()
-  const { data, error } = await supabase.auth.getUser()
+  const { data, error } = await getCachedUser()
   if (error || !data?.user) {
     redirect('/login')
   }

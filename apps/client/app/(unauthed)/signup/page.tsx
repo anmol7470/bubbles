@@ -3,16 +3,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeftIcon } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
 import { type SubmitHandler, useForm } from 'react-hook-form'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { signupSchema, type SignupFormData } from '@/lib/types'
-import { signup } from '@/lib/auth-actions'
+import { signup as signupAction } from '@/lib/auth-actions'
+import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
 export default function SignupPage() {
+  const router = useRouter()
   const {
     register,
     handleSubmit,
@@ -20,18 +21,16 @@ export default function SignupPage() {
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
   })
-  const [isLoading, setIsLoading] = useState(false)
+  const { mutateAsync: signup, isPending: isCreatingAccount } = useMutation({
+    mutationFn: (data: SignupFormData) =>
+      signupAction(data.email, data.password, data.username),
+    onSuccess: () => {
+      router.push('/chats')
+    },
+  })
 
   const onSubmit: SubmitHandler<SignupFormData> = async (data) => {
-    setIsLoading(true)
-
-    try {
-      await signup(data.email, data.password, data.username)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
+    await signup(data)
   }
 
   return (
@@ -110,7 +109,7 @@ export default function SignupPage() {
               type="submit"
               className="mt-6 w-full font-semibold py-3 transition-colors"
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isCreatingAccount ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
 

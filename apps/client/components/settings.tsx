@@ -7,7 +7,7 @@ import {
   SunIcon,
   UserIcon,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTheme } from 'next-themes'
 import { Button } from './ui/button'
 import {
@@ -16,30 +16,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { createSupabaseClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import { UserSettings } from './user-settings'
 import type { User } from '@/lib/types'
+import { signout as signoutAction } from '@/lib/auth-actions'
+import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
-export function Settings() {
+export function Settings({ user }: { user: User }) {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
-  const supabase = createSupabaseClient()
   const [showUserSettings, setShowUserSettings] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user as User)
-      }
-    }
-    getUser()
-  }, [supabase])
+  const { mutateAsync: signout } = useMutation({
+    mutationFn: () => signoutAction(),
+    onSuccess: () => {
+      router.push('/login')
+    },
+  })
 
   return (
     <>
@@ -63,14 +56,7 @@ export function Settings() {
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={async () => {
-              const { error } = await supabase.auth.signOut()
-              if (error) {
-                toast.error(
-                  error instanceof Error ? error.message : 'An error occurred'
-                )
-                return
-              }
-              router.push('/login')
+              await signout()
             }}
           >
             <LogOutIcon className="size-5" />

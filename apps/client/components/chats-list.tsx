@@ -48,7 +48,7 @@ export function ChatsList({ user }: { user: User }) {
             Chats
           </Link>
           <div className="flex items-center">
-            <Settings />
+            <Settings user={user} />
             <NewChatDialog user={user} />
           </div>
         </div>

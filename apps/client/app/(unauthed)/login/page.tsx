@@ -3,16 +3,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeftIcon } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
 import { type SubmitHandler, useForm } from 'react-hook-form'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { loginSchema, type LoginFormData } from '@/lib/types'
-import { login } from '@/lib/auth-actions'
+import { login as loginAction } from '@/lib/auth-actions'
+import { useMutation } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const router = useRouter()
   const {
     register,
     handleSubmit,
@@ -20,18 +21,16 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
-  const [isLoading, setIsLoading] = useState(false)
+
+  const { mutateAsync: login, isPending: isLoggingIn } = useMutation({
+    mutationFn: (data: LoginFormData) => loginAction(data.email, data.password),
+    onSuccess: () => {
+      router.push('/chats')
+    },
+  })
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-    setIsLoading(true)
-
-    try {
-      await login(data.email, data.password)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
+    await login(data)
   }
 
   return (
@@ -90,8 +89,9 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="mt-6 w-full font-semibold py-3 transition-colors"
+              disabled={isLoggingIn}
             >
-              {isLoading ? 'Logging in...' : 'Log in'}
+              {isLoggingIn ? 'Logging in...' : 'Log in'}
             </Button>
           </form>
 

@@ -30,40 +30,6 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const pathname = request.nextUrl.pathname
-
-  // If user is authenticated
-  if (user) {
-    // Redirect authenticated users away from auth pages and home route to /chats
-    if (
-      pathname === '/' ||
-      pathname.startsWith('/login') ||
-      pathname.startsWith('/signup')
-    ) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/chats'
-      return NextResponse.redirect(url)
-    }
-  } else {
-    // If user is not authenticated
-    // Redirect unauthenticated users trying to access /chats to /login
-    if (pathname.startsWith('/chats')) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
-  }
-
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   // If you're creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so:

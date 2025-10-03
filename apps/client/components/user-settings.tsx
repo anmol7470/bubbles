@@ -24,6 +24,7 @@ import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { Label } from './ui/label'
 import { Separator } from './ui/separator'
+import { useRouter } from 'next/navigation'
 
 interface UserSettingsProps {
   open: boolean
@@ -32,6 +33,7 @@ interface UserSettingsProps {
 }
 
 export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
+  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [username, setUsername] = useState(user.user_metadata.username || '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -91,6 +93,9 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
 
   const { mutateAsync: deleteUserMutation } = useMutation({
     mutationFn: () => deleteUser(user.id),
+    onSuccess: () => {
+      router.push('/login')
+    },
   })
 
   // Cleanup preview URL when component unmounts or preview changes
