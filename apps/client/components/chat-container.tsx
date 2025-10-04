@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ImagePlusIcon, Loader2Icon, SmilePlusIcon, XIcon } from 'lucide-react'
@@ -183,6 +183,18 @@ export function ChatContainer({
       )
     }
   }
+
+  useEffect(() => {
+    if (!chat) return
+
+    setTimeout(() => {
+      if (chat.isGroupChat) {
+        document.title = `${chat.groupChatName} - Bubbles`
+      } else {
+        document.title = `${getDisplayName(otherParticipant)} - Bubbles`
+      }
+    }, 100)
+  }, [chat, otherParticipant])
 
   return (
     <div

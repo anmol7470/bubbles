@@ -16,12 +16,12 @@ A fully-featured real-time chat application supporting direct messages and group
 
 - [Next.js 15](https://nextjs.org/) - React framework with App Router
 - [React 19](https://react.dev/) - Latest React
-- [TanStack Query](https://tanstack.com/query/latest) - Powerful data synchronization
+- [TanStack Query](https://tanstack.com/query/latest) - Powerful data synchronization and fetching
 - [Supabase](https://supabase.com/) - Backend-as-a-Service (Authentication, PostgreSQL, Storage)
 - [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM with relational queries
 - [Socket.IO](https://socket.io/) - Real-time bidirectional event-based communication
-- [Bun](https://bun.sh/) - Fast JavaScript runtime for WebSocket server
-- [Hono](https://hono.dev/) - Lightweight web framework
+- [Bun](https://bun.sh/) - Fast JavaScript runtime
+- [Hono](https://hono.dev/) - Lightweight web server framework
 - [TailwindCSS 4](https://tailwindcss.com/) - Utility-first CSS framework
 - [shadcn/ui](https://ui.shadcn.com/) - Re-usable component library built on Radix UI
 
