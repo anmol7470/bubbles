@@ -16,7 +16,7 @@ import {
   updateProfileImage,
   deleteUser,
 } from '@/lib/auth-actions'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import {
   ImageIcon,
@@ -30,7 +30,8 @@ import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { Label } from './ui/label'
 import { Separator } from './ui/separator'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { clearAllChats, deleteAllChats } from '@/lib/db/mutations'
 
 interface UserSettingsProps {
   open: boolean
@@ -40,6 +41,9 @@ interface UserSettingsProps {
 
 export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const chatId = pathname.split('/chats/')[1]?.split('/')[0]
   const [username, setUsername] = useState(user.user_metadata.username || '')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDeleteChatsConfirm, setShowDeleteChatsConfirm] = useState(false)
@@ -58,46 +62,66 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
     clearSingleImage,
   } = useImageUpload(user.id, 'avatars', { maxImages: 1 })
 
-  const { mutateAsync: updateUsernameMutation, isPending: isUpdatingUsername } =
-    useMutation({
-      mutationFn: (newUsername: string) => updateUsername(user.id, newUsername),
-      onSuccess: () => {
-        toast.success('Username updated successfully')
-      },
-    })
+  const updateUsernameMutation = useMutation({
+    mutationFn: (newUsername: string) => updateUsername(user.id, newUsername),
+    onSuccess: () => {
+      toast.success('Username updated successfully')
+    },
+  })
 
-  const { mutateAsync: updateImageMutation, isPending: isUpdatingImage } =
-    useMutation({
-      mutationFn: async ({
-        file,
-        imageUrl,
-      }: {
-        file?: File
-        imageUrl: string
-      }) => {
-        let finalImageUrl = imageUrl
-        if (file) {
-          const [uploadedUrl] = await uploadWithProgress([file])
-          finalImageUrl = uploadedUrl
-        }
-        await updateProfileImage(user.id, finalImageUrl, currentImageUrl)
-        return finalImageUrl
-      },
-      onSuccess: (imageUrl) => {
-        setCurrentImageUrl(imageUrl)
-        clearSingleImage()
-        toast.success(
-          imageUrl
-            ? 'Profile picture updated successfully'
-            : 'Profile picture removed'
-        )
-      },
-    })
+  const updateImageMutation = useMutation({
+    mutationFn: async ({
+      file,
+      imageUrl,
+    }: {
+      file?: File
+      imageUrl: string
+    }) => {
+      let finalImageUrl = imageUrl
+      if (file) {
+        const [uploadedUrl] = await uploadWithProgress([file])
+        finalImageUrl = uploadedUrl
+      }
+      await updateProfileImage(user.id, finalImageUrl, currentImageUrl)
+      return finalImageUrl
+    },
+    onSuccess: (imageUrl) => {
+      setCurrentImageUrl(imageUrl)
+      clearSingleImage()
+      toast.success(
+        imageUrl
+          ? 'Profile picture updated successfully'
+          : 'Profile picture removed'
+      )
+    },
+  })
 
-  const { mutateAsync: deleteUserMutation } = useMutation({
+  const deleteUserMutation = useMutation({
     mutationFn: () => deleteUser(user.id),
     onSuccess: () => {
       router.push('/login')
+    },
+  })
+
+  const clearAllChatsMutation = useMutation({
+    mutationFn: () => clearAllChats(user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      if (chatId) {
+        queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      }
+      toast.success('All chats cleared successfully')
+    },
+  })
+
+  const deleteAllChatsMutation = useMutation({
+    mutationFn: () => deleteAllChats(user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      if (chatId) {
+        router.push('/chats')
+      }
+      toast.success('All chats deleted successfully')
     },
   })
 
@@ -112,13 +136,13 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       return
     }
 
-    await updateUsernameMutation(username)
+    updateUsernameMutation.mutate(username)
   }
 
   const handleSaveImage = async () => {
     if (selectedImages.length === 0) return
 
-    await updateImageMutation({
+    updateImageMutation.mutate({
       file: selectedImages[0],
       imageUrl: '',
     })
@@ -159,14 +183,17 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                     accept="image/*"
                     className="hidden"
                     onChange={handleFileSelect}
-                    disabled={isUpdatingImage}
+                    disabled={updateImageMutation.isPending}
                   />
                   <div className="flex justify-between gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={triggerFileSelect}
-                      disabled={isUpdatingImage || selectedImages.length > 0}
+                      disabled={
+                        updateImageMutation.isPending ||
+                        selectedImages.length > 0
+                      }
                     >
                       Change Picture
                     </Button>
@@ -175,15 +202,15 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                         <Button
                           size="sm"
                           onClick={handleSaveImage}
-                          disabled={isUpdatingImage}
+                          disabled={updateImageMutation.isPending}
                         >
-                          {isUpdatingImage ? 'Saving...' : 'Save'}
+                          {updateImageMutation.isPending ? 'Saving...' : 'Save'}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={clearSingleImage}
-                          disabled={isUpdatingImage}
+                          disabled={updateImageMutation.isPending}
                         >
                           Cancel
                         </Button>
@@ -195,11 +222,11 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                       variant="ghost"
                       size="sm"
                       onClick={async () =>
-                        await updateImageMutation({
+                        updateImageMutation.mutate({
                           imageUrl: '',
                         })
                       }
-                      disabled={isUpdatingImage}
+                      disabled={updateImageMutation.isPending}
                       className="text-destructive self-start"
                     >
                       <XIcon className="size-4 mr-2" />
@@ -220,13 +247,13 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  disabled={isUpdatingUsername}
+                  disabled={updateUsernameMutation.isPending}
                 />
                 <Button
                   onClick={handleUpdateUsername}
-                  disabled={isUpdatingUsername}
+                  disabled={updateUsernameMutation.isPending}
                 >
-                  {isUpdatingUsername ? 'Saving...' : 'Save'}
+                  {updateUsernameMutation.isPending ? 'Saving...' : 'Save'}
                 </Button>
               </div>
             </div>
@@ -268,34 +295,37 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       <ConfirmationDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        onConfirm={async () => await deleteUserMutation()}
+        onConfirm={() => deleteUserMutation.mutate()}
         title="Delete Account"
         description="Are you sure you want to delete your account? This action is irreversible and all your data will be permanently deleted."
         confirmText="Delete Account"
+        isLoading={deleteUserMutation.isPending}
       />
 
       <ConfirmationDialog
         open={showClearChatsConfirm}
         onOpenChange={setShowClearChatsConfirm}
         onConfirm={() => {
-          // TODO: Implement clear all chats
+          clearAllChatsMutation.mutate()
           setShowClearChatsConfirm(false)
         }}
         title="Clear All Chats"
         description="Are you sure you want to clear all chats? This will remove all messages but keep the chat conversations."
         confirmText="Clear Chats"
+        isLoading={clearAllChatsMutation.isPending}
       />
 
       <ConfirmationDialog
         open={showDeleteChatsConfirm}
         onOpenChange={setShowDeleteChatsConfirm}
         onConfirm={() => {
-          // TODO: Implement delete all chats
+          deleteAllChatsMutation.mutate()
           setShowDeleteChatsConfirm(false)
         }}
         title="Delete All Chats"
         description="Are you sure you want to delete all chats? This action is irreversible and all chat data will be permanently deleted."
         confirmText="Delete Chats"
+        isLoading={deleteAllChatsMutation.isPending}
       />
     </>
   )

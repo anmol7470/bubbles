@@ -111,7 +111,9 @@ export function ChatContainer({
           socket.emit('newMessage', {
             message: optimisticMessage,
             chatId,
-            participants: chat.members.map((m) => m.user?.id),
+            participants: chat.members
+              .map((m) => m.user?.id)
+              .filter((id): id is string => !!id),
           })
         }
       },
@@ -243,7 +245,11 @@ export function ChatContainer({
               messages={chat?.messages ?? []}
               currentUserId={user.id}
               chatId={chatId}
-              participants={chat?.members.map((m) => m.user?.id ?? '') ?? []}
+              participants={
+                chat?.members
+                  .map((m) => m.user?.id)
+                  .filter((id): id is string => !!id) ?? []
+              }
               typingUsers={typingUsers[chatId] || []}
             />
 

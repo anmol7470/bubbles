@@ -24,10 +24,12 @@ export async function setupWebsocket(io: Server) {
 
     socket.on('chatCreated', (data: { chat: any }) => {
       // Emit to all members of the new chat
-      data.chat.members.forEach((member: { user: { id: string } }) => {
-        io.to(userRoom(member.user.id)).emit('chatCreated', {
-          chat: data.chat,
-        })
+      data.chat.members.forEach((member: { user: { id: string } | null }) => {
+        if (member.user?.id) {
+          io.to(userRoom(member.user.id)).emit('chatCreated', {
+            chat: data.chat,
+          })
+        }
       })
     })
 

@@ -48,7 +48,6 @@ export async function getAllChatsForUser(userId: string) {
                 and(
                   eq(chatMembers.chatId, message.chatId),
                   eq(chatMembers.userId, userId),
-                  eq(chatMembers.isCleared, false),
                   gte(
                     message.sentAt,
                     sql`COALESCE(GREATEST(${chatMembers.clearedAt}, ${chatMembers.deletedAt}), ${chatMembers.joinedAt})`
@@ -158,7 +157,6 @@ export async function getChatById(chatId: string, userId: string) {
                 and(
                   eq(chatMembers.chatId, message.chatId),
                   eq(chatMembers.userId, userId),
-                  eq(chatMembers.isCleared, false),
                   gte(
                     message.sentAt,
                     sql`COALESCE(GREATEST(${chatMembers.clearedAt}, ${chatMembers.deletedAt}), ${chatMembers.joinedAt})`

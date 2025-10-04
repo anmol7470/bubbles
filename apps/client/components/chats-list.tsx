@@ -82,7 +82,7 @@ export function ChatsList({ user }: { user: User }) {
                 filteredChats.map((chat) => {
                   const otherParticipant = chat.members.filter(
                     (member) => member.user?.id !== user.id
-                  )[0].user
+                  )[0]?.user
 
                   return (
                     <Link

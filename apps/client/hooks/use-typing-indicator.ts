@@ -18,7 +18,9 @@ export function useTypingIndicator(
       socket.emit('stopTyping', {
         chatId,
         userId,
-        participants: chat.members.map((m) => m.user?.id ?? ''),
+        participants: chat.members
+          .map((m) => m.user?.id)
+          .filter((id): id is string => !!id),
       })
     }
   }, [socket, chat, chatId, userId])
@@ -36,7 +38,9 @@ export function useTypingIndicator(
         chatId,
         userId,
         username,
-        participants: chat.members.map((m) => m.user?.id ?? ''),
+        participants: chat.members
+          .map((m) => m.user?.id)
+          .filter((id): id is string => !!id),
       })
     }
 

@@ -43,7 +43,7 @@ export type NewMessagePayload = {
   message: {
     id: string
     chatId: string
-    senderId: string
+    senderId: string | null
     content: string
     sentAt: Date
     images: { id: string; imageUrl: string }[]
@@ -51,7 +51,8 @@ export type NewMessagePayload = {
       id: string
       username: string
       imageUrl: string | null
-    }
+      isActive?: boolean
+    } | null
   }
   chatId: string
   participants: string[]

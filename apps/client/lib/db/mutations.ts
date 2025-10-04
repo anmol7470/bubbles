@@ -346,8 +346,68 @@ export async function deleteChat(chatId: string, userId: string) {
 
     const allDeleted = allMembers.every((member) => member.isDeleted)
 
-    if (allDeleted) {
+    // Also delete the chat if the other member is not active
+    const isOtherMemberActive = allMembers.find(
+      (member) => member.userId !== userId && member.userId !== null
+    )?.isDeleted
+
+    if (allDeleted || !isOtherMemberActive) {
       await tx.delete(chats).where(eq(chats.id, chatId))
     }
   })
 }
+
+export async function clearAllChats(userId: string) {
+  await db
+    .update(chatMembers)
+    .set({ isCleared: true, clearedAt: new Date() })
+    .where(eq(chatMembers.userId, userId))
+}
+
+export async function deleteAllChats(userId: string) {
+  await db
+    .update(chatMembers)
+    .set({ isDeleted: true, deletedAt: new Date() })
+    .where(eq(chatMembers.userId, userId))
+}
+
+export async function updateGroupChatName(chatId: string, newName: string) {
+  await db
+    .update(chats)
+    .set({ groupChatName: newName })
+    .where(eq(chats.id, chatId))
+}
+
+export async function updateGroupChatImage(
+  chatId: string,
+  newImageUrl: string
+) {
+  await db
+    .update(chats)
+    .set({ groupChatImageUrl: newImageUrl })
+    .where(eq(chats.id, chatId))
+}
+
+// This won't work because of rls policy preventing any body else to delete image other than the user who uploaded it
+// So images uploaded by other users will not be deleted when the chat is deleted by the current user
+
+// async function deleteAllImagesFromChat(chatId: string) {
+//   const messageIds = await db.query.messages.findMany({
+//     where: (msg, { eq }) => eq(msg.chatId, chatId),
+//     columns: { id: true },
+//   })
+
+//   const imageUrls = await db
+//     .delete(messageImages)
+//     .where(
+//       inArray(
+//         messageImages.messageId,
+//         messageIds.map((msg) => msg.id)
+//       )
+//     )
+//     .returning({ imageUrl: messageImages.imageUrl })
+
+//   if (imageUrls.length > 0) {
+//     await deleteImagesFromStorage(imageUrls.map((img) => img.imageUrl))
+//   }
+// }

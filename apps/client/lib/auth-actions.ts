@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { chatMembers, users } from '@/lib/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 import { deleteImagesFromStorage } from '@/lib/db/mutations'
 
 export async function login(email: string, password: string) {
@@ -118,8 +118,36 @@ export async function deleteUser(userId: string) {
   const supabaseAdmin = await createSupabaseAdminClient()
 
   // Soft delete: mark user as inactive to anonymize them
-  // Messages and chat memberships will remain but show as "Anonymous User"
+  // Messages and DM memberships will remain but show as "Anonymous User"
   await db.update(users).set({ isActive: false }).where(eq(users.id, userId))
+
+  // Remove group chat memberships
+  const chatMemberships = await db.query.chatMembers.findMany({
+    where: (member, { eq }) => eq(member.userId, userId),
+    columns: {
+      chatId: true,
+    },
+    with: {
+      chat: {
+        columns: {
+          isGroupChat: true,
+        },
+      },
+    },
+  })
+
+  const groupChatIds = chatMemberships
+    .filter((membership) => membership.chat?.isGroupChat)
+    .map((membership) => membership.chatId)
+
+  await db
+    .delete(chatMembers)
+    .where(
+      and(
+        inArray(chatMembers.chatId, groupChatIds),
+        eq(chatMembers.userId, userId)
+      )
+    )
 
   // Delete from Supabase auth
   await supabaseAdmin.deleteUser(userId)

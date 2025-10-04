@@ -27,6 +27,8 @@ import {
   clearChat,
   deleteChat,
   deleteGroupChat,
+  updateGroupChatName,
+  updateGroupChatImage,
 } from '@/lib/db/mutations'
 import { useQueryClient } from '@tanstack/react-query'
 import { ConfirmationDialog } from './confirmation-dialog'
@@ -59,6 +61,8 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     handleFileSelect,
     triggerFileSelect,
     clearSingleImage,
+    uploadWithProgress,
+    isUploadingImages,
   } = useImageUpload(user.id, 'avatars', { maxImages: 1 })
 
   const { data: chat, isLoading } = useQuery({
@@ -116,6 +120,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     mutationFn: () => clearChat(chatId, user.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
       toast.success('Chat cleared successfully')
       setShowClearChatConfirm(false)
     },
@@ -151,6 +156,33 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     },
   })
 
+  const updateGroupChatNameMutation = useMutation({
+    mutationFn: (newName: string) => updateGroupChatName(chatId, newName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      toast.success('Group chat name updated successfully')
+      setIsEditingName(false)
+    },
+    onError: () => {
+      toast.error('Failed to update group chat name')
+    },
+  })
+
+  const updateGroupChatImageMutation = useMutation({
+    mutationFn: (newImageUrl: string) =>
+      updateGroupChatImage(chatId, newImageUrl),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      toast.success('Group chat image updated successfully')
+      clearSingleImage()
+    },
+    onError: () => {
+      toast.error('Failed to update group chat image')
+    },
+  })
+
   const handleNameClick = () => {
     if (isCreator && chat?.isGroupChat) {
       setEditedName(chat.groupChatName || '')
@@ -159,8 +191,11 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
   }
 
   const handleNameSave = () => {
-    // TODO: Implement save name mutation
-    setIsEditingName(false)
+    if (editedName.trim() && editedName !== chat?.groupChatName) {
+      updateGroupChatNameMutation.mutate(editedName.trim())
+    } else {
+      setIsEditingName(false)
+    }
   }
 
   const handleNameCancel = () => {
@@ -168,8 +203,17 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     setIsEditingName(false)
   }
 
-  const handleSaveImage = () => {
-    clearSingleImage()
+  const handleSaveImage = async () => {
+    if (selectedImages.length > 0) {
+      try {
+        const uploadedUrls = await uploadWithProgress(selectedImages)
+        if (uploadedUrls[0]) {
+          updateGroupChatImageMutation.mutate(uploadedUrls[0])
+        }
+      } catch {
+        toast.error('Failed to upload image')
+      }
+    }
   }
 
   if (isLoading) {
@@ -263,14 +307,26 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
             </div>
             {selectedImages.length > 0 && (
               <div className="flex gap-1">
-                <Button size="sm" className="text-xs" onClick={handleSaveImage}>
-                  Save
+                <Button
+                  size="sm"
+                  className="text-xs"
+                  onClick={handleSaveImage}
+                  disabled={
+                    isUploadingImages || updateGroupChatImageMutation.isPending
+                  }
+                >
+                  {isUploadingImages || updateGroupChatImageMutation.isPending
+                    ? 'Saving...'
+                    : 'Save'}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="text-xs"
                   onClick={clearSingleImage}
+                  disabled={
+                    isUploadingImages || updateGroupChatImageMutation.isPending
+                  }
                 >
                   <XIcon className="size-4" />
                 </Button>
@@ -304,14 +360,20 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
               </div>
             </div>
             <div className="flex gap-1">
-              <Button size="sm" className="text-xs" onClick={handleNameSave}>
-                Save
+              <Button
+                size="sm"
+                className="text-xs"
+                onClick={handleNameSave}
+                disabled={updateGroupChatNameMutation.isPending}
+              >
+                {updateGroupChatNameMutation.isPending ? 'Saving...' : 'Save'}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 className="text-xs"
                 onClick={handleNameCancel}
+                disabled={updateGroupChatNameMutation.isPending}
               >
                 <XIcon className="size-4" />
               </Button>
