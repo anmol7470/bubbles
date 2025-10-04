@@ -63,7 +63,13 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   } = useImageUpload(user.id, 'avatars', { maxImages: 1 })
 
   const updateUsernameMutation = useMutation({
-    mutationFn: (newUsername: string) => updateUsername(user.id, newUsername),
+    mutationFn: async (newUsername: string) => {
+      const result = await updateUsername(user.id, newUsername)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result
+    },
     onSuccess: () => {
       toast.success('Username updated successfully')
     },
@@ -82,7 +88,14 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
         const [uploadedUrl] = await uploadWithProgress([file])
         finalImageUrl = uploadedUrl
       }
-      await updateProfileImage(user.id, finalImageUrl, currentImageUrl)
+      const result = await updateProfileImage(
+        user.id,
+        finalImageUrl,
+        currentImageUrl
+      )
+      if (!result.success) {
+        throw new Error(result.error)
+      }
       return finalImageUrl
     },
     onSuccess: (imageUrl) => {
@@ -97,7 +110,13 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   })
 
   const deleteUserMutation = useMutation({
-    mutationFn: () => deleteUser(user.id),
+    mutationFn: async () => {
+      const result = await deleteUser(user.id)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result
+    },
     onSuccess: () => {
       router.push('/login')
     },

@@ -14,6 +14,8 @@ const app = new Hono()
 
 const { websocket } = engine.handler()
 
+app.get('/', (c) => c.text('Hello from the server!'))
+
 export default {
   port: 3001,
   idleTimeout: 30,

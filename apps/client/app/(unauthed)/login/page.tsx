@@ -23,14 +23,18 @@ export default function LoginPage() {
   })
 
   const { mutateAsync: login, isPending: isLoggingIn } = useMutation({
-    mutationFn: (data: LoginFormData) => loginAction(data.email, data.password),
-    onSuccess: () => {
-      router.push('/chats')
+    mutationFn: async (data: LoginFormData) => {
+      const result = await loginAction(data.email, data.password)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result
     },
   })
 
   const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
     await login(data)
+    router.push('/chats')
   }
 
   return (

@@ -39,9 +39,6 @@ bubbles/
 │   │       ├── db/      # Database schema and queries
 │   │       └── supabase/ # Supabase client setup
 │   └── ws/              # WebSocket server (Bun + Socket.IO)
-├── package.json         # Root package configuration
-├── pnpm-workspace.yaml  # pnpm workspace configuration
-└── turbo.json          # Turborepo configuration
 ```
 
 ### Prerequisites
@@ -65,7 +62,7 @@ bubbles/
    pnpm install
    ```
 
-3. Set up environment variables:
+3. Copy .env.example files to .env and fill in the values:
 
    ```bash
    cd apps/client && cp .env.example .env

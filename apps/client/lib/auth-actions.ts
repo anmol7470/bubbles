@@ -17,10 +17,11 @@ export async function login(email: string, password: string) {
   })
 
   if (error) {
-    throw new Error(error.message)
+    return { success: false, error: error.message }
   }
 
   revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function signup(
@@ -42,7 +43,7 @@ export async function signup(
   })
 
   if (error) {
-    throw new Error(error.message)
+    return { success: false, error: error.message }
   }
 
   if (data.user) {
@@ -53,6 +54,7 @@ export async function signup(
   }
 
   revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function signout() {
@@ -61,10 +63,11 @@ export async function signout() {
   const { error } = await supabase.auth.signOut()
 
   if (error) {
-    throw new Error(error.message)
+    return { success: false, error: error.message }
   }
 
   revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function updateUsername(userId: string, newUsername: string) {
@@ -75,7 +78,7 @@ export async function updateUsername(userId: string, newUsername: string) {
   })
 
   if (metadataError) {
-    throw new Error(metadataError.message)
+    return { success: false, error: metadataError.message }
   }
 
   await db
@@ -84,6 +87,7 @@ export async function updateUsername(userId: string, newUsername: string) {
     .where(eq(users.id, userId))
 
   revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function updateProfileImage(
@@ -103,7 +107,7 @@ export async function updateProfileImage(
   })
 
   if (metadataError) {
-    throw new Error(metadataError.message)
+    return { success: false, error: metadataError.message }
   }
 
   await db
@@ -112,45 +116,54 @@ export async function updateProfileImage(
     .where(eq(users.id, userId))
 
   revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function deleteUser(userId: string) {
-  const supabaseAdmin = await createSupabaseAdminClient()
+  try {
+    const supabaseAdmin = await createSupabaseAdminClient()
 
-  // Soft delete: mark user as inactive to anonymize them
-  // Messages and DM memberships will remain but show as "Anonymous User"
-  await db.update(users).set({ isActive: false }).where(eq(users.id, userId))
+    // Soft delete: mark user as inactive to anonymize them
+    // Messages and DM memberships will remain but show as "Anonymous User"
+    await db.update(users).set({ isActive: false }).where(eq(users.id, userId))
 
-  // Remove group chat memberships
-  const chatMemberships = await db.query.chatMembers.findMany({
-    where: (member, { eq }) => eq(member.userId, userId),
-    columns: {
-      chatId: true,
-    },
-    with: {
-      chat: {
-        columns: {
-          isGroupChat: true,
+    // Remove group chat memberships
+    const chatMemberships = await db.query.chatMembers.findMany({
+      where: (member, { eq }) => eq(member.userId, userId),
+      columns: {
+        chatId: true,
+      },
+      with: {
+        chat: {
+          columns: {
+            isGroupChat: true,
+          },
         },
       },
-    },
-  })
+    })
 
-  const groupChatIds = chatMemberships
-    .filter((membership) => membership.chat?.isGroupChat)
-    .map((membership) => membership.chatId)
+    const groupChatIds = chatMemberships
+      .filter((membership) => membership.chat?.isGroupChat)
+      .map((membership) => membership.chatId)
 
-  await db
-    .delete(chatMembers)
-    .where(
-      and(
-        inArray(chatMembers.chatId, groupChatIds),
-        eq(chatMembers.userId, userId)
+    await db
+      .delete(chatMembers)
+      .where(
+        and(
+          inArray(chatMembers.chatId, groupChatIds),
+          eq(chatMembers.userId, userId)
+        )
       )
-    )
 
-  // Delete from Supabase auth
-  await supabaseAdmin.deleteUser(userId)
+    // Delete from Supabase auth
+    await supabaseAdmin.deleteUser(userId)
 
-  revalidatePath('/', 'layout')
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete user',
+    }
+  }
 }

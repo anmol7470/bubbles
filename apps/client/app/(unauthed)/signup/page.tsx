@@ -22,15 +22,22 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
   })
   const { mutateAsync: signup, isPending: isCreatingAccount } = useMutation({
-    mutationFn: (data: SignupFormData) =>
-      signupAction(data.email, data.password, data.username),
-    onSuccess: () => {
-      router.push('/chats')
+    mutationFn: async (data: SignupFormData) => {
+      const result = await signupAction(
+        data.email,
+        data.password,
+        data.username
+      )
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result
     },
   })
 
   const onSubmit: SubmitHandler<SignupFormData> = async (data) => {
     await signup(data)
+    router.push('/chats')
   }
 
   return (

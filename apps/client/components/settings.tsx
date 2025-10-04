@@ -28,9 +28,12 @@ export function Settings({ user }: { user: User }) {
   const [showUserSettings, setShowUserSettings] = useState(false)
 
   const { mutateAsync: signout } = useMutation({
-    mutationFn: () => signoutAction(),
-    onSuccess: () => {
-      router.push('/login')
+    mutationFn: async () => {
+      const result = await signoutAction()
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+      return result
     },
   })
 
@@ -57,6 +60,7 @@ export function Settings({ user }: { user: User }) {
           <DropdownMenuItem
             onClick={async () => {
               await signout()
+              router.push('/login')
             }}
           >
             <LogOutIcon className="size-5" />
