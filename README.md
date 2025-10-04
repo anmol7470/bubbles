@@ -1,10 +1,10 @@
 # Bubbles
 
-A fully-featured real-time chat application built with Next.js, Supabase, and Socket.io supporting direct messages and group chats.
+A fully-featured real-time chat application supporting direct messages and group chats. Client website is built with Next.js and Supabase and the WebSocket server is built with Socket.IO running on Bun and a Hono server.
 
-## 💬 Features
+## 🚀 Features
 
-- **Real-time Messaging** - Instant message delivery using Socket.IO
+- **Real-time Messaging** - Instant message delivery and chat creation updates using Socket.IO
 - **Direct Messages (DMs)** - Private one-on-one conversations
 - **Group Chats** - Create and manage group conversations with multiple participants
 - **Message Management** - Edit, delete, and clear chat history
@@ -13,20 +13,20 @@ A fully-featured real-time chat application built with Next.js, Supabase, and So
 
 ## 🛠️ Tech Stack
 
-- **[Next.js 15](https://nextjs.org/)** - React framework with App Router
-- **[React 19](https://react.dev/)** - Latest React
-- **[TailwindCSS 4](https://tailwindcss.com/)** - Utility-first CSS framework
-- **[shadcn/ui](https://ui.shadcn.com/)** - Re-usable component library built on Radix UI
-- **[TanStack Query](https://tanstack.com/query/latest)** - Powerful data synchronization
-- **[Supabase](https://supabase.com/)** - Backend-as-a-Service (Authentication, PostgreSQL, Storage)
-- **[Drizzle ORM](https://orm.drizzle.team/)** - TypeScript ORM with relational queries
-- **[Socket.IO](https://socket.io/)** - Real-time bidirectional event-based communication
-- **[Bun](https://bun.sh/)** - Fast JavaScript runtime for WebSocket server
-- **[Hono](https://hono.dev/)** - Lightweight web framework
+- [Next.js 15](https://nextjs.org/) - React framework with App Router
+- [React 19](https://react.dev/) - Latest React
+- [TanStack Query](https://tanstack.com/query/latest) - Powerful data synchronization
+- [Supabase](https://supabase.com/) - Backend-as-a-Service (Authentication, PostgreSQL, Storage)
+- [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM with relational queries
+- [Socket.IO](https://socket.io/) - Real-time bidirectional event-based communication
+- [Bun](https://bun.sh/) - Fast JavaScript runtime for WebSocket server
+- [Hono](https://hono.dev/) - Lightweight web framework
+- [TailwindCSS 4](https://tailwindcss.com/) - Utility-first CSS framework
+- [shadcn/ui](https://ui.shadcn.com/) - Re-usable component library built on Radix UI
 
-## 🚀 Getting Started
+## 📦 Getting Started
 
-### 📁 Project Structure
+### Project Structure
 
 ```
 bubbles/
@@ -44,13 +44,13 @@ bubbles/
 └── turbo.json          # Turborepo configuration
 ```
 
-### 📝 Prerequisites
+### Prerequisites
 
 - **Node.js** 20+ and **pnpm** 10+
 - **Bun** (required to run the WebSocket server)
 - **Supabase** account and project
 
-### 📦 Installation
+### Installation
 
 1. Clone the repository:
 
@@ -99,7 +99,7 @@ This will start:
 - **Next.js app** at `http://localhost:3000`
 - **WebSocket server** at `http://localhost:3001`
 
-## ✅ Todos
+## 📝 Todos
 
 - [ ] Allow admins to add more members to a group chat
 - [ ] Show unread messages count in the chat list
