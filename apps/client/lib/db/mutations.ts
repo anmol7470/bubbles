@@ -322,16 +322,21 @@ export async function deleteChat(chatId: string, userId: string) {
         userId: true,
         isDeleted: true,
       },
+      with: {
+        user: {
+          columns: {
+            isActive: true,
+          },
+        },
+      },
     })
 
-    const allDeleted = allMembers.every((member) => member.isDeleted)
+    const allDeletedTheChat = allMembers.every((member) => member.isDeleted)
 
-    // Also delete the chat if the other member is not active
-    const isOtherMemberDeleted = allMembers.find(
-      (member) => member.userId !== userId && member.userId !== null
-    )?.isDeleted
+    const otherMember = allMembers.find((member) => member.userId !== userId)
+    const isOtherMemberGone = otherMember?.user?.isActive === false
 
-    if (allDeleted || isOtherMemberDeleted) {
+    if (allDeletedTheChat || isOtherMemberGone) {
       await tx.delete(chats).where(eq(chats.id, chatId))
     }
   })
