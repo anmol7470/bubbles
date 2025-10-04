@@ -7,7 +7,8 @@ A fully-featured real-time chat application supporting direct messages and group
 - **Real-time Messaging** - Instant message delivery and chat creation updates using Socket.IO
 - **Direct Messages (DMs)** - Private one-on-one conversations
 - **Group Chats** - Create and manage group conversations with multiple participants
-- **Message Management** - Edit, delete, and clear chat history
+- **Message Management** - Edit and delete messages
+- **Chat Management** - Clear chat history and delete chats
 - **Image Sharing** - Upload and share images in conversations
 - **Typing Indicators** - See when others are typing in real-time
 
@@ -70,6 +71,7 @@ bubbles/
    ```bash
    cd apps/client && cp .env.example .env
    cd ../ws && cp .env.example .env
+   cd ../../ # go back to the root directory
    ```
 
 4. Configure Supabase Storage:
@@ -83,9 +85,7 @@ bubbles/
 5. Set up the database:
 
    ```bash
-   cd apps/client
    pnpm db:migrate   # Apply migrations
-   cd ../..
    ```
 
 6. Run the application:

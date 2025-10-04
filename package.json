@@ -8,7 +8,10 @@
     "format": "prettier --write .",
     "dev": "turbo dev",
     "build": "turbo build",
-    "check-types": "turbo check-types"
+    "check-types": "turbo check-types",
+    "db:generate": "turbo -F client db:generate",
+    "db:migrate": "turbo -F client db:migrate",
+    "db:studio": "turbo -F client db:studio"
   },
   "packageManager": "pnpm@10.17.1"
 }

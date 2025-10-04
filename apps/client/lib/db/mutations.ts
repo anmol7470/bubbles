@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { chatMembers, chats, messages, messageImages } from '@/lib/db/schema'
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { createSupabaseClient } from '@/lib/supabase/server'
 
 // Shared query configuration for fetching chats with full data
@@ -139,26 +139,6 @@ export async function sendMessage(
               eq(chatMembers.userId, otherMember.userId)
             )
           )
-      }
-    }
-
-    const otherMembers = chatMemberRows.filter(
-      (member) => member.userId !== userId && member.userId !== null
-    )
-
-    // Un-clear the chat for all members once a new message is sent
-    if (otherMembers.length > 0) {
-      const otherMemberIds = otherMembers
-        .map((member) => member.userId)
-        .filter((id): id is string => id !== null)
-
-      if (otherMemberIds.length > 0) {
-        await tx
-          .update(chatMembers)
-          .set({
-            isCleared: false,
-          })
-          .where(inArray(chatMembers.userId, otherMemberIds))
       }
     }
 
@@ -319,7 +299,7 @@ export async function deleteGroupChat(chatId: string) {
 export async function clearChat(chatId: string, userId: string) {
   await db
     .update(chatMembers)
-    .set({ isCleared: true, clearedAt: new Date() })
+    .set({ clearedAt: new Date() })
     .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
 }
 
@@ -347,11 +327,11 @@ export async function deleteChat(chatId: string, userId: string) {
     const allDeleted = allMembers.every((member) => member.isDeleted)
 
     // Also delete the chat if the other member is not active
-    const isOtherMemberActive = allMembers.find(
+    const isOtherMemberDeleted = allMembers.find(
       (member) => member.userId !== userId && member.userId !== null
     )?.isDeleted
 
-    if (allDeleted || !isOtherMemberActive) {
+    if (allDeleted || isOtherMemberDeleted) {
       await tx.delete(chats).where(eq(chats.id, chatId))
     }
   })
@@ -360,7 +340,7 @@ export async function deleteChat(chatId: string, userId: string) {
 export async function clearAllChats(userId: string) {
   await db
     .update(chatMembers)
-    .set({ isCleared: true, clearedAt: new Date() })
+    .set({ clearedAt: new Date() })
     .where(eq(chatMembers.userId, userId))
 }
 

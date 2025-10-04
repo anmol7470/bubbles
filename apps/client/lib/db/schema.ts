@@ -54,7 +54,6 @@ export const chatMembers = pgTable(
     }),
     isDeleted: boolean('is_deleted').default(false),
     deletedAt: timestamp('deleted_at'),
-    isCleared: boolean('is_cleared').default(false),
     clearedAt: timestamp('cleared_at'),
     leftAt: timestamp('left_at'),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
