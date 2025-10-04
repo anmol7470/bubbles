@@ -117,7 +117,11 @@ export async function updateProfileImage(
 export async function deleteUser(userId: string) {
   const supabaseAdmin = await createSupabaseAdminClient()
 
-  await db.delete(users).where(eq(users.id, userId))
+  // Soft delete: mark user as inactive to anonymize them
+  // Messages and chat memberships will remain but show as "Anonymous User"
+  await db.update(users).set({ isActive: false }).where(eq(users.id, userId))
+
+  // Delete from Supabase auth
   await supabaseAdmin.deleteUser(userId)
 
   revalidatePath('/', 'layout')

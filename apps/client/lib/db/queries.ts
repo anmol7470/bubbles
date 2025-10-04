@@ -6,7 +6,7 @@ import { chatMembers } from '@/lib/db/schema'
 export async function getAllChatsForUser(userId: string) {
   return await db.query.chats.findMany({
     // only get chats that the user is a participant of
-    where: (chat, { exists, and, eq }) =>
+    where: (chat, { exists, and, eq, isNull }) =>
       exists(
         db
           .select()
@@ -15,12 +15,14 @@ export async function getAllChatsForUser(userId: string) {
             and(
               eq(chatMembers.chatId, chat.id),
               eq(chatMembers.userId, userId),
-              eq(chatMembers.isDeleted, false)
+              eq(chatMembers.isDeleted, false),
+              isNull(chatMembers.leftAt) // User hasn't left the chat
             )
           )
       ),
     with: {
       members: {
+        where: (member, { isNull }) => isNull(member.leftAt), // Only show active members
         columns: {},
         with: {
           user: {
@@ -28,6 +30,7 @@ export async function getAllChatsForUser(userId: string) {
               id: true,
               username: true,
               imageUrl: true,
+              isActive: true,
             },
           },
         },
@@ -65,6 +68,7 @@ export async function getAllChatsForUser(userId: string) {
             columns: {
               id: true,
               username: true,
+              isActive: true,
             },
           },
           images: {
@@ -94,6 +98,7 @@ export async function searchUsers(
       and(
         ilike(user.username, `%${query.split(' ').join('%')}%`),
         not(eq(user.id, userId)),
+        eq(user.isActive, true), // Only show active users in search
         ...(selectedUserIds.length > 0
           ? [notInArray(user.id, selectedUserIds)]
           : [])
@@ -110,7 +115,7 @@ export async function searchUsers(
 export async function getChatById(chatId: string, userId: string) {
   return await db.query.chats.findFirst({
     // check if the chat exists and the user is a member of the chat
-    where: (chat, { eq, exists, and }) =>
+    where: (chat, { eq, exists, and, isNull }) =>
       and(
         eq(chat.id, chatId),
         exists(
@@ -121,13 +126,15 @@ export async function getChatById(chatId: string, userId: string) {
               and(
                 eq(chatMembers.chatId, chat.id),
                 eq(chatMembers.userId, userId),
-                eq(chatMembers.isDeleted, false)
+                eq(chatMembers.isDeleted, false),
+                isNull(chatMembers.leftAt) // User hasn't left the chat
               )
             )
         )
       ),
     with: {
       members: {
+        where: (member, { isNull }) => isNull(member.leftAt), // Only show active members
         columns: {},
         with: {
           user: {
@@ -135,6 +142,7 @@ export async function getChatById(chatId: string, userId: string) {
               id: true,
               username: true,
               imageUrl: true,
+              isActive: true,
             },
           },
         },
@@ -164,6 +172,7 @@ export async function getChatById(chatId: string, userId: string) {
               id: true,
               username: true,
               imageUrl: true,
+              isActive: true,
             },
           },
           images: {

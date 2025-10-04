@@ -18,7 +18,7 @@ import { sendMessage } from '@/lib/db/mutations'
 import { useWsClient } from './ws-client'
 import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
-import { cn } from '@/lib/utils'
+import { cn, getDisplayName } from '@/lib/utils'
 import { useTypingIndicator } from '@/hooks/use-typing-indicator'
 import { useImageUpload } from '@/hooks/use-image-upload'
 import Link from 'next/link'
@@ -67,7 +67,7 @@ export function ChatContainer({
   const otherParticipant =
     chat?.isGroupChat || !chat?.members
       ? null
-      : chat.members.filter((member) => member.user.id !== user.id)[0].user
+      : chat.members.filter((member) => member.user?.id !== user.id)[0].user
 
   const { mutateAsync: sendMessageMutation, isPending: isSendingMessage } =
     useMutation({
@@ -111,7 +111,7 @@ export function ChatContainer({
           socket.emit('newMessage', {
             message: optimisticMessage,
             chatId,
-            participants: chat.members.map((m) => m.user.id),
+            participants: chat.members.map((m) => m.user?.id),
           })
         }
       },
@@ -219,13 +219,13 @@ export function ChatContainer({
                 ) : (
                   <UserAvatar
                     image={otherParticipant?.imageUrl ?? null}
-                    username={otherParticipant?.username ?? null}
+                    username={getDisplayName(otherParticipant)}
                   />
                 )}
                 <div className="font-medium">
                   {chat.isGroupChat
                     ? chat.groupChatName
-                    : otherParticipant?.username}
+                    : getDisplayName(otherParticipant)}
                 </div>
               </Link>
               <Button
@@ -243,7 +243,7 @@ export function ChatContainer({
               messages={chat?.messages ?? []}
               currentUserId={user.id}
               chatId={chatId}
-              participants={chat?.members.map((m) => m.user.id) ?? []}
+              participants={chat?.members.map((m) => m.user?.id ?? '') ?? []}
               typingUsers={typingUsers[chatId] || []}
             />
 

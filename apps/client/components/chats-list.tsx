@@ -4,7 +4,7 @@ import { Search, BanIcon } from 'lucide-react'
 import { Input } from './ui/input'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { cn, formatDate } from '@/lib/utils'
+import { cn, formatDate, getDisplayName } from '@/lib/utils'
 import { Skeleton } from './ui/skeleton'
 import { usePathname } from 'next/navigation'
 import { getAllChatsForUser } from '@/lib/db/queries'
@@ -30,7 +30,7 @@ export function ChatsList({ user }: { user: User }) {
       chat.isGroupChat
         ? chat.groupChatName?.toLowerCase().includes(search.toLowerCase())
         : chat.members.some((member) =>
-            member.user.username?.toLowerCase().includes(search.toLowerCase())
+            member.user?.username?.toLowerCase().includes(search.toLowerCase())
           )
     )
   }, [chats, search])
@@ -81,7 +81,7 @@ export function ChatsList({ user }: { user: User }) {
               {filteredChats &&
                 filteredChats.map((chat) => {
                   const otherParticipant = chat.members.filter(
-                    (member) => member.user.id !== user.id
+                    (member) => member.user?.id !== user.id
                   )[0].user
 
                   return (
@@ -102,8 +102,8 @@ export function ChatsList({ user }: { user: User }) {
                           />
                         ) : (
                           <UserAvatar
-                            image={otherParticipant.imageUrl ?? null}
-                            username={otherParticipant.username ?? null}
+                            image={otherParticipant?.imageUrl ?? null}
+                            username={getDisplayName(otherParticipant) ?? null}
                           />
                         )}
                         <div className="min-w-0 flex-1">
@@ -111,7 +111,7 @@ export function ChatsList({ user }: { user: User }) {
                             <div className="line-clamp-1 truncate font-medium">
                               {chat.isGroupChat
                                 ? chat.groupChatName
-                                : otherParticipant.username}
+                                : getDisplayName(otherParticipant)}
                             </div>
                             <div className="text-muted-foreground ml-2 shrink-0 text-xs">
                               {formatDate(
@@ -144,19 +144,19 @@ function displayLastMessage(chat: ChatWithMembers, currentUserId: string) {
   }
 
   const isOwnMessage = lastMessage.senderId === currentUserId
-  const senderPrefix = isOwnMessage
-    ? 'You: '
-    : `${lastMessage.sender?.username}: `
+  const senderName = isOwnMessage
+    ? 'You'
+    : lastMessage.sender?.username && lastMessage.sender?.isActive !== false
+      ? lastMessage.sender.username
+      : 'Anonymous User'
+  const senderPrefix = `${senderName}: `
 
   // If message is deleted
   if (lastMessage.isDeleted) {
     return (
       <span className="flex items-center gap-1">
         <BanIcon className="size-3.5 flex-shrink-0" />
-        <span>
-          {isOwnMessage ? 'You' : lastMessage.sender?.username} deleted this
-          message
-        </span>
+        <span>{senderName} deleted this message</span>
       </span>
     )
   }

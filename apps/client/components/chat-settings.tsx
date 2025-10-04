@@ -20,6 +20,7 @@ import { getChatById } from '@/lib/db/queries'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { useImageUpload } from '@/hooks/use-image-upload'
+import { getDisplayName } from '@/lib/utils'
 import {
   exitGroupChat,
   makeMemberAdmin,
@@ -68,12 +69,13 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
   const isCreator = chat?.creatorId === user.id
 
   const otherParticipant = !chat?.isGroupChat
-    ? chat?.members.find((member) => member.user.id !== user.id)?.user
+    ? chat?.members.find((member) => member.user && member.user.id !== user.id)
+        ?.user
     : null
 
   const chatDisplayName = chat?.isGroupChat
     ? chat.groupChatName
-    : otherParticipant?.username
+    : getDisplayName(otherParticipant)
 
   const chatDisplayImage = chat?.isGroupChat
     ? previewUrls[0] || chat.groupChatImageUrl || null
@@ -84,8 +86,11 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
 
     return chat.members
       .map((member) => member.user)
+      .filter((member): member is NonNullable<typeof member> => member !== null)
       .filter((member) =>
-        member.username.toLowerCase().includes(memberSearch.toLowerCase())
+        getDisplayName(member)
+          .toLowerCase()
+          .includes(memberSearch.toLowerCase())
       )
   }, [chat?.members, chat?.isGroupChat, memberSearch])
 
@@ -363,10 +368,10 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                       <div className="flex items-center gap-3 rounded-md p-2 hover:bg-primary/5">
                         <UserAvatar
                           image={member.imageUrl}
-                          username={member.username}
+                          username={getDisplayName(member)}
                         />
                         <span className="flex-1 text-sm font-medium">
-                          {member.username}
+                          {getDisplayName(member)}
                           {member.id === user.id && (
                             <span className="ml-2 text-xs text-muted-foreground">
                               (You)

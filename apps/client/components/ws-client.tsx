@@ -58,7 +58,7 @@ export function WsClientProvider({ children }: { children: React.ReactNode }) {
       socket.on('chatCreated', (payload: NewChatPayload) => {
         // Check if the current user is a member of this chat
         const isUserMember = payload.chat.members.some(
-          (member) => member.user.id === userId
+          (member) => member.user?.id === userId
         )
 
         if (isUserMember) {

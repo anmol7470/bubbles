@@ -2,7 +2,6 @@ import {
   pgTable,
   text,
   timestamp,
-  primaryKey,
   varchar,
   boolean,
   check,
@@ -17,6 +16,7 @@ export const users = pgTable(
     id: text('id').primaryKey(),
     username: text('username').notNull(),
     imageUrl: text('image_url'),
+    isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [index('users_username_idx').on(table.username)]
@@ -27,9 +27,9 @@ export const chats = pgTable(
   {
     id: text('id').primaryKey(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    creatorId: text('creator_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    creatorId: text('creator_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     isGroupChat: boolean('is_group_chat').default(false),
     groupChatName: varchar('group_chat_name', { length: 50 }),
     groupChatImageUrl: text('group_chat_image_url'),
@@ -45,19 +45,24 @@ export const chats = pgTable(
 export const chatMembers = pgTable(
   'chat_members',
   {
+    id: text('id').primaryKey(),
     chatId: text('chat_id')
       .notNull()
       .references(() => chats.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     isDeleted: boolean('is_deleted').default(false),
     deletedAt: timestamp('deleted_at'),
     isCleared: boolean('is_cleared').default(false),
     clearedAt: timestamp('cleared_at'),
+    leftAt: timestamp('left_at'),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.chatId, table.userId] })]
+  (table) => [
+    index('chat_members_chat_id_idx').on(table.chatId),
+    index('chat_members_user_id_idx').on(table.userId),
+  ]
 )
 
 export const messages = pgTable(
@@ -67,9 +72,9 @@ export const messages = pgTable(
     chatId: text('chat_id')
       .notNull()
       .references(() => chats.id, { onDelete: 'cascade' }),
-    senderId: text('sender_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    senderId: text('sender_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     content: text('content').default('').notNull(),
     sentAt: timestamp('sent_at').defaultNow().notNull(),
     isDeleted: boolean('is_deleted').default(false),

@@ -1,6 +1,6 @@
 'use client'
 
-import { cn, formatDate } from '@/lib/utils'
+import { cn, formatDate, getDisplayName } from '@/lib/utils'
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom'
 import { Button } from './ui/button'
 import { ArrowDownIcon } from 'lucide-react'
@@ -93,8 +93,8 @@ export function Messages({
                     <div className="w-10 h-10 flex-shrink-0">
                       {showHeader && (
                         <UserAvatar
-                          image={sender?.imageUrl}
-                          username={sender?.username}
+                          image={sender?.imageUrl ?? null}
+                          username={getDisplayName(sender)}
                         />
                       )}
                     </div>
@@ -104,7 +104,7 @@ export function Messages({
                       <div className="flex items-center gap-2 px-1">
                         {isGroupChat && (
                           <span className="text-sm font-medium">
-                            {sender?.username ?? 'Unknown'}
+                            {getDisplayName(sender)}
                           </span>
                         )}
                         <span className="text-muted-foreground text-xs">

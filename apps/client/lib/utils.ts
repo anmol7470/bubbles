@@ -21,3 +21,15 @@ export function formatDate(sentAt: Date) {
   if (isThisYear(sentAt)) return format(sentAt, 'MMM d')
   return format(sentAt, 'MMM d, yyyy')
 }
+
+export function getDisplayName(
+  user:
+    | { username?: string | null; isActive?: boolean | null }
+    | null
+    | undefined
+): string {
+  if (!user || !user.username || user.isActive === false) {
+    return 'Anonymous User'
+  }
+  return user.username
+}
