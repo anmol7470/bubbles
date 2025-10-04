@@ -97,7 +97,7 @@ export function ChatsList({ user }: { user: User }) {
                       <div className="flex items-center gap-2 px-3 py-2">
                         {chat.isGroupChat ? (
                           <UserAvatar
-                            image={null}
+                            image={chat.groupChatImageUrl ?? null}
                             username={chat.groupChatName ?? null}
                           />
                         ) : (

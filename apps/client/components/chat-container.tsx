@@ -215,7 +215,7 @@ export function ChatContainer({
               >
                 {chat.isGroupChat ? (
                   <UserAvatar
-                    image={null}
+                    image={chat.groupChatImageUrl ?? null}
                     username={chat.groupChatName ?? null}
                   />
                 ) : (
