@@ -16,7 +16,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from './ui/context-menu'
-import { getChatById } from '@/lib/db/queries'
+import { getChatById, searchUsers } from '@/lib/db/queries'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { useImageUpload } from '@/hooks/use-image-upload'
@@ -29,6 +29,7 @@ import {
   deleteGroupChat,
   updateGroupChatName,
   updateGroupChatImage,
+  addMemberToGroupChat,
 } from '@/lib/db/mutations'
 import { useQueryClient } from '@tanstack/react-query'
 import { ConfirmationDialog } from './confirmation-dialog'
@@ -71,6 +72,20 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
   })
 
   const isCreator = chat?.creatorId === user.id
+
+  const currentMemberIds = useMemo(() => {
+    if (!chat?.isGroupChat) return []
+    return chat.members
+      .map((member) => member.user?.id)
+      .filter((id): id is string => id !== null && id !== undefined)
+  }, [chat?.members, chat?.isGroupChat])
+
+  const { data: searchResults } = useQuery({
+    queryKey: ['searchUsers', memberSearch, currentMemberIds],
+    queryFn: () => searchUsers(memberSearch, user.id, currentMemberIds),
+    enabled:
+      isCreator && chat?.isGroupChat === true && memberSearch.trim().length > 0,
+  })
 
   const otherParticipant = !chat?.isGroupChat
     ? chat?.members.find((member) => member.user && member.user.id !== user.id)
@@ -180,6 +195,17 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
     },
     onError: () => {
       toast.error('Failed to update group chat image')
+    },
+  })
+
+  const addMemberMutation = useMutation({
+    mutationFn: (userId: string) => addMemberToGroupChat(chatId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      toast.success('Member added successfully')
+    },
+    onError: () => {
+      toast.error('Failed to add member')
     },
   })
 
@@ -406,7 +432,7 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
               <div className="relative">
                 <SearchIcon className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search members..."
+                  placeholder="Search current members and add more..."
                   value={memberSearch}
                   onChange={(e) => setMemberSearch(e.target.value)}
                   className="pl-8 pr-8 focus-visible:ring-0 h-10"
@@ -482,6 +508,54 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
 
                     return <div key={member.id}>{memberContent}</div>
                   })}
+
+                  {/* Show search results for users not in the group */}
+                  {isCreator &&
+                    memberSearch.trim().length > 0 &&
+                    searchResults &&
+                    searchResults.length > 0 && (
+                      <>
+                        {filteredMembers.length > 0 && (
+                          <Separator className="my-2" />
+                        )}
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                          Add to group
+                        </div>
+                        {searchResults.map((searchUser) => (
+                          <div
+                            key={searchUser.id}
+                            className="flex items-center gap-3 rounded-md p-2 hover:bg-primary/5"
+                          >
+                            <UserAvatar
+                              image={searchUser.imageUrl}
+                              username={searchUser.username}
+                            />
+                            <span className="flex-1 text-sm font-medium">
+                              {searchUser.username}
+                            </span>
+                            <Button
+                              size="sm"
+                              className="h-7 px-3 text-xs"
+                              onClick={() =>
+                                addMemberMutation.mutate(searchUser.id)
+                              }
+                              disabled={addMemberMutation.isPending}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                  {/* Show message when no results */}
+                  {memberSearch.trim().length > 0 &&
+                    filteredMembers.length === 0 &&
+                    (!searchResults || searchResults.length === 0) && (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No users found
+                      </div>
+                    )}
                 </div>
               </ScrollArea>
             </div>

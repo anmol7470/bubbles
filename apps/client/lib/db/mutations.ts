@@ -388,6 +388,14 @@ export async function updateGroupChatImage(
     .where(eq(chats.id, chatId))
 }
 
+export async function addMemberToGroupChat(chatId: string, userId: string) {
+  await db.insert(chatMembers).values({
+    id: crypto.randomUUID(),
+    chatId,
+    userId,
+  })
+}
+
 // This won't work because of rls policy preventing any body else to delete image other than the user who uploaded it
 // So images uploaded by other users will not be deleted when the chat is deleted by the current user
 

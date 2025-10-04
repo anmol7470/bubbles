@@ -36,9 +36,12 @@ bubbles/
 │   │   ├── components/  # React components
 │   │   ├── hooks/       # Custom React hooks
 │   │   └── lib/         # Utilities, DB, and actions
-│   │       ├── db/      # Database schema and queries
+│   │       ├── db/      # Database schema, queries, and mutations
 │   │       └── supabase/ # Supabase client setup
 │   └── ws/              # WebSocket server (Bun + Socket.IO)
+│       └── src/         # WebSocket server source code
+│           ├── index.ts # Main server entry point
+│           └── ws.ts    # WebSocket logic
 ```
 
 ### Prerequisites
@@ -98,6 +101,5 @@ This will start:
 
 ## 📝 Todos
 
-- [ ] Allow admins to add more members to a group chat
 - [ ] Show unread messages count in the chat list
 - [ ] Read receipts
