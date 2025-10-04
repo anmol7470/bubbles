@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog'
+import { Loader2Icon } from 'lucide-react'
 
 interface ConfirmationDialogProps {
   open: boolean
@@ -51,7 +52,11 @@ export function ConfirmationDialog({
             disabled={isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {confirmText}
+            {isLoading ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              confirmText
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

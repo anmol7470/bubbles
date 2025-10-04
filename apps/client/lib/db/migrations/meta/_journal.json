@@ -57,6 +57,20 @@
       "when": 1759477051583,
       "tag": "0007_mixed_hannibal_king",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1759537710827,
+      "tag": "0008_handy_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1759542509403,
+      "tag": "0009_bright_doomsday",
+      "breakpoints": true
     }
   ]
 }

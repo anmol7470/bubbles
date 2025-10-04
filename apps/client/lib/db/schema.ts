@@ -51,6 +51,10 @@ export const chatMembers = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    isDeleted: boolean('is_deleted').default(false),
+    deletedAt: timestamp('deleted_at'),
+    isCleared: boolean('is_cleared').default(false),
+    clearedAt: timestamp('cleared_at'),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.chatId, table.userId] })]

@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db'
 import { chatMembers, chats, messages, messageImages } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import { createSupabaseClient } from '@/lib/supabase/server'
 
 // Shared query configuration for fetching chats with full data
@@ -16,7 +16,8 @@ const chatWithFullData = {
     },
   },
   messages: {
-    orderBy: (message: any, { desc }: any) => desc(message.sentAt),
+    // @ts-expect-error - not typed
+    orderBy: (message, { desc }) => desc(message.sentAt),
     limit: 1,
     columns: {
       id: true,
@@ -107,6 +108,56 @@ export async function sendMessage(
   imageUrls?: string[]
 ) {
   await db.transaction(async (tx) => {
+    const chatMemberRows = await tx.query.chatMembers.findMany({
+      where: (member, { eq }) => eq(member.chatId, chatId),
+      columns: {
+        userId: true,
+        isDeleted: true,
+      },
+    })
+
+    const memberCount = chatMemberRows.length
+
+    // Un-delete the chat if other user deleted the chat because the chat recieved a message
+    if (memberCount === 2) {
+      const otherUserId = chatMemberRows.find(
+        (member) => member.userId !== userId
+      )
+
+      if (otherUserId && otherUserId.isDeleted) {
+        await tx
+          .update(chatMembers)
+          .set({
+            isDeleted: false,
+          })
+          .where(
+            and(
+              eq(chatMembers.chatId, chatId),
+              eq(chatMembers.userId, otherUserId.userId)
+            )
+          )
+      }
+    }
+
+    const otherMembers = chatMemberRows.filter(
+      (member) => member.userId !== userId
+    )
+
+    // Un-clear the chat for all members once a new message is sent
+    if (otherMembers.length > 0) {
+      await tx
+        .update(chatMembers)
+        .set({
+          isCleared: false,
+        })
+        .where(
+          inArray(
+            chatMembers.userId,
+            otherMembers.map((member) => member.userId)
+          )
+        )
+    }
+
     await tx.insert(messages).values({
       id: messageId,
       sentAt,
@@ -240,4 +291,57 @@ export async function deleteImagesFromStorage(imageUrls: string[]) {
       )
     }
   }
+}
+
+export async function makeMemberAdmin(chatId: string, userId: string) {
+  await db.update(chats).set({ creatorId: userId }).where(eq(chats.id, chatId))
+}
+
+// Also used by admin to remove a member from a group chat
+export async function exitGroupChat(chatId: string, userId: string) {
+  await db
+    .delete(chatMembers)
+    .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
+}
+
+export async function deleteGroupChat(chatId: string) {
+  await db.delete(chats).where(eq(chats.id, chatId))
+}
+
+// Remove all messages from the chat for current user, but keep the chat in their chats list
+// Other users will still see messages in the chat
+export async function clearChat(chatId: string, userId: string) {
+  await db
+    .update(chatMembers)
+    .set({ isCleared: true, clearedAt: new Date() })
+    .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
+}
+
+// Remove the chat from the chats list of the user
+// Keep the messages
+// If user starts the chat again, chat will be undeleted
+// If both users delete the chat, the chat will be deleted from the db
+export async function deleteChat(chatId: string, userId: string) {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(chatMembers)
+      .set({ isDeleted: true, deletedAt: new Date() })
+      .where(
+        and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId))
+      )
+
+    const allMembers = await tx.query.chatMembers.findMany({
+      where: (member, { eq }) => eq(member.chatId, chatId),
+      columns: {
+        userId: true,
+        isDeleted: true,
+      },
+    })
+
+    const allDeleted = allMembers.every((member) => member.isDeleted)
+
+    if (allDeleted) {
+      await tx.delete(chats).where(eq(chats.id, chatId))
+    }
+  })
 }

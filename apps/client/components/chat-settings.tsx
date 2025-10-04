@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { ArrowLeftIcon, SearchIcon, ImageIcon, XIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { UserAvatar } from './user-avatar'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -20,6 +20,16 @@ import { getChatById } from '@/lib/db/queries'
 import type { User } from '@/lib/types'
 import Image from 'next/image'
 import { useImageUpload } from '@/hooks/use-image-upload'
+import {
+  exitGroupChat,
+  makeMemberAdmin,
+  clearChat,
+  deleteChat,
+  deleteGroupChat,
+} from '@/lib/db/mutations'
+import { useQueryClient } from '@tanstack/react-query'
+import { ConfirmationDialog } from './confirmation-dialog'
+import { toast } from 'sonner'
 
 type ChatSettingsProps = {
   chatId: string
@@ -28,9 +38,18 @@ type ChatSettingsProps = {
 
 export function ChatSettings({ chatId, user }: ChatSettingsProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [memberSearch, setMemberSearch] = useState('')
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
+  const [showClearChatConfirm, setShowClearChatConfirm] = useState(false)
+  const [showExitChatConfirm, setShowExitChatConfirm] = useState(false)
+  const [showDeleteChatConfirm, setShowDeleteChatConfirm] = useState(false)
+  const [showDeleteGroupChatConfirm, setShowDeleteGroupChatConfirm] =
+    useState(false)
+  const [showMakeAdminConfirm, setShowMakeAdminConfirm] = useState(false)
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
   const {
     selectedImages,
@@ -69,6 +88,63 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
         member.username.toLowerCase().includes(memberSearch.toLowerCase())
       )
   }, [chat?.members, chat?.isGroupChat, memberSearch])
+
+  const makeAdminMutation = useMutation({
+    mutationFn: (memberId: string) => makeMemberAdmin(chatId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      toast.success('Member made admin successfully')
+      setShowMakeAdminConfirm(false)
+    },
+  })
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberId: string) => exitGroupChat(chatId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      toast.success('Member removed successfully')
+      setShowRemoveMemberConfirm(false)
+    },
+  })
+
+  const clearChatMutation = useMutation({
+    mutationFn: () => clearChat(chatId, user.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', chatId] })
+      toast.success('Chat cleared successfully')
+      setShowClearChatConfirm(false)
+    },
+  })
+
+  const deleteChatMutation = useMutation({
+    mutationFn: () => deleteChat(chatId, user.id),
+    onSuccess: () => {
+      router.push('/chats')
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      toast.success('Chat deleted successfully')
+      setShowDeleteChatConfirm(false)
+    },
+  })
+
+  const exitGroupChatMutation = useMutation({
+    mutationFn: () => exitGroupChat(chatId, user.id),
+    onSuccess: () => {
+      router.push('/chats')
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      toast.success('Group chat exited successfully')
+      setShowExitChatConfirm(false)
+    },
+  })
+
+  const deleteGroupChatMutation = useMutation({
+    mutationFn: () => deleteGroupChat(chatId),
+    onSuccess: () => {
+      router.push('/chats')
+      queryClient.invalidateQueries({ queryKey: ['chats'] })
+      toast.success('Group chat deleted successfully')
+      setShowDeleteGroupChatConfirm(false)
+    },
+  })
 
   const handleNameClick = () => {
     if (isCreator && chat?.isGroupChat) {
@@ -138,7 +214,6 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
           <span>Back</span>
         </Button>
       </div>
-
       <div className="flex flex-col items-center gap-3 p-4">
         {chat.isGroupChat && isCreator ? (
           <div className="flex flex-col items-center gap-2">
@@ -250,12 +325,11 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
           </h2>
         )}
       </div>
-
       <div className="flex-1 overflow-y-auto p-4">
         <Separator className="mb-4" />
 
         {/* Group chat specific sections */}
-        {chat.isGroupChat && (
+        {chat.isGroupChat ? (
           <div className="space-y-4">
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground">
@@ -315,9 +389,24 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                             {memberContent}
                           </ContextMenuTrigger>
                           <ContextMenuContent>
-                            <ContextMenuItem>Make Admin</ContextMenuItem>
-                            <ContextMenuItem variant="destructive">
-                              Remove
+                            <ContextMenuItem
+                              onClick={() => {
+                                setSelectedMemberId(member.id)
+                                setShowMakeAdminConfirm(true)
+                              }}
+                              disabled={makeAdminMutation.isPending}
+                            >
+                              Make Admin
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              variant="destructive"
+                              onClick={() => {
+                                setSelectedMemberId(member.id)
+                                setShowRemoveMemberConfirm(true)
+                              }}
+                              disabled={removeMemberMutation.isPending}
+                            >
+                              Remove Member
                             </ContextMenuItem>
                           </ContextMenuContent>
                         </ContextMenu>
@@ -336,6 +425,20 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
               <Button
                 variant="outline"
                 className="w-full justify-start text-destructive hover:text-destructive"
+                onClick={() => setShowClearChatConfirm(true)}
+              >
+                Clear Chat
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-destructive hover:text-destructive"
+                onClick={() => {
+                  if (isCreator) {
+                    toast.error('Make someone else admin before exiting')
+                    return
+                  }
+                  setShowExitChatConfirm(true)
+                }}
               >
                 Exit Chat
               </Button>
@@ -343,32 +446,111 @@ export function ChatSettings({ chatId, user }: ChatSettingsProps) {
                 <Button
                   variant="outline"
                   className="w-full justify-start text-destructive hover:text-destructive"
+                  onClick={() => setShowDeleteGroupChatConfirm(true)}
                 >
                   Delete Chat
                 </Button>
               )}
             </div>
           </div>
-        )}
-
-        {/* DM specific sections */}
-        {!chat.isGroupChat && (
+        ) : (
+          // DM specific sections
           <div className="space-y-2">
             <Button
               variant="outline"
               className="w-full justify-start text-destructive hover:text-destructive"
+              onClick={() => setShowClearChatConfirm(true)}
             >
               Clear Chat
             </Button>
             <Button
               variant="outline"
               className="w-full justify-start text-destructive hover:text-destructive"
+              onClick={() => setShowDeleteChatConfirm(true)}
             >
               Delete Chat
             </Button>
           </div>
         )}
       </div>
+
+      <ConfirmationDialog
+        open={showClearChatConfirm}
+        onOpenChange={setShowClearChatConfirm}
+        onConfirm={() => clearChatMutation.mutate()}
+        title="Clear Chat"
+        description="Are you sure you want to clear this chat? This action is irreversible and all current chat messages will be wiped from history."
+        confirmText="Clear Chat"
+        isLoading={clearChatMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={showDeleteChatConfirm}
+        onOpenChange={setShowDeleteChatConfirm}
+        onConfirm={() => deleteChatMutation.mutate()}
+        title="Delete Chat"
+        description="Are you sure you want to delete this chat? This action is irreversible and all chat data will be permanently deleted."
+        confirmText="Delete Chat"
+        isLoading={deleteChatMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={showMakeAdminConfirm}
+        onOpenChange={(open) => {
+          setShowMakeAdminConfirm(open)
+          if (!open) {
+            setSelectedMemberId(null)
+          }
+        }}
+        onConfirm={() => {
+          if (selectedMemberId) {
+            makeAdminMutation.mutate(selectedMemberId)
+          }
+        }}
+        title="Make Admin"
+        description="Are you sure you want to make this user an admin? This action is irreversible and the user will be able to manage the chat."
+        confirmText="Make Admin"
+        isLoading={makeAdminMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={showRemoveMemberConfirm}
+        onOpenChange={(open) => {
+          setShowRemoveMemberConfirm(open)
+          if (!open) {
+            setSelectedMemberId(null)
+          }
+        }}
+        onConfirm={() => {
+          if (selectedMemberId) {
+            removeMemberMutation.mutate(selectedMemberId)
+          }
+        }}
+        title="Remove Member"
+        description="Are you sure you want to remove this user from the chat? This action is irreversible and the user will no longer be able to access the chat."
+        confirmText="Remove Member"
+        isLoading={removeMemberMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={showExitChatConfirm}
+        onOpenChange={setShowExitChatConfirm}
+        onConfirm={() => exitGroupChatMutation.mutate()}
+        title="Exit Chat"
+        description="Are you sure you want to exit this chat? This action is irreversible and you will no longer be a part of this group chat."
+        confirmText="Exit Chat"
+        isLoading={exitGroupChatMutation.isPending}
+      />
+
+      <ConfirmationDialog
+        open={showDeleteGroupChatConfirm}
+        onOpenChange={setShowDeleteGroupChatConfirm}
+        onConfirm={() => deleteGroupChatMutation.mutate()}
+        title="Delete Chat"
+        description="Are you sure you want to delete this chat? This action is irreversible and all chat data will be permanently deleted."
+        confirmText="Delete Chat"
+        isLoading={deleteGroupChatMutation.isPending}
+      />
     </div>
   )
 }

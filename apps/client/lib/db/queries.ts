@@ -12,7 +12,11 @@ export async function getAllChatsForUser(userId: string) {
           .select()
           .from(chatMembers)
           .where(
-            and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, userId))
+            and(
+              eq(chatMembers.chatId, chat.id),
+              eq(chatMembers.userId, userId),
+              eq(chatMembers.isDeleted, false)
+            )
           )
       ),
     with: {
@@ -28,9 +32,27 @@ export async function getAllChatsForUser(userId: string) {
           },
         },
       },
+      // get the last message sent in the chat
       messages: {
         orderBy: (message, { desc }) => desc(message.sentAt),
         limit: 1,
+        where: (message, { gte, exists, and, eq, sql }) =>
+          exists(
+            db
+              .select()
+              .from(chatMembers)
+              .where(
+                and(
+                  eq(chatMembers.chatId, message.chatId),
+                  eq(chatMembers.userId, userId),
+                  eq(chatMembers.isCleared, false),
+                  gte(
+                    message.sentAt,
+                    sql`COALESCE(GREATEST(${chatMembers.clearedAt}, ${chatMembers.deletedAt}), ${chatMembers.joinedAt})`
+                  )
+                )
+              )
+          ),
         columns: {
           id: true,
           content: true,
@@ -98,7 +120,8 @@ export async function getChatById(chatId: string, userId: string) {
             .where(
               and(
                 eq(chatMembers.chatId, chat.id),
-                eq(chatMembers.userId, userId)
+                eq(chatMembers.userId, userId),
+                eq(chatMembers.isDeleted, false)
               )
             )
         )
@@ -118,6 +141,23 @@ export async function getChatById(chatId: string, userId: string) {
       },
       messages: {
         orderBy: (message, { asc }) => asc(message.sentAt),
+        where: (message, { gte, exists, and, eq, sql }) =>
+          exists(
+            db
+              .select()
+              .from(chatMembers)
+              .where(
+                and(
+                  eq(chatMembers.chatId, message.chatId),
+                  eq(chatMembers.userId, userId),
+                  eq(chatMembers.isCleared, false),
+                  gte(
+                    message.sentAt,
+                    sql`COALESCE(GREATEST(${chatMembers.clearedAt}, ${chatMembers.deletedAt}), ${chatMembers.joinedAt})`
+                  )
+                )
+              )
+          ),
         with: {
           sender: {
             columns: {
