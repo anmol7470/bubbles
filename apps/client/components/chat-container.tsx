@@ -5,7 +5,7 @@ import { useRef, useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ImagePlusIcon, Loader2Icon, SmilePlusIcon, XIcon } from 'lucide-react'
-import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
 import { Messages } from './messages'
 import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { useTheme } from 'next-themes'
@@ -34,7 +34,7 @@ export function ChatContainer({
   const router = useRouter()
   const { theme } = useTheme()
   const [message, setMessage] = useState('')
-  const messageInputRef = useRef<HTMLInputElement | null>(null)
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
 
   const { data: chat, isLoading } = useQuery({
@@ -325,7 +325,7 @@ export function ChatContainer({
                     accept="image/*"
                     multiple
                   />
-                  <Input
+                  <Textarea
                     ref={messageInputRef}
                     autoFocus
                     value={message}
@@ -337,12 +337,13 @@ export function ChatContainer({
                         stopTyping()
                       }
                     }}
+                    rows={1}
                     placeholder={
                       isUploadingImages
                         ? 'Uploading images...'
                         : 'Type a message...'
                     }
-                    className="bg-background dark:bg-input/30 pl-12 pr-4 focus-visible:ring-0 h-10"
+                    className="bg-background dark:bg-input/30 pl-12 pr-4 focus-visible:ring-0 min-h-10 max-h-40 resize-none"
                     disabled={isSendingMessage || isUploadingImages}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
