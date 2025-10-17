@@ -1,35 +1,6 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-import {
-  format,
-  isToday,
-  isYesterday,
-  isSameWeek,
-  isSameMonth,
-  isThisYear,
-} from 'date-fns'
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
-}
-
-export function formatDate(sentAt: Date) {
-  if (isToday(sentAt)) return format(sentAt, 'p')
-  if (isYesterday(sentAt)) return 'Yesterday'
-  if (isSameWeek(sentAt, new Date())) return format(sentAt, 'EEEE')
-  if (isSameMonth(sentAt, new Date())) return format(sentAt, 'MMM d, E')
-  if (isThisYear(sentAt)) return format(sentAt, 'MMM d')
-  return format(sentAt, 'MMM d, yyyy')
-}
-
-export function getDisplayName(
-  user:
-    | { username?: string | null; isActive?: boolean | null }
-    | null
-    | undefined
-): string {
-  if (!user || !user.username || user.isActive === false) {
-    return 'Anonymous User'
-  }
-  return user.username
 }

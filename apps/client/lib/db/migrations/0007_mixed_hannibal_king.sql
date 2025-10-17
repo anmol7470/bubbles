@@ -1,1 +1,0 @@
-ALTER TABLE "chats" ADD COLUMN "group_chat_image_url" text;

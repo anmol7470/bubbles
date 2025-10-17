@@ -1,1 +1,0 @@
-ALTER TABLE "chats" ALTER COLUMN "group_chat_name" SET DATA TYPE varchar(50);
