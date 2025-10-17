@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@/components/query-client-provider'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+        <QueryClientProvider>{children}</QueryClientProvider>
         <Toaster position="top-center" />
       </body>
     </html>

@@ -1,7 +1,7 @@
 import * as z from 'zod'
-import { protectedProcedure } from '../lib/orpc'
+import { o, protectedProcedure } from '../lib/orpc'
 
-export const chatRouter = {
+export const chatRouter = o.router({
   getChats: protectedProcedure
     .input(
       z.object({
@@ -12,4 +12,4 @@ export const chatRouter = {
     .handler(async ({ context }) => {
       return 'Hello, world!'
     }),
-}
+})

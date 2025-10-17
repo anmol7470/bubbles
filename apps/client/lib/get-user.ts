@@ -12,4 +12,4 @@ export const getUser = async () => {
   return session?.data?.user
 }
 
-export type User = Awaited<ReturnType<typeof getUser>>
+export type User = NonNullable<Awaited<ReturnType<typeof getUser>>>
