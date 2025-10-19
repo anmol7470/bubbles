@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@/components/query-client-provider'
+import { ThemeProvider } from '@/components/theme-provider'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
@@ -25,10 +26,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <QueryClientProvider>{children}</QueryClientProvider>
-        <Toaster position="top-center" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <QueryClientProvider>
+            {children}
+            <Toaster position="top-center" />
+          </QueryClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

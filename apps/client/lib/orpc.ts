@@ -1,3 +1,4 @@
+import type { InferClientOutputs } from '@orpc/client'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createTanstackQueryUtils } from '@orpc/tanstack-query'
@@ -23,3 +24,5 @@ export const link = new RPCLink({
 
 export const client: AppRouter = createORPCClient(link)
 export const orpc = createTanstackQueryUtils(client)
+
+export type Outputs = InferClientOutputs<typeof client>
