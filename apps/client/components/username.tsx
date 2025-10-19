@@ -3,10 +3,11 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
-import { Loader2Icon, LogOutIcon } from 'lucide-react'
+import { Loader2Icon, LogOutIcon, RefreshCcwIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'react-hot-toast'
+import { generateUsername } from 'unique-username-generator'
 import * as z from 'zod'
 
 const usernameSchema = z
@@ -53,14 +54,23 @@ export function Username() {
       </Button>
       <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6 p-8">
         <h1 className="text-center text-2xl font-semibold">Choose a username</h1>
-        <div className="space-y-2">
-          <Input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
-            disabled={loading}
-          />
+        <div className="flex items-center space-x-2">
+          <div className="relative w-full">
+            <Input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              disabled={loading}
+              maxLength={20}
+            />
+            <span className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-xs">
+              {username.length}/20
+            </span>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => setUsername(generateUsername('', 0, 20))}>
+            <RefreshCcwIcon className="size-4" />
+          </Button>
         </div>
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? <Loader2Icon className="size-4 animate-spin" /> : 'Continue'}

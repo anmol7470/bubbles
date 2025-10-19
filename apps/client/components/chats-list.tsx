@@ -1,23 +1,29 @@
 'use client'
 
+import { authClient } from '@/lib/auth-client'
 import type { User } from '@/lib/get-user'
 import type { Outputs } from '@/lib/orpc'
 import { orpc } from '@/lib/orpc'
 import { cn, formatDate } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import { BanIcon, PlusIcon, Search, SettingsIcon } from 'lucide-react'
+import { BanIcon, LogOutIcon, Moon, PenBoxIcon, Search, SettingsIcon, Sun, UserIcon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { NewChatDialog } from './new-chat-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 import { Input } from './ui/input'
 import { Skeleton } from './ui/skeleton'
 import { UserSettings } from './user-settings'
 
 export function ChatsList({ user }: { user: User }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { theme, setTheme } = useTheme()
   const chatId = pathname.split('/chats/')[1]?.split('/')[0]
   const isChatOpen = pathname?.startsWith('/chats/') && pathname !== '/chats'
 
@@ -57,11 +63,47 @@ export function ChatsList({ user }: { user: User }) {
             Chats
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon-sm" onClick={() => setUserSettingsOpen(true)}>
-              <SettingsIcon className="size-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon-sm">
+                  <SettingsIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setUserSettingsOpen(true)}>
+                  <UserIcon className="size-4" />
+                  User Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setTheme(theme === 'dark' ? 'light' : 'dark')
+                  }}
+                >
+                  <Sun className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                  <Moon className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                  Toggle theme
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    authClient.signOut({
+                      fetchOptions: {
+                        onSuccess: () => {
+                          router.push('/')
+                        },
+                        onError: ({ error }) => {
+                          toast.error(error.message)
+                        },
+                      },
+                    })
+                  }
+                >
+                  <LogOutIcon className="size-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="icon-sm" onClick={() => setNewChatDialogOpen(true)}>
-              <PlusIcon className="size-4" />
+              <PenBoxIcon className="size-4" />
             </Button>
           </div>
         </div>

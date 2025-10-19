@@ -3,10 +3,9 @@
 import type { User } from '@/lib/get-user'
 import { orpc } from '@/lib/orpc'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import debounce from 'lodash.debounce'
 import { ArrowLeft, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { UserAvatar } from './chats-list'
 import { Button } from './ui/button'
@@ -25,24 +24,31 @@ export function NewChatDialog({
   const router = useRouter()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedUsers, setSelectedUsers] = useState<{ id: string; username: string }[]>([])
   const [showGroupNameInput, setShowGroupNameInput] = useState(false)
   const [groupName, setGroupName] = useState('')
-  const debouncedSearch = useMemo(() => debounce((query: string) => query, 300), [])
+
+  // Debounce search input into a stable value for querying
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim())
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [searchQuery])
 
   const { data: searchResults = [], isLoading: isSearching } = useQuery(
     orpc.user.searchUsers.queryOptions({
       input: {
-        query: debouncedSearch(searchQuery) ?? '',
-        selectedUserIds: selectedUsers.map((user) => user.id),
+        query: debouncedQuery,
+        selectedUserIds: selectedUsers.map((u) => u.id),
       },
-      enabled: !!debouncedSearch(searchQuery),
-      staleTime: 0,
+      enabled: debouncedQuery.length > 0,
     })
   )
 
-  const handleUserSelect = (userId: string) => {
-    setSelectedUsers((prev) => [...prev, { id: userId, username: userId }])
+  const handleUserSelect = (userId: string, username: string) => {
+    setSelectedUsers((prev) => [...prev, { id: userId, username }])
     setSearchQuery('')
   }
 
@@ -148,11 +154,11 @@ export function NewChatDialog({
                       <Button
                         variant="ghost"
                         key={user.id}
-                        onClick={() => handleUserSelect(user.id)}
+                        onClick={() => handleUserSelect(user.id, user.username!)}
                         className="hover:bg-muted flex w-full justify-start rounded-md px-2 transition-colors"
                         size="lg"
                       >
-                        <UserAvatar image={user.image} username={user.username} />
+                        <UserAvatar image={user.image} username={user.username} className="size-8" />
                         <span className="text-sm font-medium">{user.username}</span>
                       </Button>
                     ))
@@ -170,12 +176,12 @@ export function NewChatDialog({
                   placeholder="Enter group name..."
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
-                  maxLength={50}
+                  maxLength={20}
                   autoFocus
                   className="pr-12"
                 />
                 <div className="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 text-xs">
-                  {groupName.length}/50
+                  {groupName.length}/20
                 </div>
               </div>
             </div>
@@ -193,10 +199,10 @@ export function NewChatDialog({
             <Button onClick={handleStartNewChat} disabled={showGroupNameInput && !groupName.trim()}>
               {isCreatingChat
                 ? 'Creating chat...'
-                : selectedUsers.length > 1
-                  ? 'Continue'
-                  : showGroupNameInput
-                    ? 'Create Group Chat'
+                : showGroupNameInput
+                  ? 'Create Group Chat'
+                  : selectedUsers.length > 1
+                    ? 'Continue'
                     : 'Start New Chat'}
             </Button>
           </div>

@@ -13,11 +13,13 @@ export function QueryClientProvider({ children }: { children: React.ReactNode })
     queryCache: new QueryCache({
       onError: (error) => {
         toast.error(error.message)
+        console.error(error)
       },
     }),
     mutationCache: new MutationCache({
       onError: (error) => {
         toast.error(error.message)
+        console.error(error)
       },
     }),
   })

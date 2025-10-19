@@ -1,3 +1,4 @@
+import { onError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import 'dotenv/config'
 import { Hono } from 'hono'
@@ -20,7 +21,13 @@ app.use(
   })
 )
 
-const handler = new RPCHandler(appRouter)
+const handler = new RPCHandler(appRouter, {
+  interceptors: [
+    onError((error) => {
+      console.error(error)
+    }),
+  ],
+})
 
 app.use('/rpc/*', async (c, next) => {
   const { matched, response } = await handler.handle(c.req.raw, {

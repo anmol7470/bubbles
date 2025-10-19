@@ -10,6 +10,9 @@ export const auth = betterAuth({
     schema,
   }),
   trustedOrigins: [process.env.CORS_ORIGIN as string],
+  emailAndPassword: {
+    enabled: true,
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
