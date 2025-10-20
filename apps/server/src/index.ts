@@ -1,21 +1,60 @@
 import { onError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
+import { Server as Engine } from '@socket.io/bun-engine'
 import 'dotenv/config'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { Server } from 'socket.io'
+import { createRouteHandler } from 'uploadthing/server'
 import { auth } from './lib/auth'
 import { createContext } from './lib/context'
+import { uploadRouter } from './lib/uploadthing'
 import { appRouter } from './routes'
 
 const app = new Hono()
+export const io = new Server({
+  cors: {
+    origin: process.env.CORS_ORIGIN!,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  },
+})
+const engine = new Engine()
+io.bind(engine)
+
+io.on('connection', async (socket) => {
+  const headers = socket.handshake.headers
+  const headersObj = Object.fromEntries(Object.entries(headers as Record<string, string>))
+
+  const session = await auth.api.getSession({
+    headers: new Headers(headersObj),
+  })
+
+  if (!session) {
+    socket.disconnect()
+    return
+  }
+
+  socket.join(`user:${session.user.id}`)
+  socket.data.userId = session.user.id
+})
+
+const { websocket } = engine.handler()
 
 app.use('*', logger())
 app.use(
   '*',
   cors({
     origin: process.env.CORS_ORIGIN!,
-    allowHeaders: ['Content-Type', 'Authorization'],
+    allowHeaders: [
+      'Content-Type',
+      'Authorization',
+      'B3',
+      'Traceparent',
+      'X-Uploadthing-Package',
+      'X-Uploadthing-Version',
+    ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   })
@@ -48,7 +87,23 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
+const handlers = createRouteHandler({
+  router: uploadRouter,
+})
+
+app.all('/api/uploadthing', (c) => handlers(c.req.raw))
+
 export default {
   port: 3001,
-  fetch: app.fetch,
+  idleTimeout: 30,
+  fetch(req: Request, server: Bun.ServerWebSocket) {
+    const url = new URL(req.url)
+
+    if (url.pathname === '/socket.io/') {
+      return engine.handleRequest(req, server)
+    } else {
+      return app.fetch(req, server)
+    }
+  },
+  websocket,
 }

@@ -2,13 +2,13 @@ import type { Context as HonoContext } from 'hono'
 import { db } from '../db'
 import { auth } from './auth'
 
-export const createContext = async (context: HonoContext) => {
+export const createContext = async (c: HonoContext) => {
   const session = await auth.api.getSession({
-    headers: context.req.header(),
+    headers: c.req.raw.headers,
   })
 
   return {
-    ...context,
+    ...c,
     user: session?.user,
     db: db,
   }

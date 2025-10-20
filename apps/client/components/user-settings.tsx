@@ -1,10 +1,13 @@
 'use client'
 
+import { useImageUpload } from '@/hooks/use-image-upload'
 import { authClient } from '@/lib/auth-client'
 import type { User } from '@/lib/get-user'
+import { orpc } from '@/lib/orpc'
+import { useMutation } from '@tanstack/react-query'
 import { ImageIcon, XIcon } from 'lucide-react'
 import Image from 'next/image'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
@@ -20,11 +23,19 @@ type UserSettingsProps = {
 export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const [username, setUsername] = useState(user.username ?? '')
   const [currentImageUrl, setCurrentImageUrl] = useState(user.image ?? '')
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(user.image ?? null)
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUpdatingUsername, setIsUpdatingUsername] = useState(false)
   const [isUpdatingImage, setIsUpdatingImage] = useState(false)
+  const {
+    imageInputRef,
+    selectedImages,
+    setSelectedImages,
+    isUploading,
+    handleFileSelect,
+    clearSelected,
+    uploadImages,
+  } = useImageUpload({ singleImageMode: true, maxCount: 1 })
+
+  const { mutateAsync: deleteImages } = useMutation(orpc.uploadthing.deleteImages.mutationOptions())
 
   const handleUpdateUsername = async () => {
     try {
@@ -57,25 +68,35 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
 
   const handleSaveImage = async () => {
     try {
-      if (!selectedImage) {
+      if (selectedImages.length === 0) {
         toast.error('No image selected')
         return
       }
 
       setIsUpdatingImage(true)
+
+      // Delete old image from uploadthing
+      if (currentImageUrl.includes('ufs.sh')) {
+        await deleteImages([currentImageUrl])
+      }
+
+      // Upload image to uploadthing and get URL
+      const uploadedImage = await uploadImages()
+      const newUrl = uploadedImage[0]?.uploadedUrl
+
       const { error } = await authClient.updateUser({
-        image: selectedImageUrl,
+        image: newUrl,
       })
 
       if (error) {
         throw error.message ?? 'Failed to update image'
       }
 
-      setCurrentImageUrl(selectedImageUrl || '')
-      setSelectedImage(null)
+      setCurrentImageUrl(newUrl)
+      clearSelected()
       toast.success('Image updated successfully')
     } catch (error) {
-      toast.error(error as string)
+      toast.error(error instanceof Error ? error.message : (error as string))
     } finally {
       setIsUpdatingImage(false)
     }
@@ -84,6 +105,11 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
   const handleRemoveImage = async () => {
     try {
       setIsUpdatingImage(true)
+
+      // Delete image from uploadthing
+      if (currentImageUrl.includes('ufs.sh')) {
+        await deleteImages([currentImageUrl])
+      }
 
       const { error } = await authClient.updateUser({
         image: '',
@@ -94,7 +120,7 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
       }
 
       setCurrentImageUrl('')
-      setSelectedImageUrl(null)
+      setSelectedImages([])
       toast.success('Image removed successfully')
     } catch (error) {
       toast.error(error as string)
@@ -117,59 +143,57 @@ export function UserSettings({ open, onOpenChange, user }: UserSettingsProps) {
               <Label className="text-sm font-medium">Profile Picture</Label>
               <div className="flex items-center gap-4">
                 <div className="bg-muted flex h-20 w-20 items-center justify-center overflow-hidden rounded-full">
-                  {selectedImageUrl || currentImageUrl ? (
-                    <Image
-                      src={selectedImageUrl || currentImageUrl}
-                      alt="Profile"
-                      className="h-full w-full object-cover"
-                      width={80}
-                      height={80}
-                    />
-                  ) : (
-                    <ImageIcon className="text-muted-foreground h-8 w-8" />
-                  )}
+                  {(() => {
+                    const previewUrl = selectedImages[0]?.previewUrl || currentImageUrl
+                    return previewUrl ? (
+                      <Image
+                        src={previewUrl}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                        width={80}
+                        height={80}
+                      />
+                    ) : (
+                      <ImageIcon className="text-muted-foreground h-8 w-8" />
+                    )
+                  })()}
                 </div>
                 <div className="flex flex-1 flex-col gap-2">
                   <input
-                    ref={fileInputRef}
+                    ref={imageInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => setSelectedImage(e.target.files?.[0] ?? null)}
+                    onChange={handleFileSelect}
                     disabled={isUpdatingImage}
                   />
                   <div className="flex justify-between gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => imageInputRef.current?.click()}
                       disabled={isUpdatingImage}
                     >
                       Change Picture
                     </Button>
-                    {selectedImage && (
+                    {selectedImages.length > 0 && (
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveImage} disabled={isUpdatingImage}>
-                          {isUpdatingImage ? 'Saving...' : 'Save'}
+                        <Button size="sm" onClick={handleSaveImage} disabled={isUpdatingImage || isUploading}>
+                          {isUploading ? 'Uploading...' : isUpdatingImage ? 'Saving...' : 'Save'}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedImage(null)}
-                          disabled={isUpdatingImage}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => clearSelected()} disabled={isUpdatingImage}>
                           Cancel
                         </Button>
                       </div>
                     )}
                   </div>
-                  {currentImageUrl && !selectedImage && (
+                  {currentImageUrl && selectedImages.length === 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleRemoveImage}
                       disabled={isUpdatingImage}
-                      className="text-destructive self-start"
+                      className="text-destructive hover:text-destructive self-start"
                     >
                       <XIcon className="size-4" />
                       Remove

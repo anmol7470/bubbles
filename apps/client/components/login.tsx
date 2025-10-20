@@ -2,9 +2,9 @@
 
 import { authClient } from '@/lib/auth-client'
 import { MessageCircleIcon } from 'lucide-react'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { FcGoogle } from 'react-icons/fc'
 import { generateUsername } from 'unique-username-generator'
 import { Button } from './ui/button'
 
@@ -34,8 +34,8 @@ export function Login() {
         size="lg"
         className="text-md flex items-center justify-center rounded-full font-semibold"
       >
-        <Image src="/Google.png" alt="Google" width={20} height={20} className="mr-2" />
-        Sign in with Google
+        <FcGoogle className="size-5" />
+        Continue with Google
       </Button>
 
       {process.env.NODE_ENV === 'development' && (

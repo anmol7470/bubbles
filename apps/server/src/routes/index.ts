@@ -1,10 +1,12 @@
 import type { RouterClient } from '@orpc/server'
 import { chatRouter } from './chat'
-import { userRouter } from './user'
+import { messageRouter } from './message'
+import { uploadthingRouter } from './uploadthing'
 
 export const appRouter = {
   chat: chatRouter,
-  user: userRouter,
+  message: messageRouter,
+  uploadthing: uploadthingRouter,
 }
 
 export type AppRouter = RouterClient<typeof appRouter>

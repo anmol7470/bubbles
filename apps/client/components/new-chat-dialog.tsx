@@ -38,7 +38,7 @@ export function NewChatDialog({
   }, [searchQuery])
 
   const { data: searchResults = [], isLoading: isSearching } = useQuery(
-    orpc.user.searchUsers.queryOptions({
+    orpc.chat.searchUsers.queryOptions({
       input: {
         query: debouncedQuery,
         selectedUserIds: selectedUsers.map((u) => u.id),

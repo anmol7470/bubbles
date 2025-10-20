@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { chatMembers, chats } from '../db/schema/chats'
 import { protectedProcedure } from '../lib/orpc'
 
@@ -59,6 +59,35 @@ export const chatRouter = {
     })
   }),
 
+  searchUsers: protectedProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        selectedUserIds: z.array(z.string()),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const { db, user: currentUser } = context
+      const { query, selectedUserIds } = input
+
+      const normalizedQuery = query.toLowerCase().trim().split(' ').join('%')
+
+      return await db.query.user.findMany({
+        where: (user, { and, ilike, not, eq, notInArray }) =>
+          and(
+            ilike(user.username, `%${normalizedQuery}%`),
+            not(eq(user.id, currentUser.id)),
+            ...(selectedUserIds.length > 0 ? [notInArray(user.id, selectedUserIds)] : [])
+          ),
+        columns: {
+          id: true,
+          username: true,
+          image: true,
+        },
+        limit: 20,
+      })
+    }),
+
   createChat: protectedProcedure
     .input(
       z.object({
@@ -99,17 +128,20 @@ export const chatRouter = {
       }
 
       const chatId = crypto.randomUUID()
-      await db.insert(chats).values({
-        id: chatId,
-        creatorId: user.id,
-        type: isGroupChat ? 'groupchat' : 'chat',
-        name: isGroupChat ? groupName?.trim() : null,
-      })
 
-      // Insert members
-      await db
-        .insert(chatMembers)
-        .values(memberIds.map((memberId) => ({ id: crypto.randomUUID(), chatId, userId: memberId })))
+      await db.transaction(async (tx) => {
+        await tx.insert(chats).values({
+          id: chatId,
+          creatorId: user.id,
+          type: isGroupChat ? 'groupchat' : 'chat',
+          name: isGroupChat ? groupName?.trim() : null,
+        })
+
+        // Insert members
+        await tx
+          .insert(chatMembers)
+          .values(memberIds.map((memberId) => ({ id: crypto.randomUUID(), chatId, userId: memberId })))
+      })
 
       // Return the newly created chat in the same shape as list items
       const newChat = await db.query.chats.findFirst({
@@ -157,4 +189,55 @@ export const chatRouter = {
 
       return { existing: false, chatId: chatId, fullChat: newChat }
     }),
+
+  getChatById: protectedProcedure.input(z.object({ chatId: z.string() })).handler(async ({ context, input }) => {
+    const { db, user } = context
+    const { chatId } = input
+
+    return await db.query.chats.findFirst({
+      // check if the chat exists and the user is a member of the chat
+      where: (chat, { eq, exists, and, isNull }) =>
+        and(
+          eq(chat.id, chatId),
+          exists(
+            db
+              .select()
+              .from(chatMembers)
+              .where(and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, user.id)))
+          )
+        ),
+      with: {
+        members: {
+          columns: {},
+          with: {
+            user: {
+              columns: {
+                id: true,
+                username: true,
+                image: true,
+              },
+            },
+          },
+        },
+        messages: {
+          orderBy: (message, { asc }) => asc(message.sentAt),
+          with: {
+            sender: {
+              columns: {
+                id: true,
+                username: true,
+                image: true,
+              },
+            },
+            images: {
+              columns: {
+                id: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    })
+  }),
 }

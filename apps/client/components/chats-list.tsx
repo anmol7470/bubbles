@@ -6,7 +6,7 @@ import type { Outputs } from '@/lib/orpc'
 import { orpc } from '@/lib/orpc'
 import { cn, formatDate } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import { BanIcon, LogOutIcon, Moon, PenBoxIcon, Search, SettingsIcon, Sun, UserIcon } from 'lucide-react'
+import { BanIcon, LogOutIcon, Moon, PenBoxIcon, Search, Settings2Icon, Sun, UserIcon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -66,7 +66,7 @@ export function ChatsList({ user }: { user: User }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon-sm">
-                  <SettingsIcon className="size-4" />
+                  <Settings2Icon className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
