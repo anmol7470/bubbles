@@ -2,8 +2,7 @@
 
 import { authClient } from '@/lib/auth-client'
 import type { User } from '@/lib/get-user'
-import type { Outputs } from '@/lib/orpc'
-import { orpc } from '@/lib/orpc'
+import { orpc, type Outputs } from '@/lib/orpc'
 import { cn, formatDate } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { BanIcon, LogOutIcon, Moon, PenBoxIcon, Search, Settings2Icon, Sun, UserIcon } from 'lucide-react'
@@ -32,6 +31,7 @@ export function ChatsList({ user }: { user: User }) {
   const [search, setSearch] = useState('')
 
   const { data: chats, isLoading } = useQuery(orpc.chat.getAllChats.queryOptions())
+  const { data: unreadCounts, isLoading: isLoadingUnreadCounts } = useQuery(orpc.chat.getUnreadCounts.queryOptions())
 
   const filteredChats = useMemo(() => {
     if (!search) return chats
@@ -56,7 +56,7 @@ export function ChatsList({ user }: { user: User }) {
   }, [chats, search])
 
   return (
-    <div className={(isChatOpen ? 'hidden md:block' : 'block') + ' w-full flex-shrink-0 md:w-1/4'}>
+    <div className={cn(isChatOpen ? 'hidden md:block' : 'block', 'w-full shrink-0 md:w-1/4')}>
       <div className="flex h-full w-full flex-col space-y-4 border-r border-neutral-300 p-3 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <Link className="cursor-pointer text-lg font-medium" href="/chats">
@@ -159,8 +159,13 @@ export function ChatsList({ user }: { user: User }) {
                               {formatDate(chat.messages[0]?.sentAt ?? chat.createdAt)}
                             </div>
                           </div>
-                          <div className="text-muted-foreground truncate text-sm">
-                            {displayLastMessage(chat, user.id)}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-muted-foreground truncate text-sm">
+                              {displayLastMessage(chat, user.id)}
+                            </div>
+                            <div className="shrink-0 rounded-full bg-blue-400 px-1.5 py-0.5 text-xs text-white">
+                              {unreadCounts?.[chat.id] ?? 0}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -211,7 +216,7 @@ function displayLastMessage(chat: Outputs['chat']['getAllChats'][number], curren
   if (lastMessage.isDeleted) {
     return (
       <span className="flex items-center gap-1">
-        <BanIcon className="size-3.5 flex-shrink-0" />
+        <BanIcon className="size-3.5 shrink-0" />
         <span>{senderName} deleted this message</span>
       </span>
     )

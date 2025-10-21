@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
-import { boolean, check, index, pgEnum, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { boolean, check, index, pgEnum, pgTable, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
 import { user } from './auth'
 
 export const chatType = pgEnum('chat_type', ['chat', 'groupchat'])
@@ -30,8 +30,13 @@ export const chatMembers = pgTable(
       onDelete: 'cascade',
     }),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
+    lastReadAt: timestamp('last_read_at').defaultNow().notNull(),
   },
-  (table) => [index('chat_members_chat_id_idx').on(table.chatId), index('chat_members_user_id_idx').on(table.userId)]
+  (table) => [
+    index('chat_members_chat_id_idx').on(table.chatId),
+    index('chat_members_user_id_idx').on(table.userId),
+    uniqueIndex('chat_members_chat_id_user_id_unique').on(table.chatId, table.userId),
+  ]
 )
 
 export const messages = pgTable(
@@ -50,7 +55,7 @@ export const messages = pgTable(
     isEdited: boolean('is_edited').default(false),
   },
   (table) => [
-    index('messages_chat_id_sent_at_idx').on(table.chatId, table.sentAt.desc()),
+    index('messages_chat_id_sent_at_idx').on(table.chatId, table.sentAt.desc(), table.id.desc()),
     index('messages_sender_id_idx').on(table.senderId),
   ]
 )

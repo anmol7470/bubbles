@@ -1,6 +1,6 @@
 {
-  "id": "35641696-9e32-41ea-8615-79f53bc1ce65",
-  "prevId": "6b629c0d-b11e-4e5a-b5d0-db0e39cb1a9d",
+  "id": "1083e0c8-54a1-46e2-a70d-474046b82cb8",
+  "prevId": "35641696-9e32-41ea-8615-79f53bc1ce65",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -344,6 +344,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "last_read_at": {
+          "name": "last_read_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
@@ -373,6 +380,27 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "chat_members_chat_id_user_id_unique": {
+          "name": "chat_members_chat_id_user_id_unique",
+          "columns": [
+            {
+              "expression": "chat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -592,6 +620,12 @@
             },
             {
               "expression": "sent_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": false,
               "nulls": "last"

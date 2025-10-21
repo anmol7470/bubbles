@@ -1,4 +1,5 @@
-import { ORPCError, os } from '@orpc/server'
+import { InferRouterOutputs, ORPCError, os } from '@orpc/server'
+import { appRouter } from '../routes'
 import type { Context } from './context'
 
 export const o = os.$context<Context>()
@@ -19,3 +20,5 @@ const requireAuth = o.middleware(async ({ context, next }) => {
 })
 
 export const protectedProcedure = publicProcedure.use(requireAuth)
+
+export type ServerOutputs = InferRouterOutputs<typeof appRouter>

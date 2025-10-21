@@ -117,6 +117,16 @@ export function useImageUpload(options: UseImageUploadOptions = {}) {
     })
   }
 
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => {
+      const imageToRemove = prev[index]
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.previewUrl)
+      }
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
   return {
     imageInputRef,
     selectedImages,
@@ -125,5 +135,6 @@ export function useImageUpload(options: UseImageUploadOptions = {}) {
     handleFileSelect,
     uploadImages,
     clearSelected,
+    removeImage,
   }
 }

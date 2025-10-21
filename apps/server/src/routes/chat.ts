@@ -1,12 +1,13 @@
+import { and, count, eq, gt } from 'drizzle-orm'
 import * as z from 'zod'
-import { chatMembers, chats } from '../db/schema/chats'
+import { chatMembers, chats, messages } from '../db/schema/chats'
 import { protectedProcedure } from '../lib/orpc'
 
 export const chatRouter = {
   getAllChats: protectedProcedure.handler(async ({ context }) => {
     const { db, user } = context
 
-    return await context.db.query.chats.findMany({
+    return await db.query.chats.findMany({
       // only get chats that the user is a participant of
       where: (chat, { exists, and, eq }) =>
         exists(
@@ -57,6 +58,29 @@ export const chatRouter = {
         },
       },
     })
+  }),
+
+  getUnreadCounts: protectedProcedure.handler(async ({ context }) => {
+    const { db, user } = context
+
+    // Get all unread counts in one go
+    const results = await db
+      .select({
+        chatId: chatMembers.chatId,
+        unreadCount: count(messages.id),
+      })
+      .from(chatMembers)
+      .leftJoin(messages, and(eq(messages.chatId, chatMembers.chatId), gt(messages.sentAt, chatMembers.lastReadAt)))
+      .where(eq(chatMembers.userId, user.id))
+      .groupBy(chatMembers.chatId)
+
+    // Convert to Record<chatId, unreadCount>
+    const unreadCounts: Record<string, number> = {}
+    for (const item of results) {
+      unreadCounts[item.chatId] = Number(item.unreadCount)
+    }
+
+    return unreadCounts
   }),
 
   searchUsers: protectedProcedure
@@ -129,19 +153,17 @@ export const chatRouter = {
 
       const chatId = crypto.randomUUID()
 
-      await db.transaction(async (tx) => {
-        await tx.insert(chats).values({
-          id: chatId,
-          creatorId: user.id,
-          type: isGroupChat ? 'groupchat' : 'chat',
-          name: isGroupChat ? groupName?.trim() : null,
-        })
-
-        // Insert members
-        await tx
-          .insert(chatMembers)
-          .values(memberIds.map((memberId) => ({ id: crypto.randomUUID(), chatId, userId: memberId })))
+      await db.insert(chats).values({
+        id: chatId,
+        creatorId: user.id,
+        type: isGroupChat ? 'groupchat' : 'chat',
+        name: isGroupChat ? groupName?.trim() : null,
       })
+
+      // Insert members
+      await db
+        .insert(chatMembers)
+        .values(memberIds.map((memberId) => ({ id: crypto.randomUUID(), chatId, userId: memberId })))
 
       // Return the newly created chat in the same shape as list items
       const newChat = await db.query.chats.findFirst({
@@ -190,13 +212,14 @@ export const chatRouter = {
       return { existing: false, chatId: chatId, fullChat: newChat }
     }),
 
+  // Just gets chat data without messages
   getChatById: protectedProcedure.input(z.object({ chatId: z.string() })).handler(async ({ context, input }) => {
     const { db, user } = context
     const { chatId } = input
 
     return await db.query.chats.findFirst({
       // check if the chat exists and the user is a member of the chat
-      where: (chat, { eq, exists, and, isNull }) =>
+      where: (chat, { eq, exists, and }) =>
         and(
           eq(chat.id, chatId),
           exists(
@@ -219,25 +242,80 @@ export const chatRouter = {
             },
           },
         },
-        messages: {
-          orderBy: (message, { asc }) => asc(message.sentAt),
-          with: {
-            sender: {
-              columns: {
-                id: true,
-                username: true,
-                image: true,
-              },
+      },
+    })
+  }),
+
+  // Query to get paginated messages
+  getChatMessages: protectedProcedure
+    .input(
+      z.object({
+        chatId: z.string(),
+        limit: z.number().min(1).max(100).optional(),
+        cursor: z
+          .object({
+            sentAt: z.coerce.date(),
+            id: z.string(),
+          })
+          .optional(),
+      })
+    )
+    .handler(async ({ context, input }) => {
+      const { db, user } = context
+      const { chatId, limit = 10, cursor } = input
+
+      const items = await db.query.messages.findMany({
+        where: (message, { eq, and, exists, or, lt }) =>
+          and(
+            eq(message.chatId, chatId),
+            exists(
+              db
+                .select()
+                .from(chatMembers)
+                .where(and(eq(chatMembers.chatId, message.chatId), eq(chatMembers.userId, user.id)))
+            ),
+            // fetch messages older than the cursor in DESC ordering
+            ...(cursor
+              ? [
+                  or(
+                    lt(message.sentAt, cursor.sentAt),
+                    and(eq(message.sentAt, cursor.sentAt), lt(message.id, cursor.id))
+                  ),
+                ]
+              : [])
+          ),
+        orderBy: (message, { desc }) => [desc(message.sentAt), desc(message.id)],
+        limit,
+        with: {
+          sender: {
+            columns: {
+              id: true,
+              username: true,
+              image: true,
             },
-            images: {
-              columns: {
-                id: true,
-                imageUrl: true,
-              },
+          },
+          images: {
+            columns: {
+              id: true,
+              imageUrl: true,
             },
           },
         },
-      },
-    })
+      })
+
+      const nextCursor =
+        items.length === limit ? { sentAt: items[items.length - 1]!.sentAt, id: items[items.length - 1]!.id } : null
+
+      return { items, nextCursor }
+    }),
+
+  markChatAsRead: protectedProcedure.input(z.object({ chatId: z.string() })).handler(async ({ context, input }) => {
+    const { db, user } = context
+    const { chatId } = input
+
+    await db
+      .update(chatMembers)
+      .set({ lastReadAt: new Date() })
+      .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, user.id)))
   }),
 }
