@@ -33,11 +33,22 @@ export function ChatsList({ user }: { user: User }) {
   const { data: chats, isLoading } = useQuery(orpc.chat.getAllChats.queryOptions())
   const { data: unreadCounts, isLoading: isLoadingUnreadCounts } = useQuery(orpc.chat.getUnreadCounts.queryOptions())
 
+  const sortedChats = useMemo(() => {
+    if (!chats) return chats
+
+    // Sort chats by last message sentAt time (most recent first)
+    return [...chats].sort((a, b) => {
+      const aTime = a.messages[0]?.sentAt ? new Date(a.messages[0].sentAt).getTime() : new Date(a.createdAt).getTime()
+      const bTime = b.messages[0]?.sentAt ? new Date(b.messages[0].sentAt).getTime() : new Date(b.createdAt).getTime()
+      return bTime - aTime
+    })
+  }, [chats])
+
   const filteredChats = useMemo(() => {
-    if (!search) return chats
+    if (!search) return sortedChats
     const searchLower = search.toLowerCase()
 
-    return chats?.filter((chat) => {
+    return sortedChats?.filter((chat) => {
       // Check members
       const memberMatch = chat.members.some((member) => member.user?.username?.toLowerCase().includes(searchLower))
 
@@ -53,7 +64,7 @@ export function ChatsList({ user }: { user: User }) {
       // For regular chats, only check members and last message
       return memberMatch || lastMessageMatch
     })
-  }, [chats, search])
+  }, [sortedChats, search])
 
   return (
     <div className={cn(isChatOpen ? 'hidden md:block' : 'block', 'w-full shrink-0 md:w-1/4')}>
@@ -119,7 +130,7 @@ export function ChatsList({ user }: { user: User }) {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
+          {isLoading || isLoadingUnreadCounts ? (
             <div className="flex flex-col gap-2">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-13 w-full" />
@@ -163,9 +174,11 @@ export function ChatsList({ user }: { user: User }) {
                             <div className="text-muted-foreground truncate text-sm">
                               {displayLastMessage(chat, user.id)}
                             </div>
-                            <div className="shrink-0 rounded-full bg-blue-400 px-1.5 py-0.5 text-xs text-white">
-                              {unreadCounts?.[chat.id] ?? 0}
-                            </div>
+                            {(unreadCounts?.[chat.id] ?? 0) > 0 && (
+                              <div className="shrink-0 rounded-full bg-blue-400 px-1.5 py-0.5 text-xs text-white">
+                                {unreadCounts![chat.id]}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -210,14 +223,16 @@ function displayLastMessage(chat: Outputs['chat']['getAllChats'][number], curren
 
   const isOwnMessage = lastMessage.sender?.id === currentUserId
   const senderName = isOwnMessage ? 'You' : lastMessage.sender?.username
-  const senderPrefix = `${senderName}: `
+  const isGroupChat = chat.type === 'groupchat'
+  // Only show sender prefix in group chats
+  const senderPrefix = isGroupChat ? `${senderName}: ` : ''
 
   // If message is deleted
   if (lastMessage.isDeleted) {
     return (
       <span className="flex items-center gap-1">
         <BanIcon className="size-3.5 shrink-0" />
-        <span>{senderName} deleted this message</span>
+        <span>{isGroupChat ? `${senderName} deleted this message` : 'This message was deleted'}</span>
       </span>
     )
   }
@@ -227,9 +242,14 @@ function displayLastMessage(chat: Outputs['chat']['getAllChats'][number], curren
   // If content is empty but there was a message sent (image-only message)
   if (!lastMessage.content || lastMessage.content.trim() === '') {
     const imageText = imageCount > 1 ? 'images' : 'an image'
-    return `${senderPrefix}Sent ${imageText}`
+    return `${senderPrefix}${isGroupChat ? 'Sent' : ''} ${imageText}`.trim()
   }
 
   // Regular text message (with or without images)
+  // In 1-on-1 chats, show "You: " prefix only for own messages
+  if (!isGroupChat && isOwnMessage) {
+    return `You: ${lastMessage.content}`
+  }
+
   return `${senderPrefix}${lastMessage.content}`
 }

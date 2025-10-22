@@ -1,11 +1,11 @@
-import type { Chat } from '@/lib/types'
+import type { Outputs } from '@/lib/orpc'
 import debounce from 'lodash.debounce'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 
 export function useTypingIndicator(
   socket: Socket | null,
-  chat: Chat | null | undefined,
+  chat: Outputs['chat']['getChatById'] | null | undefined,
   chatId: string,
   userId: string,
   username: string

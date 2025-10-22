@@ -5,7 +5,7 @@ import { useTypingIndicator } from '@/hooks/use-typing-indicators'
 import type { User } from '@/lib/get-user'
 import { orpc } from '@/lib/orpc'
 import { cn } from '@/lib/utils'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import EmojiPicker, { Theme } from 'emoji-picker-react'
 import { ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -23,6 +23,7 @@ import { useWsClient } from './ws-provider'
 
 export function ChatContainer({ chatId, user }: { chatId: string; user: User }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { socket, typingUsers } = useWsClient()
   const { theme } = useTheme()
   const [message, setMessage] = useState('')
@@ -32,6 +33,24 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
   const { data: chat, isLoading } = useQuery(orpc.chat.getChatById.queryOptions({ input: { chatId } }))
 
   const { isTyping, handleTyping, stopTyping } = useTypingIndicator(socket, chat, chatId, user.id, user.username!)
+
+  const { mutate: markChatAsRead } = useMutation(
+    orpc.chat.markChatAsRead.mutationOptions({
+      onSuccess: () => {
+        // Update unread counts cache
+        queryClient.setQueryData(
+          orpc.chat.getUnreadCounts.key({ type: 'query' }),
+          (oldData: Record<string, number> | undefined) => {
+            if (!oldData) return oldData
+            return {
+              ...oldData,
+              [chatId]: 0,
+            }
+          }
+        )
+      },
+    })
+  )
 
   // If chat is not found, route away
   if (!isLoading && !chat) {
@@ -124,6 +143,17 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
     }
   }, [chat, otherParticipant])
 
+  // Mark chat as read when entering the chat if it has unread messages
+  useEffect(() => {
+    const unreadCounts = queryClient.getQueryData<Record<string, number>>(
+      orpc.chat.getUnreadCounts.key({ type: 'query' })
+    )
+
+    if (unreadCounts && unreadCounts[chatId] > 0) {
+      markChatAsRead({ chatId })
+    }
+  }, [chatId, queryClient, markChatAsRead])
+
   return (
     <div
       {...getRootProps()}
@@ -175,6 +205,7 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
                 currentUserId={user.id}
                 chatId={chatId}
                 typingUsers={typingUsers[chatId] || []}
+                chatMemberIds={chat.members.map((m) => m.user?.id).filter((id): id is string => !!id)}
               />
 
               <form

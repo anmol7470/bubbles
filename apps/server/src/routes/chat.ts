@@ -1,4 +1,4 @@
-import { and, count, eq, gt } from 'drizzle-orm'
+import { and, count, eq, gt, ne } from 'drizzle-orm'
 import * as z from 'zod'
 import { chatMembers, chats, messages } from '../db/schema/chats'
 import { protectedProcedure } from '../lib/orpc'
@@ -70,7 +70,14 @@ export const chatRouter = {
         unreadCount: count(messages.id),
       })
       .from(chatMembers)
-      .leftJoin(messages, and(eq(messages.chatId, chatMembers.chatId), gt(messages.sentAt, chatMembers.lastReadAt)))
+      .leftJoin(
+        messages,
+        and(
+          eq(messages.chatId, chatMembers.chatId),
+          gt(messages.sentAt, chatMembers.lastReadAt),
+          ne(messages.senderId, user.id) // Exclude own messages from unread count
+        )
+      )
       .where(eq(chatMembers.userId, user.id))
       .groupBy(chatMembers.chatId)
 

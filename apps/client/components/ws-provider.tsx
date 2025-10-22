@@ -75,84 +75,106 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       socket.on('message:sent', (data: MessageSentEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
-          if (!oldData) return oldData
-
-          // Add new message to the first page
-          const newPages = [...oldData.pages]
-          if (newPages[0]) {
-            newPages[0] = {
-              ...newPages[0],
-              items: [data.newMessage, ...newPages[0].items],
-            }
-          }
-
-          return {
-            ...oldData,
-            pages: newPages,
-          }
-        })
-
-        // Update chat list to show new last message
-        queryClient.setQueriesData({ queryKey: chatsQueryKey }, (oldData: Chats | undefined) => {
-          if (!oldData) return oldData
-
-          return oldData.map((chat) => {
-            return {
-              ...chat,
-              messages: [data.newMessage, ...chat.messages.slice(1)],
-            }
-          })
-        })
-
-        queryClient.setQueriesData(
-          { queryKey: unreadCountsQueryKey },
-          (oldData: Record<string, number> | undefined) => {
+        // Only update messages query if we're currently viewing this chat
+        if (currentChatId === data.newMessage.chatId) {
+          queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
             if (!oldData) return oldData
-            if (chatId !== data.newMessage.chatId) return oldData
+
+            // Add new message to the first page
+            const newPages = [...oldData.pages]
+            if (newPages[0]) {
+              newPages[0] = {
+                ...newPages[0],
+                items: [data.newMessage, ...newPages[0].items],
+              }
+            }
 
             return {
               ...oldData,
-              [data.newMessage.chatId]: oldData[data.newMessage.chatId] + 1,
+              pages: newPages,
             }
-          }
-        )
+          })
+        }
+
+        // Update chat list to show new last message and re-sort by most recent
+        queryClient.setQueriesData({ queryKey: chatsQueryKey }, (oldData: Chats | undefined) => {
+          if (!oldData) return oldData
+
+          const updatedChats = oldData.map((chat) => {
+            if (chat.id === data.newMessage.chatId) {
+              return {
+                ...chat,
+                messages: [data.newMessage],
+              }
+            }
+            return chat
+          })
+
+          // Sort chats by last message sentAt time (most recent first)
+          return updatedChats.sort((a, b) => {
+            const aTime = a.messages[0]?.sentAt ? new Date(a.messages[0].sentAt).getTime() : new Date(a.createdAt).getTime()
+            const bTime = b.messages[0]?.sentAt ? new Date(b.messages[0].sentAt).getTime() : new Date(b.createdAt).getTime()
+            return bTime - aTime
+          })
+        })
+
+        // Only increment unread count if we're NOT currently viewing that chat and it's not our own message
+        if (currentChatId !== data.newMessage.chatId && data.newMessage.senderId !== user.id) {
+          queryClient.setQueriesData(
+            { queryKey: unreadCountsQueryKey },
+            (oldData: Record<string, number> | undefined) => {
+              if (!oldData) return oldData
+
+              return {
+                ...oldData,
+                [data.newMessage.chatId]: (oldData[data.newMessage.chatId] || 0) + 1,
+              }
+            }
+          )
+        }
       })
 
       socket.on('message:edited', (data: MessageEditedEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
-          if (!oldData) return oldData
+        // Only update messages query if we're currently viewing this chat
+        if (currentChatId === data.editedMessage.chatId) {
+          queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
+            if (!oldData) return oldData
 
-          const newPages = oldData.pages.map((page) => ({
-            ...page,
-            items: page.items.map((msg) =>
-              msg.id === data.editedMessage.id
-                ? {
-                    ...msg,
-                    content: data.editedMessage.content,
-                    isEdited: true,
-                    images: data.editedMessage.images,
-                  }
-                : msg
-            ),
-          }))
+            const newPages = oldData.pages.map((page) => ({
+              ...page,
+              items: page.items.map((msg) =>
+                msg.id === data.editedMessage.id
+                  ? {
+                      ...msg,
+                      content: data.editedMessage.content,
+                      isEdited: true,
+                      images: data.editedMessage.images,
+                    }
+                  : msg
+              ),
+            }))
 
-          return {
-            ...oldData,
-            pages: newPages,
-          }
-        })
+            return {
+              ...oldData,
+              pages: newPages,
+            }
+          })
+        }
 
+        // Update chat list if this was the last message
         queryClient.setQueriesData({ queryKey: chatsQueryKey }, (oldData: Chats | undefined) => {
           if (!oldData) return oldData
 
           return oldData.map((chat) => {
-            return {
-              ...chat,
-              messages: chat.messages.map((msg) => (msg.id === data.editedMessage.id ? data.editedMessage : msg)),
+            if (chat.id === data.editedMessage.chatId && chat.messages[0]?.id === data.editedMessage.id) {
+              return {
+                ...chat,
+                messages: [data.editedMessage],
+              }
             }
+            return chat
           })
         })
       })
@@ -160,23 +182,35 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       socket.on('message:deleted', (data: MessageDeletedEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
-          if (!oldData) return oldData
+        // Only update messages query if we're currently viewing this chat
+        if (currentChatId === data.chatId) {
+          queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
+            if (!oldData) return oldData
 
-          return oldData.pages.map((page) => ({
-            ...page,
-            items: page.items.filter((msg) => msg.id !== data.messageId),
-          }))
-        })
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => ({
+                ...page,
+                items: page.items.map((msg) =>
+                  msg.id === data.messageId ? { ...msg, isDeleted: true, content: '' } : msg
+                ),
+              })),
+            }
+          })
+        }
 
+        // Update chat list if this was the last message
         queryClient.setQueriesData({ queryKey: chatsQueryKey }, (oldData: Chats | undefined) => {
           if (!oldData) return oldData
 
           return oldData.map((chat) => {
-            return {
-              ...chat,
-              messages: chat.messages.map((msg) => (msg.id === data.messageId ? { ...msg, isDeleted: true } : msg)),
+            if (chat.id === data.chatId && chat.messages[0]?.id === data.messageId) {
+              return {
+                ...chat,
+                messages: [{ ...chat.messages[0], isDeleted: true, content: '' }],
+              }
             }
+            return chat
           })
         })
       })

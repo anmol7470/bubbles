@@ -8,14 +8,16 @@ import { UserAvatar } from './chats-list'
 import { MessageContent } from './message-content'
 import { Button } from './ui/button'
 import { ScrollArea } from './ui/scroll-area'
+
 type MessagesProps = {
   chatId: string
   isGroupChat: boolean
   currentUserId: string
   typingUsers: { userId: string; username: string }[]
+  chatMemberIds: string[]
 }
 
-export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: MessagesProps) {
+export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, chatMemberIds }: MessagesProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
@@ -108,6 +110,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
                         isEditing={editingMessageId === m.id}
                         onEditStart={() => setEditingMessageId(m.id)}
                         onEditEnd={() => setEditingMessageId(null)}
+                        chatMemberIds={chatMemberIds}
                       />
                     </div>
                   ) : (
@@ -135,6 +138,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
                           isEditing={false}
                           onEditStart={() => {}}
                           onEditEnd={() => {}}
+                          chatMemberIds={chatMemberIds}
                         />
                       </div>
                     </div>

@@ -1,10 +1,9 @@
-import type { Outputs } from '@/lib/orpc/client'
+import type { Outputs } from '@/lib/orpc'
 import { useEffect, useRef, useState } from 'react'
-import { useTypingIndicator } from './use-typing-indicator'
 
 export function useScroll(
   messages: Outputs['chat']['getChatMessages']['items'],
-  typingUsers?: ReturnType<typeof useTypingIndicator>['typingUsers']
+  typingUsers?: { userId: string; username: string }[]
 ) {
   const [isAtBottom, setIsAtBottom] = useState(true)
   const scrollAreaRef = useRef<HTMLDivElement>(null)

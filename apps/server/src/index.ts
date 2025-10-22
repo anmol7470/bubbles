@@ -38,6 +38,31 @@ io.on('connection', async (socket) => {
 
   socket.join(`user:${session.user.id}`)
   socket.data.userId = session.user.id
+
+  socket.on('typing', (data: { chatId: string; userId: string; username: string; chatMemberIds: string[] }) => {
+    // Broadcast typing event to all chat members except the sender
+    data.chatMemberIds.forEach((memberId) => {
+      if (memberId !== data.userId) {
+        io.to(`user:${memberId}`).emit('typing', {
+          chatId: data.chatId,
+          userId: data.userId,
+          username: data.username,
+        })
+      }
+    })
+  })
+
+  socket.on('stopTyping', (data: { chatId: string; userId: string; chatMemberIds: string[] }) => {
+    // Broadcast stopTyping event to all chat members except the sender
+    data.chatMemberIds.forEach((memberId) => {
+      if (memberId !== data.userId) {
+        io.to(`user:${memberId}`).emit('stopTyping', {
+          chatId: data.chatId,
+          userId: data.userId,
+        })
+      }
+    })
+  })
 })
 
 const { websocket } = engine.handler()

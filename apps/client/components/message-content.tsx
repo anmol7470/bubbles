@@ -99,9 +99,15 @@ export function MessageContent({
       },
       chatMemberIds,
       content: editContent,
-      images: editImageUrls.map((url) => ({ id: crypto.randomUUID(), imageUrl: url })),
-      removedImageUrls,
+      images: editImageUrls.length > 0 ? editImageUrls.map((url) => ({ id: crypto.randomUUID(), imageUrl: url })) : undefined,
+      removedImageUrls: removedImageUrls.length > 0 ? removedImageUrls : undefined,
     })
+  }
+
+  const handleCancelEdit = () => {
+    setEditContent(message.content)
+    setEditImageUrls(imageUrls)
+    onEditEnd()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -236,7 +242,7 @@ export function MessageContent({
               </ContextMenuItem>
             )}
             <ContextMenuItem
-              onClick={async () => await deleteMessage({ chatId: message.chatId, messageId: message.id })}
+              onClick={async () => await deleteMessage({ chatId: message.chatId, messageId: message.id, chatMemberIds })}
               variant="destructive"
             >
               <TrashIcon />

@@ -85,11 +85,7 @@ export const messageRouter = {
       const { db, user } = context
       const { messageMeta, chatMemberIds, content, images, removedImageUrls } = input
 
-      let updatedImages: Array<{ id: string; imageUrl: string }> = images ?? []
-
-      if (images && removedImageUrls) {
-        updatedImages = images.filter((img) => !removedImageUrls.includes(img.imageUrl))
-      }
+      const updatedImages = images ?? []
 
       const editedMessage = {
         id: messageMeta.id,
@@ -118,8 +114,20 @@ export const messageRouter = {
 
       // Delete the removed images from uploadthing and database
       if (removedImageUrls && removedImageUrls.length > 0) {
-        await db.delete(messageImages).where(inArray(messageImages.id, removedImageUrls))
+        await db.delete(messageImages).where(inArray(messageImages.imageUrl, removedImageUrls))
         await deleteImages(removedImageUrls)
+      }
+
+      // Get existing images to find new ones
+      const existingImages = await db.query.messageImages.findMany({
+        where: (img, { eq }) => eq(img.messageId, messageMeta.id),
+      })
+      const existingUrls = new Set(existingImages.map((img) => img.imageUrl))
+
+      // Insert any new images
+      const newImages = updatedImages.filter((img) => !existingUrls.has(img.imageUrl))
+      if (newImages.length > 0) {
+        await db.insert(messageImages).values(newImages.map((img) => ({ ...img, messageId: messageMeta.id })))
       }
     }),
 
