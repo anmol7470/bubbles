@@ -94,7 +94,7 @@ export function MessageContent({
       messageMeta: {
         id: message.id,
         chatId: message.chatId,
-        sentAt: message.sentAt,
+        sentAt: new Date(message.sentAt),
       },
       chatMemberIds,
       content: editContent,

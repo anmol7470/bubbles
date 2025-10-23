@@ -133,7 +133,7 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
     }
   }, [chat, otherParticipant])
 
-  // Mark chat as read when entering the chat - always update lastReadAt
+  // Mark chat as read when entering the chat
   useEffect(() => {
     markChatAsRead({ chatId })
   }, [chatId, markChatAsRead])

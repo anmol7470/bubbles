@@ -11,7 +11,7 @@ import type {
   StopTypingEventData,
   TypingEventData,
 } from '@/lib/types'
-import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
@@ -49,8 +49,10 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
   useEffect(() => {
     currentChatIdRef.current = currentChatId
   }, [currentChatId])
+
   const chatsQueryKey = useMemo(() => orpc.chat.getAllChats.key({ type: 'query' }), [])
   const unreadCountsQueryKey = useMemo(() => orpc.chat.getUnreadCounts.key({ type: 'query' }), [])
+  const { mutate: markChatAsRead } = useMutation(orpc.chat.markChatAsRead.mutationOptions())
 
   useEffect(() => {
     // can initialize without checking for user because we are rendering the provider in /chats layout which is protected
@@ -118,9 +120,23 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
           })
         })
 
-        // Refetch unread counts immediately to get accurate count from server
-        // Server query excludes own messages, so this will be correct
-        queryClient.refetchQueries({ queryKey: unreadCountsQueryKey })
+        // If user is on this chat, mark it as read
+        // Else, increment the unread countof that particular chat
+        if (currentChatIdRef.current === data.newMessage.chatId) {
+          markChatAsRead({ chatId: data.newMessage.chatId })
+        } else {
+          queryClient.setQueriesData(
+            { queryKey: unreadCountsQueryKey },
+            (oldData: Record<string, number> | undefined) => {
+              if (!oldData) return oldData
+
+              return {
+                ...oldData,
+                [data.newMessage.chatId]: oldData[data.newMessage.chatId] + 1,
+              }
+            }
+          )
+        }
       })
 
       socket.on('message:edited', (data: MessageEditedEventData) => {
