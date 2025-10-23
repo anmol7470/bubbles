@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { toast } from 'react-hot-toast'
+import { ChatSettings } from './chat-settings'
 import { UserAvatar } from './chats-list'
 import { Messages } from './messages'
 import { Button } from './ui/button'
@@ -29,8 +30,9 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
   const [message, setMessage] = useState('')
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null)
   const [emojiOpen, setEmojiOpen] = useState(false)
+  const [isChatSettingsOpen, setIsChatSettingsOpen] = useState(false)
 
-  const { data: chat, isLoading } = useQuery(orpc.chat.getChatById.queryOptions({ input: { chatId } }))
+  const { data: chat, isLoading, error } = useQuery(orpc.chat.getChatById.queryOptions({ input: { chatId } }))
 
   const { isTyping, handleTyping, stopTyping } = useTypingIndicator(socket, chat, chatId, user.id, user.username!)
 
@@ -42,11 +44,13 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
     })
   )
 
-  // If chat is not found, route away
-  if (!isLoading && !chat) {
-    toast.error(`Chat ${chatId} not found`)
-    router.push('/chats')
-  }
+  // If chat is not found or error, route away
+  useEffect(() => {
+    if (!isLoading && (error || !chat)) {
+      toast.error('Chat not found')
+      router.push('/chats')
+    }
+  }, [isLoading, error, chat, router])
 
   const { imageInputRef, selectedImages, isUploading, handleFileSelect, uploadImages, clearSelected, removeImage } =
     useImageUpload({ maxCount: 5 })
@@ -138,6 +142,10 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
     markChatAsRead({ chatId })
   }, [chatId, markChatAsRead])
 
+  if (isChatSettingsOpen) {
+    return <ChatSettings open={isChatSettingsOpen} onOpenChange={setIsChatSettingsOpen} chatId={chatId} user={user} />
+  }
+
   return (
     <div
       {...getRootProps()}
@@ -160,7 +168,13 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
         : chat && (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="bg-background/80 flex h-14 items-center gap-3 border-b border-neutral-300 px-4 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    'flex items-center gap-2',
+                    chat.type === 'groupchat' && 'cursor-pointer transition-opacity hover:opacity-70'
+                  )}
+                  onClick={() => chat.type === 'groupchat' && setIsChatSettingsOpen(true)}
+                >
                   {chat.type === 'groupchat' ? (
                     <UserAvatar className="size-8" image={undefined} username={chat.name} />
                   ) : (
@@ -199,7 +213,6 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
                 }}
                 className="flex flex-col gap-2 border-t border-neutral-300 px-3 py-2 dark:border-zinc-800"
               >
-                {/* Image Preview */}
                 {selectedImages.length > 0 && (
                   <div className="flex flex-wrap gap-2 px-1">
                     {selectedImages.map((image, index) => (

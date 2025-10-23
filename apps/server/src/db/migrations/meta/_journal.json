@@ -22,6 +22,13 @@
       "when": 1761016121794,
       "tag": "0002_hard_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1761191733740,
+      "tag": "0003_majestic_ultron",
+      "breakpoints": true
     }
   ]
 }

@@ -31,6 +31,7 @@ export const chatMembers = pgTable(
     }),
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
     lastReadAt: timestamp('last_read_at').defaultNow().notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
   },
   (table) => [
     index('chat_members_chat_id_idx').on(table.chatId),

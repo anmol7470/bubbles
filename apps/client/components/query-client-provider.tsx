@@ -10,6 +10,11 @@ import toast from 'react-hot-toast'
 
 export function QueryClientProvider({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
     queryCache: new QueryCache({
       onError: (error) => {
         toast.error(error.message)

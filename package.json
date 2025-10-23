@@ -7,10 +7,11 @@
   "packageManager": "bun@1.3.0",
   "scripts": {
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "dev": "turbo dev",
     "build": "turbo build",
-    "check-types": "turbo check-types"
+    "check-types": "turbo check-types",
+    "db:generate": "turbo -F server db:generate",
+    "db:migrate": "turbo -F server db:migrate"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

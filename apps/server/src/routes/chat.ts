@@ -8,16 +8,18 @@ export const chatRouter = {
     const { db, user } = context
 
     const chats = await db.query.chats.findMany({
-      // only get chats that the user is a participant of
       where: (chat, { exists, and, eq }) =>
         exists(
           db
             .select()
             .from(chatMembers)
-            .where(and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, user.id)))
+            .where(
+              and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, user.id), eq(chatMembers.isActive, true))
+            )
         ),
       with: {
         members: {
+          where: (member, { eq }) => eq(member.isActive, true),
           columns: {},
           with: {
             user: {
@@ -81,10 +83,10 @@ export const chatRouter = {
         and(
           eq(messages.chatId, chatMembers.chatId),
           gt(messages.sentAt, chatMembers.lastReadAt),
-          ne(messages.senderId, user.id) // Exclude own messages from unread count
+          ne(messages.senderId, user.id)
         )
       )
-      .where(eq(chatMembers.userId, user.id))
+      .where(and(eq(chatMembers.userId, user.id), eq(chatMembers.isActive, true)))
       .groupBy(chatMembers.chatId)
 
     // Convert to Record<chatId, unreadCount>
@@ -181,6 +183,7 @@ export const chatRouter = {
         where: (chat, { eq }) => eq(chat.id, chatId),
         with: {
           members: {
+            where: (member, { eq }) => eq(member.isActive, true),
             columns: {},
             with: {
               user: {
@@ -229,7 +232,6 @@ export const chatRouter = {
     const { chatId } = input
 
     return await db.query.chats.findFirst({
-      // check if the chat exists and the user is a member of the chat
       where: (chat, { eq, exists, and }) =>
         and(
           eq(chat.id, chatId),
@@ -237,11 +239,14 @@ export const chatRouter = {
             db
               .select()
               .from(chatMembers)
-              .where(and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, user.id)))
+              .where(
+                and(eq(chatMembers.chatId, chat.id), eq(chatMembers.userId, user.id), eq(chatMembers.isActive, true))
+              )
           )
         ),
       with: {
         members: {
+          where: (member, { eq }) => eq(member.isActive, true),
           columns: {},
           with: {
             user: {
@@ -283,7 +288,13 @@ export const chatRouter = {
               db
                 .select()
                 .from(chatMembers)
-                .where(and(eq(chatMembers.chatId, message.chatId), eq(chatMembers.userId, user.id)))
+                .where(
+                  and(
+                    eq(chatMembers.chatId, message.chatId),
+                    eq(chatMembers.userId, user.id),
+                    eq(chatMembers.isActive, true)
+                  )
+                )
             ),
             // fetch messages older than the cursor in DESC ordering
             ...(cursor
@@ -327,6 +338,120 @@ export const chatRouter = {
     await db
       .update(chatMembers)
       .set({ lastReadAt: new Date() })
-      .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, user.id)))
+      .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, user.id), eq(chatMembers.isActive, true)))
   }),
+
+  exitGroupChat: protectedProcedure
+    .input(z.object({ chatId: z.string(), userId: z.string() }))
+    .handler(async ({ context, input }) => {
+      const { db, user } = context
+      const { chatId, userId } = input
+
+      const chat = await db.query.chats.findFirst({
+        where: (chat, { eq }) => eq(chat.id, chatId),
+      })
+
+      if (!chat) {
+        throw new Error('Chat not found')
+      }
+
+      if (userId !== user.id && chat.creatorId !== user.id) {
+        throw new Error('Unauthorized')
+      }
+
+      // Set isActive to false
+      await db
+        .update(chatMembers)
+        .set({ isActive: false })
+        .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
+    }),
+
+  updateGroupChatName: protectedProcedure
+    .input(z.object({ chatId: z.string(), name: z.string().min(1).max(20) }))
+    .handler(async ({ context, input }) => {
+      const { db, user } = context
+      const { chatId, name } = input
+
+      // Verify user is the creator
+      const chat = await db.query.chats.findFirst({
+        where: (chat, { eq }) => eq(chat.id, chatId),
+      })
+
+      if (!chat) {
+        throw new Error('Chat not found')
+      }
+
+      if (chat.creatorId !== user.id) {
+        throw new Error('Only the creator can update the group name')
+      }
+
+      await db.update(chats).set({ name: name.trim() }).where(eq(chats.id, chatId))
+    }),
+
+  makeMemberAdmin: protectedProcedure
+    .input(z.object({ chatId: z.string(), memberId: z.string() }))
+    .handler(async ({ context, input }) => {
+      const { db, user } = context
+      const { chatId, memberId } = input
+
+      // Verify user is the current creator
+      const chat = await db.query.chats.findFirst({
+        where: (chat, { eq }) => eq(chat.id, chatId),
+      })
+
+      if (!chat) {
+        throw new Error('Chat not found')
+      }
+
+      if (chat.creatorId !== user.id) {
+        throw new Error('Only the creator can make someone admin')
+      }
+
+      // Transfer creator role
+      await db.update(chats).set({ creatorId: memberId }).where(eq(chats.id, chatId))
+    }),
+
+  addMemberToGroupChat: protectedProcedure
+    .input(z.object({ chatId: z.string(), userId: z.string() }))
+    .handler(async ({ context, input }) => {
+      const { db, user } = context
+      const { chatId, userId } = input
+
+      // Verify user is the creator
+      const chat = await db.query.chats.findFirst({
+        where: (chat, { eq }) => eq(chat.id, chatId),
+      })
+
+      if (!chat) {
+        throw new Error('Chat not found')
+      }
+
+      if (chat.creatorId !== user.id) {
+        throw new Error('Only the creator can add members')
+      }
+
+      // Check if user is already a member
+      const existingMember = await db.query.chatMembers.findFirst({
+        where: (member, { and, eq }) => and(eq(member.chatId, chatId), eq(member.userId, userId)),
+      })
+
+      if (existingMember) {
+        // If they were previously a member who left, reactivate them
+        if (!existingMember.isActive) {
+          await db
+            .update(chatMembers)
+            .set({ isActive: true, joinedAt: new Date() })
+            .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
+        } else {
+          throw new Error('User is already a member')
+        }
+      } else {
+        // Add new member
+        await db.insert(chatMembers).values({
+          id: crypto.randomUUID(),
+          chatId,
+          userId,
+        })
+      }
+    }),
 }
