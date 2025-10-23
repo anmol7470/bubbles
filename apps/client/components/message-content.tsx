@@ -29,10 +29,9 @@ export function MessageContent({
   onEditEnd: () => void
   chatMemberIds: string[]
 }) {
-  const imageUrls = message.images?.map((img) => img.imageUrl) ?? []
-  const imageCount = imageUrls.length
+  const imageCount = message.images?.length ?? 0
   const [editContent, setEditContent] = useState(message.content)
-  const [editImageUrls, setEditImageUrls] = useState<string[]>(imageUrls)
+  const [editImages, setEditImages] = useState<typeof message.images>(message.images)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-focus textarea when editing starts
@@ -84,12 +83,12 @@ export function MessageContent({
   }
 
   const handleSaveEdit = async () => {
-    if (!editContent.trim() && editImageUrls.length === 0) {
+    if (!editContent.trim() && editImages.length === 0) {
       toast.error('Message cannot be empty')
       return
     }
 
-    const removedImageUrls = imageUrls.filter((url) => !editImageUrls.includes(url))
+    const removedImages = editImages.filter((img) => !editImages.includes(img))
 
     await editMessage({
       messageMeta: {
@@ -99,14 +98,14 @@ export function MessageContent({
       },
       chatMemberIds,
       content: editContent,
-      images: editImageUrls.length > 0 ? editImageUrls.map((url) => ({ id: crypto.randomUUID(), imageUrl: url })) : undefined,
-      removedImageUrls: removedImageUrls.length > 0 ? removedImageUrls : undefined,
+      images: editImages.length > 0 ? editImages.map((img) => ({ id: img.id, imageUrl: img.imageUrl })) : undefined,
+      removedImageUrls: removedImages.length > 0 ? removedImages.map((img) => img.imageUrl) : undefined,
     })
   }
 
   const handleCancelEdit = () => {
     setEditContent(message.content)
-    setEditImageUrls(imageUrls)
+    setEditImages(message.images)
     onEditEnd()
   }
 
@@ -119,8 +118,8 @@ export function MessageContent({
     }
   }
 
-  const handleDeleteImage = (urlToDelete: string) => {
-    setEditImageUrls((prev) => prev.filter((url) => url !== urlToDelete))
+  const handleDeleteImage = (imgToDelete: (typeof message.images)[number]) => {
+    setEditImages((prev) => prev.filter((img) => img.id !== imgToDelete.id))
   }
 
   // Show deleted message UI
@@ -142,19 +141,25 @@ export function MessageContent({
   if (isEditing) {
     return (
       <div className="flex w-full flex-col gap-2">
-        {editImageUrls.length > 0 && (
+        {editImages.length > 0 && (
           <div className={cn('flex flex-wrap gap-2', isOwn ? 'justify-end' : 'justify-start')}>
-            {editImageUrls.map((url, index) => (
+            {editImages.map((img, index) => (
               <div
                 key={index}
                 className="group relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-neutral-300 sm:h-36 sm:w-36 dark:border-zinc-700"
               >
-                <Image src={url} alt={`Message image ${index + 1}`} fill sizes="100vw" className="object-cover" />
+                <Image
+                  src={img.imageUrl}
+                  alt={`Message image ${index + 1}`}
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                />
                 <Button
                   type="button"
                   size="icon"
                   variant="destructive"
-                  onClick={() => handleDeleteImage(url)}
+                  onClick={() => handleDeleteImage(img)}
                   className="absolute top-1 right-1 h-5 w-5 rounded-full shadow-md"
                 >
                   <XIcon className="size-4" />
@@ -187,18 +192,18 @@ export function MessageContent({
     <div className="flex flex-col gap-2">
       {imageCount > 0 && (
         <div className={cn('flex flex-wrap gap-2', isOwn ? 'justify-end' : 'justify-start')}>
-          {imageUrls.map((url, index) => (
+          {message.images?.map((img, index) => (
             <div
               key={index}
               className="relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-neutral-300 sm:h-36 sm:w-36 dark:border-zinc-700"
             >
               <Image
-                src={url}
+                src={img.imageUrl}
                 alt={`Message image ${index + 1}`}
                 fill
                 sizes="100vw"
                 className="cursor-pointer object-cover transition-opacity hover:opacity-90"
-                onClick={() => window.open(url, '_blank')}
+                onClick={() => window.open(img.imageUrl, '_blank')}
               />
             </div>
           ))}
@@ -242,7 +247,9 @@ export function MessageContent({
               </ContextMenuItem>
             )}
             <ContextMenuItem
-              onClick={async () => await deleteMessage({ chatId: message.chatId, messageId: message.id, chatMemberIds })}
+              onClick={async () =>
+                await deleteMessage({ chatId: message.chatId, messageId: message.id, chatMemberIds })
+              }
               variant="destructive"
             >
               <TrashIcon />

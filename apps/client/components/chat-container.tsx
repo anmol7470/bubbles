@@ -37,18 +37,6 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
   const { mutate: markChatAsRead } = useMutation(
     orpc.chat.markChatAsRead.mutationOptions({
       onSuccess: () => {
-        // Optimistically set to 0 for immediate UI feedback
-        queryClient.setQueryData(
-          orpc.chat.getUnreadCounts.key({ type: 'query' }),
-          (oldData: Record<string, number> | undefined) => {
-            if (!oldData) return oldData
-            return {
-              ...oldData,
-              [chatId]: 0,
-            }
-          }
-        )
-        // Refetch immediately to get accurate count from server
         queryClient.refetchQueries({ queryKey: orpc.chat.getUnreadCounts.key({ type: 'query' }) })
       },
     })

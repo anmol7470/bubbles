@@ -7,7 +7,7 @@ export const chatRouter = {
   getAllChats: protectedProcedure.handler(async ({ context }) => {
     const { db, user } = context
 
-    return await db.query.chats.findMany({
+    const chats = await db.query.chats.findMany({
       // only get chats that the user is a participant of
       where: (chat, { exists, and, eq }) =>
         exists(
@@ -58,12 +58,18 @@ export const chatRouter = {
         },
       },
     })
+
+    // Sort by most recent message time
+    return chats.sort((a, b) => {
+      const aTime = a.messages[0]?.sentAt ? new Date(a.messages[0].sentAt).getTime() : new Date(a.createdAt).getTime()
+      const bTime = b.messages[0]?.sentAt ? new Date(b.messages[0].sentAt).getTime() : new Date(b.createdAt).getTime()
+      return bTime - aTime
+    })
   }),
 
   getUnreadCounts: protectedProcedure.handler(async ({ context }) => {
     const { db, user } = context
 
-    // Get all unread counts in one go
     const results = await db
       .select({
         chatId: chatMembers.chatId,
@@ -153,7 +159,6 @@ export const chatRouter = {
         }
       }
 
-      // Create new chat
       if (isGroupChat && !groupName) {
         throw new Error('Group name is required for group chats')
       }
@@ -167,7 +172,6 @@ export const chatRouter = {
         name: isGroupChat ? groupName?.trim() : null,
       })
 
-      // Insert members
       await db
         .insert(chatMembers)
         .values(memberIds.map((memberId) => ({ id: crypto.randomUUID(), chatId, userId: memberId })))

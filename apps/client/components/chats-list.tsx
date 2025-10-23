@@ -33,22 +33,11 @@ export function ChatsList({ user }: { user: User }) {
   const { data: chats, isLoading } = useQuery(orpc.chat.getAllChats.queryOptions())
   const { data: unreadCounts, isLoading: isLoadingUnreadCounts } = useQuery(orpc.chat.getUnreadCounts.queryOptions())
 
-  const sortedChats = useMemo(() => {
-    if (!chats) return chats
-
-    // Sort chats by last message sentAt time (most recent first)
-    return [...chats].sort((a, b) => {
-      const aTime = a.messages[0]?.sentAt ? new Date(a.messages[0].sentAt).getTime() : new Date(a.createdAt).getTime()
-      const bTime = b.messages[0]?.sentAt ? new Date(b.messages[0].sentAt).getTime() : new Date(b.createdAt).getTime()
-      return bTime - aTime
-    })
-  }, [chats])
-
   const filteredChats = useMemo(() => {
-    if (!search) return sortedChats
+    if (!search) return chats
     const searchLower = search.toLowerCase()
 
-    return sortedChats?.filter((chat) => {
+    return chats?.filter((chat) => {
       // Check members
       const memberMatch = chat.members.some((member) => member.user?.username?.toLowerCase().includes(searchLower))
 
@@ -64,7 +53,7 @@ export function ChatsList({ user }: { user: User }) {
       // For regular chats, only check members and last message
       return memberMatch || lastMessageMatch
     })
-  }, [sortedChats, search])
+  }, [chats, search])
 
   return (
     <div className={cn(isChatOpen ? 'hidden md:block' : 'block', 'w-full shrink-0 md:w-1/4')}>

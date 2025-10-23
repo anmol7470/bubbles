@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import * as z from 'zod'
 import { io } from '..'
 import { messageImages, messages } from '../db/schema/chats'
@@ -77,15 +77,13 @@ export const messageRouter = {
         }),
         chatMemberIds: z.array(z.string()),
         content: z.string(),
-        images: z.array(z.object({ id: z.string(), imageUrl: z.string() })).optional(),
-        removedImageUrls: z.array(z.string()).optional(),
+        images: z.array(z.object({ id: z.string(), imageUrl: z.string() })).optional(), // new images array
+        removedImageUrls: z.array(z.string()).optional(), // removed image urls array
       })
     )
     .handler(async ({ context, input }) => {
       const { db, user } = context
       const { messageMeta, chatMemberIds, content, images, removedImageUrls } = input
-
-      const updatedImages = images ?? []
 
       const editedMessage = {
         id: messageMeta.id,
@@ -100,7 +98,7 @@ export const messageRouter = {
           username: user.username ?? null,
           image: user.image ?? null,
         },
-        images: updatedImages,
+        images: images ?? [],
       } satisfies Message
 
       chatMemberIds.forEach((memberId) => {
@@ -110,24 +108,15 @@ export const messageRouter = {
         })
       })
 
-      await db.update(messages).set({ content, isEdited: true }).where(eq(messages.id, messageMeta.id))
+      await db
+        .update(messages)
+        .set({ content, isEdited: true })
+        .where(and(eq(messages.id, messageMeta.id), eq(messages.senderId, user.id)))
 
       // Delete the removed images from uploadthing and database
       if (removedImageUrls && removedImageUrls.length > 0) {
         await db.delete(messageImages).where(inArray(messageImages.imageUrl, removedImageUrls))
         await deleteImages(removedImageUrls)
-      }
-
-      // Get existing images to find new ones
-      const existingImages = await db.query.messageImages.findMany({
-        where: (img, { eq }) => eq(img.messageId, messageMeta.id),
-      })
-      const existingUrls = new Set(existingImages.map((img) => img.imageUrl))
-
-      // Insert any new images
-      const newImages = updatedImages.filter((img) => !existingUrls.has(img.imageUrl))
-      if (newImages.length > 0) {
-        await db.insert(messageImages).values(newImages.map((img) => ({ ...img, messageId: messageMeta.id })))
       }
     }),
 
@@ -140,7 +129,7 @@ export const messageRouter = {
       })
     )
     .handler(async ({ context, input }) => {
-      const { db } = context
+      const { db, user } = context
       const { chatId, messageId, chatMemberIds } = input
 
       chatMemberIds.forEach((memberId) => {
@@ -151,7 +140,10 @@ export const messageRouter = {
         })
       })
 
-      await db.update(messages).set({ isDeleted: true, content: '' }).where(eq(messages.id, messageId))
+      await db
+        .update(messages)
+        .set({ isDeleted: true, content: '' })
+        .where(and(eq(messages.id, messageId), eq(messages.senderId, user.id)))
 
       const deletedImages = await db.delete(messageImages).where(eq(messageImages.messageId, messageId)).returning()
       await deleteImages(deletedImages.map((img) => img.imageUrl))

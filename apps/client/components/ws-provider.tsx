@@ -11,12 +11,12 @@ import type {
   StopTypingEventData,
   TypingEventData,
 } from '@/lib/types'
-import { InfiniteData, useQueryClient } from '@tanstack/react-query'
+import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
 import { usePathname } from 'next/navigation'
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 
-export type TypingState = {
+type TypingState = {
   [chatId: string]: {
     userId: string
     username: string
@@ -36,20 +36,19 @@ export const WsClientContext = createContext<WsClientContextType>({
 export function WsClientProvider({ children, user }: { children: React.ReactNode; user: User }) {
   const queryClient = useQueryClient()
   const pathname = usePathname()
-  const chatId = pathname.split('/chats/')[1]?.split('/')[0]
-  const currentChatId = useMemo(() => chatId ?? null, [chatId])
   const [socket, setSocket] = useState<Socket | null>(null)
   const [typingUsers, setTypingUsers] = useState<TypingState>({})
 
-  const messagesQueryKey = useMemo(
-    () =>
-      orpc.chat.getChatMessages.key({
-        type: 'infinite',
-        input: { chatId: currentChatId },
-      }),
-    [currentChatId]
-  )
+  const currentChatId = useMemo(() => {
+    const chatId = pathname.split('/chats/')[1]?.split('/')[0]
+    return chatId ?? null
+  }, [pathname])
 
+  // Keep the latest chatId in a ref to avoid re-registering socket listeners
+  const currentChatIdRef = useRef<string | null>(currentChatId)
+  useEffect(() => {
+    currentChatIdRef.current = currentChatId
+  }, [currentChatId])
   const chatsQueryKey = useMemo(() => orpc.chat.getAllChats.key({ type: 'query' }), [])
   const unreadCountsQueryKey = useMemo(() => orpc.chat.getUnreadCounts.key({ type: 'query' }), [])
 
@@ -64,20 +63,17 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       socket.connect()
       setSocket(socket)
 
-      socket.on('connect', () => {
-        console.log('Connected to WS')
-      })
-
-      socket.on('disconnect', () => {
-        console.log('Disconnected from WS')
-      })
-
       socket.on('message:sent', (data: MessageSentEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        // Only update messages query if we're currently viewing this chat
-        if (currentChatId === data.newMessage.chatId) {
+        // Only update messages if we are on this chat
+        if (currentChatIdRef.current === data.newMessage.chatId) {
+          const messagesQueryKey = orpc.chat.getChatMessages.key({
+            type: 'infinite',
+            input: { chatId: data.newMessage.chatId },
+          })
           queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
+            // If query doesn't exist yet, trigger a refetch instead
             if (!oldData) return oldData
 
             // Add new message to the first page
@@ -112,8 +108,12 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
 
           // Sort chats by last message sentAt time (most recent first)
           return updatedChats.sort((a, b) => {
-            const aTime = a.messages[0]?.sentAt ? new Date(a.messages[0].sentAt).getTime() : new Date(a.createdAt).getTime()
-            const bTime = b.messages[0]?.sentAt ? new Date(b.messages[0].sentAt).getTime() : new Date(b.createdAt).getTime()
+            const aTime = a.messages[0]?.sentAt
+              ? new Date(a.messages[0].sentAt).getTime()
+              : new Date(a.createdAt).getTime()
+            const bTime = b.messages[0]?.sentAt
+              ? new Date(b.messages[0].sentAt).getTime()
+              : new Date(b.createdAt).getTime()
             return bTime - aTime
           })
         })
@@ -126,9 +126,14 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       socket.on('message:edited', (data: MessageEditedEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        // Only update messages query if we're currently viewing this chat
-        if (currentChatId === data.editedMessage.chatId) {
+        // Only update messages if we are on this chat
+        if (currentChatIdRef.current === data.editedMessage.chatId) {
+          const messagesQueryKey = orpc.chat.getChatMessages.key({
+            type: 'infinite',
+            input: { chatId: data.editedMessage.chatId },
+          })
           queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
+            // If query doesn't exist yet, trigger a refetch instead
             if (!oldData) return oldData
 
             const newPages = oldData.pages.map((page) => ({
@@ -171,8 +176,12 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       socket.on('message:deleted', (data: MessageDeletedEventData) => {
         if (!data.chatMemberIds.includes(user.id)) return
 
-        // Only update messages query if we're currently viewing this chat
-        if (currentChatId === data.chatId) {
+        // Only update messages if we are on this chat
+        if (currentChatIdRef.current === data.chatId) {
+          const messagesQueryKey = orpc.chat.getChatMessages.key({
+            type: 'infinite',
+            input: { chatId: data.chatId },
+          })
           queryClient.setQueriesData({ queryKey: messagesQueryKey }, (oldData: InfiniteData<MessagesPage>) => {
             if (!oldData) return oldData
 
@@ -205,9 +214,11 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       })
 
       socket.on('typing', (payload: TypingEventData) => {
+        if (payload.userId === user.id) return
+
         setTypingUsers((prev) => {
           const chatTypers = prev[payload.chatId] || []
-          const alreadyTyping = chatTypers.some((user) => user.userId === payload.userId)
+          const alreadyTyping = chatTypers.some((u) => u.userId === payload.userId)
           if (alreadyTyping) return prev
 
           return {
@@ -218,9 +229,11 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
       })
 
       socket.on('stopTyping', (payload: StopTypingEventData) => {
+        if (payload.userId === user.id) return
+
         setTypingUsers((prev) => {
           const chatTypers = prev[payload.chatId] || []
-          const updatedTypers = chatTypers.filter((user) => user.userId !== payload.userId)
+          const updatedTypers = chatTypers.filter((u) => u.userId !== payload.userId)
 
           if (updatedTypers.length === 0) {
             const { [payload.chatId]: _, ...rest } = prev
@@ -244,9 +257,19 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
     })
 
     return () => {
-      currentSocket?.disconnect()
+      if (currentSocket) {
+        // Clean up all event listeners before disconnecting
+        currentSocket.off('connect')
+        currentSocket.off('disconnect')
+        currentSocket.off('message:sent')
+        currentSocket.off('message:edited')
+        currentSocket.off('message:deleted')
+        currentSocket.off('typing')
+        currentSocket.off('stopTyping')
+        currentSocket.disconnect()
+      }
     }
-  }, [queryClient, messagesQueryKey, chatsQueryKey, unreadCountsQueryKey, user.id, chatId])
+  }, [queryClient, chatsQueryKey, unreadCountsQueryKey, user.id])
 
   return <WsClientContext value={{ socket, typingUsers }}>{children}</WsClientContext>
 }
