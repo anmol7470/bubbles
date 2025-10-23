@@ -32,6 +32,7 @@ export function MessageContent({
   const imageCount = message.images?.length ?? 0
   const [editContent, setEditContent] = useState(message.content)
   const [editImages, setEditImages] = useState<typeof message.images>(message.images)
+  const [originalImages, setOriginalImages] = useState<typeof message.images>(message.images)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-focus textarea when editing starts
@@ -79,6 +80,7 @@ export function MessageContent({
       toast.error('Messages can only be edited within 10 minutes')
       return
     }
+    setOriginalImages(message.images)
     onEditStart()
   }
 
@@ -88,7 +90,7 @@ export function MessageContent({
       return
     }
 
-    const removedImages = editImages.filter((img) => !editImages.includes(img))
+    const removedImages = originalImages.filter((img) => !editImages.some((editImg) => editImg.id === img.id))
 
     await editMessage({
       messageMeta: {
@@ -106,6 +108,7 @@ export function MessageContent({
   const handleCancelEdit = () => {
     setEditContent(message.content)
     setEditImages(message.images)
+    setOriginalImages(message.images)
     onEditEnd()
   }
 
