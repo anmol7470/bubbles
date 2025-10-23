@@ -9,7 +9,7 @@ export default function Home() {
       <div className="flex flex-col items-center space-y-3">
         <h1 className="text-center text-xl font-semibold md:text-3xl">Bubbles</h1>
         <p className="text-muted-foreground text-md text-center">
-          A real-time messaging app built with Next.js, Drizzle, and Upstash Realtime
+          A real-time messaging app built with Next.js, Hono, and Socket.io
         </p>
         <Button size="lg" variant="blue" className="w-fit rounded-full font-semibold" asChild>
           <Link href="/auth/sign-in">Get Started</Link>
