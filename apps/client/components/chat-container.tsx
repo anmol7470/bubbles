@@ -47,7 +47,6 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
   // If chat is not found or error, route away
   useEffect(() => {
     if (!isLoading && (error || !chat)) {
-      toast.error('Chat not found')
       router.push('/chats')
     }
   }, [isLoading, error, chat, router])

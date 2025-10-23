@@ -1,3 +1,4 @@
+import { ORPCError } from '@orpc/server'
 import { and, count, eq, gt, ne } from 'drizzle-orm'
 import * as z from 'zod'
 import { chatMembers, chats, messages } from '../db/schema/chats'
@@ -162,7 +163,7 @@ export const chatRouter = {
       }
 
       if (isGroupChat && !groupName) {
-        throw new Error('Group name is required for group chats')
+        throw new ORPCError('Group name is required for group chats')
       }
 
       const chatId = crypto.randomUUID()
@@ -231,7 +232,7 @@ export const chatRouter = {
     const { db, user } = context
     const { chatId } = input
 
-    return await db.query.chats.findFirst({
+    const chat = await db.query.chats.findFirst({
       where: (chat, { eq, exists, and }) =>
         and(
           eq(chat.id, chatId),
@@ -260,6 +261,12 @@ export const chatRouter = {
         },
       },
     })
+
+    if (!chat) {
+      throw new ORPCError('Chat not found')
+    }
+
+    return chat
   }),
 
   // Query to get paginated messages
@@ -352,11 +359,11 @@ export const chatRouter = {
       })
 
       if (!chat) {
-        throw new Error('Chat not found')
+        throw new ORPCError('Chat not found')
       }
 
       if (userId !== user.id && chat.creatorId !== user.id) {
-        throw new Error('Unauthorized')
+        throw new ORPCError('Unauthorized')
       }
 
       // Set isActive to false
@@ -378,11 +385,11 @@ export const chatRouter = {
       })
 
       if (!chat) {
-        throw new Error('Chat not found')
+        throw new ORPCError('Chat not found')
       }
 
       if (chat.creatorId !== user.id) {
-        throw new Error('Only the creator can update the group name')
+        throw new ORPCError('Only the creator can update the group name')
       }
 
       await db.update(chats).set({ name: name.trim() }).where(eq(chats.id, chatId))
@@ -400,11 +407,11 @@ export const chatRouter = {
       })
 
       if (!chat) {
-        throw new Error('Chat not found')
+        throw new ORPCError('Chat not found')
       }
 
       if (chat.creatorId !== user.id) {
-        throw new Error('Only the creator can make someone admin')
+        throw new ORPCError('Only the creator can make someone admin')
       }
 
       // Transfer creator role
@@ -423,11 +430,11 @@ export const chatRouter = {
       })
 
       if (!chat) {
-        throw new Error('Chat not found')
+        throw new ORPCError('Chat not found')
       }
 
       if (chat.creatorId !== user.id) {
-        throw new Error('Only the creator can add members')
+        throw new ORPCError('Only the creator can add members')
       }
 
       // Check if user is already a member
@@ -443,7 +450,7 @@ export const chatRouter = {
             .set({ isActive: true, joinedAt: new Date() })
             .where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
         } else {
-          throw new Error('User is already a member')
+          throw new ORPCError('User is already a member')
         }
       } else {
         // Add new member

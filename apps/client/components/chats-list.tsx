@@ -9,7 +9,7 @@ import { BanIcon, LogOutIcon, Moon, PenBoxIcon, Search, Settings2Icon, Sun, User
 import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { NewChatDialog } from './new-chat-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -29,9 +29,15 @@ export function ChatsList({ user }: { user: User }) {
   const [userSettingsOpen, setUserSettingsOpen] = useState(false)
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [mounted, setMounted] = useState(false)
 
   const { data: chats, isLoading } = useQuery(orpc.chat.getAllChats.queryOptions())
   const { data: unreadCounts, isLoading: isLoadingUnreadCounts } = useQuery(orpc.chat.getUnreadCounts.queryOptions())
+
+  // Prevent hydration errors with Radix UI components
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const filteredChats = useMemo(() => {
     if (!search) return chats
@@ -63,45 +69,51 @@ export function ChatsList({ user }: { user: User }) {
             Chats
           </Link>
           <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon-sm">
-                  <Settings2Icon className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setUserSettingsOpen(true)}>
-                  <UserIcon className="size-4" />
-                  User Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setTheme(theme === 'dark' ? 'light' : 'dark')
-                  }}
-                >
-                  <Sun className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-                  <Moon className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-                  Toggle theme
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    authClient.signOut({
-                      fetchOptions: {
-                        onSuccess: () => {
-                          router.push('/')
+            {mounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon-sm">
+                    <Settings2Icon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setUserSettingsOpen(true)}>
+                    <UserIcon className="size-4" />
+                    User Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setTheme(theme === 'dark' ? 'light' : 'dark')
+                    }}
+                  >
+                    <Sun className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                    <Moon className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                    Toggle theme
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      authClient.signOut({
+                        fetchOptions: {
+                          onSuccess: () => {
+                            router.push('/')
+                          },
+                          onError: ({ error }) => {
+                            toast.error(error.message)
+                          },
                         },
-                        onError: ({ error }) => {
-                          toast.error(error.message)
-                        },
-                      },
-                    })
-                  }
-                >
-                  <LogOutIcon className="size-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                      })
+                    }
+                  >
+                    <LogOutIcon className="size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="outline" size="icon-sm" disabled>
+                <Settings2Icon className="size-4" />
+              </Button>
+            )}
             <Button variant="outline" size="icon-sm" onClick={() => setNewChatDialogOpen(true)}>
               <PenBoxIcon className="size-4" />
             </Button>
