@@ -118,20 +118,9 @@ export function WsClientProvider({ children, user }: { children: React.ReactNode
           })
         })
 
-        // Only increment unread count if we're NOT currently viewing that chat and it's not our own message
-        if (currentChatId !== data.newMessage.chatId && data.newMessage.senderId !== user.id) {
-          queryClient.setQueriesData(
-            { queryKey: unreadCountsQueryKey },
-            (oldData: Record<string, number> | undefined) => {
-              if (!oldData) return oldData
-
-              return {
-                ...oldData,
-                [data.newMessage.chatId]: (oldData[data.newMessage.chatId] || 0) + 1,
-              }
-            }
-          )
-        }
+        // Refetch unread counts immediately to get accurate count from server
+        // Server query excludes own messages, so this will be correct
+        queryClient.refetchQueries({ queryKey: unreadCountsQueryKey })
       })
 
       socket.on('message:edited', (data: MessageEditedEventData) => {

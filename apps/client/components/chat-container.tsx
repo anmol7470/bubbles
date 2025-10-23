@@ -37,7 +37,7 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
   const { mutate: markChatAsRead } = useMutation(
     orpc.chat.markChatAsRead.mutationOptions({
       onSuccess: () => {
-        // Update unread counts cache
+        // Optimistically set to 0 for immediate UI feedback
         queryClient.setQueryData(
           orpc.chat.getUnreadCounts.key({ type: 'query' }),
           (oldData: Record<string, number> | undefined) => {
@@ -48,6 +48,8 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
             }
           }
         )
+        // Refetch immediately to get accurate count from server
+        queryClient.refetchQueries({ queryKey: orpc.chat.getUnreadCounts.key({ type: 'query' }) })
       },
     })
   )
@@ -143,16 +145,10 @@ export function ChatContainer({ chatId, user }: { chatId: string; user: User }) 
     }
   }, [chat, otherParticipant])
 
-  // Mark chat as read when entering the chat if it has unread messages
+  // Mark chat as read when entering the chat - always update lastReadAt
   useEffect(() => {
-    const unreadCounts = queryClient.getQueryData<Record<string, number>>(
-      orpc.chat.getUnreadCounts.key({ type: 'query' })
-    )
-
-    if (unreadCounts && unreadCounts[chatId] > 0) {
-      markChatAsRead({ chatId })
-    }
-  }, [chatId, queryClient, markChatAsRead])
+    markChatAsRead({ chatId })
+  }, [chatId, markChatAsRead])
 
   return (
     <div
