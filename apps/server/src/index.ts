@@ -5,21 +5,14 @@ import 'dotenv/config'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { Server } from 'socket.io'
 import { createRouteHandler } from 'uploadthing/server'
 import { auth } from './lib/auth'
 import { createContext } from './lib/context'
+import { io } from './lib/io'
 import { uploadRouter } from './lib/uploadthing'
 import { appRouter } from './routes'
 
 const app = new Hono()
-export const io = new Server({
-  cors: {
-    origin: process.env.CORS_ORIGIN!,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-  },
-})
 const engine = new Engine()
 io.bind(engine)
 

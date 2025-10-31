@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import * as z from 'zod'
-import { io } from '..'
 import { messageImages, messages } from '../db/schema/chats'
+import { io } from '../lib/io'
 import { protectedProcedure, ServerOutputs } from '../lib/orpc'
 import { deleteImages } from '../lib/uploadthing'
 
