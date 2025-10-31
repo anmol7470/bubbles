@@ -25,5 +25,12 @@ export const auth = betterAuth({
       maxAge: 60 * 60 * 24 * 30, // 30 days
     },
   },
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: 'none',
+      secure: true,
+      httpOnly: true,
+    },
+  },
   plugins: [username()],
 })
