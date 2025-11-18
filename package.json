@@ -1,22 +1,8 @@
 {
-  "name": "bubbles",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "packageManager": "bun@1.3.0",
   "scripts": {
-    "format": "prettier --write .",
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "check-types": "turbo check-types",
-    "db:generate": "turbo -F server db:generate",
-    "db:migrate": "turbo -F server db:migrate"
+    "dev": "mprocs"
   },
-  "devDependencies": {
-    "prettier": "^3.6.2",
-    "prettier-plugin-organize-imports": "^4.3.0",
-    "prettier-plugin-tailwindcss": "^0.7.0",
-    "turbo": "^2.5.8"
+  "dependencies": {
+    "mprocs": "^0.7.3"
   }
 }

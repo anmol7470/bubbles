@@ -1,0 +1,7 @@
+procs:
+  frontend:
+    cwd: frontend
+    cmd: ["bun", "run", "dev"]
+  backend:
+    cwd: backend
+    cmd: ["air"]
