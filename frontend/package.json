@@ -7,9 +7,12 @@
     "build": "vite build",
     "serve": "vite preview",
     "test": "vitest run",
-    "format": "prettier --write . --cache"
+    "format": "prettier --write . --cache",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",
     "@tanstack/react-form": "^1.0.0",

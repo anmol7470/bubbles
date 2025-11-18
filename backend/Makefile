@@ -20,7 +20,7 @@ docker-reset: ## Reset database (removes all data)
 	docker compose up -d
 
 build: ## Build the application
-	go build -o bin/server main.go
+	go build -o tmp/main main.go
 
 run: ## Run the application
 	go run main.go
