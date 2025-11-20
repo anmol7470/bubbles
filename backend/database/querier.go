@@ -11,10 +11,22 @@ import (
 )
 
 type Querier interface {
+	AddChatMember(ctx context.Context, arg AddChatMemberParams) error
+	AddMessageImage(ctx context.Context, arg AddMessageImageParams) error
+	CreateChat(ctx context.Context, arg CreateChatParams) (Chat, error)
+	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteMessage(ctx context.Context, id uuid.UUID) error
+	GetChatById(ctx context.Context, id uuid.UUID) (Chat, error)
+	GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (Chat, error)
+	GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]GetChatsWithMembersRow, error)
+	GetLastMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]GetLastMessageImagesRow, error)
+	GetMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]Image, error)
+	GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]GetMessagesByChatRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error)
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
 }
 

@@ -5,10 +5,43 @@
 package database
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type Chat struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      sql.NullString `json:"name"`
+	IsGroup   bool           `json:"is_group"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type ChatMember struct {
+	ID       uuid.UUID `json:"id"`
+	ChatID   uuid.UUID `json:"chat_id"`
+	UserID   uuid.UUID `json:"user_id"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
+type Image struct {
+	ID        uuid.UUID `json:"id"`
+	MessageID uuid.UUID `json:"message_id"`
+	Url       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Message struct {
+	ID        uuid.UUID      `json:"id"`
+	ChatID    uuid.UUID      `json:"chat_id"`
+	SenderID  uuid.UUID      `json:"sender_id"`
+	Content   sql.NullString `json:"content"`
+	IsDeleted bool           `json:"is_deleted"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
 
 type User struct {
 	ID           uuid.UUID `json:"id"`

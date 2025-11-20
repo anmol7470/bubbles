@@ -10,3 +10,5 @@
 - Don't add comments to functions unless absolutely necessary and the function is complex.
 - Use TanStack Query for data fetching from backend.
 - Don't default export components or hooks. Always use named exports.
+- Prefer using shadcn's `cn` utility for conditional classNames.
+- Prefer type over interface.

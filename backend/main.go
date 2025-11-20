@@ -52,6 +52,18 @@ func main() {
 		auth.GET("/verify", routes.AuthMiddleware(), authHandler.Verify)
 	}
 
+	// Initialize chat handler
+	chatHandler := routes.NewChatHandler(dbService)
+
+	// Chat routes
+	chat := router.Group("/chat")
+	chat.Use(routes.AuthMiddleware())
+	{
+		chat.POST("/search-users", chatHandler.SearchUsers)
+		chat.POST("/create", chatHandler.CreateChat)
+		chat.GET("/all", chatHandler.GetUserChats)
+	}
+
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

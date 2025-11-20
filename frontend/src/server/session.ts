@@ -1,5 +1,5 @@
-import { useSession } from '@tanstack/react-start/server';
-import type { SessionData } from '../types/auth';
+import { useSession } from '@tanstack/react-start/server'
+import type { SessionData } from '../types/auth'
 
 export function useAppSession() {
   return useSession<SessionData>({
@@ -11,5 +11,5 @@ export function useAppSession() {
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60, // 7 days
     },
-  });
+  })
 }

@@ -1,14 +1,14 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { ChatsList } from "../components/chats-list";
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { ChatsList } from '../components/chats-list'
 
-export const Route = createFileRoute("/chats")({
+export const Route = createFileRoute('/chats')({
   beforeLoad: ({ context }) => {
     if (!context.user) {
-      throw redirect({ to: "/auth" });
+      throw redirect({ to: '/auth' })
     }
   },
   component: ChatsLayout,
-});
+})
 
 function ChatsLayout() {
   return (
@@ -18,5 +18,5 @@ function ChatsLayout() {
         <Outlet />
       </div>
     </div>
-  );
+  )
 }

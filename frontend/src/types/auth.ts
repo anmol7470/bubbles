@@ -1,36 +1,36 @@
 export type User = {
-  id: string;
-  username: string;
-  email: string;
-  created_at: string;
-};
+  id: string
+  username: string
+  email: string
+  created_at: string
+}
 
 export type AuthResponse = {
-  token: string;
-  user: User;
-};
+  token: string
+  user: User
+}
 
 export type VerifyResponse = {
-  success: boolean;
-  user?: User;
-};
+  success: boolean
+  user?: User
+}
 
 export type ErrorResponse = {
-  error: string;
-};
+  error: string
+}
 
 export type SignUpData = {
-  username: string;
-  email: string;
-  password: string;
-};
+  username: string
+  email: string
+  password: string
+}
 
 export type SignInData = {
-  email_or_username: string;
-  password: string;
-};
+  email_or_username: string
+  password: string
+}
 
 export type SessionData = {
-  token?: string;
-  user?: User;
-};
+  token?: string
+  user?: User
+}

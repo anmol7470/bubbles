@@ -1,27 +1,24 @@
-import { TanStackDevtools } from '@tanstack/react-devtools';
-import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router';
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
+import { TanStackDevtools } from '@tanstack/react-devtools'
+import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
+import { Toaster } from 'react-hot-toast'
 
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools';
+import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
-import appCss from '../styles.css?url';
+import appCss from '../styles.css?url'
 
-import { getCurrentUserFn } from '@/server/auth';
-import type { QueryClient } from '@tanstack/react-query';
+import { getCurrentUserFn } from '@/server/auth'
+import type { QueryClient } from '@tanstack/react-query'
 
 interface MyRouterContext {
-  queryClient: QueryClient;
-  user: Awaited<ReturnType<typeof getCurrentUserFn>>;
+  queryClient: QueryClient
+  user: Awaited<ReturnType<typeof getCurrentUserFn>>
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   beforeLoad: async () => {
-    const user = await getCurrentUserFn();
-    return { user };
+    const user = await getCurrentUserFn()
+    return { user }
   },
   head: () => ({
     meta: [
@@ -34,7 +31,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
       {
         title: 'Bubbles',
-        description: 'A real-time messaging app inspired by iMessage',
+        description: 'A real-time messaging app like WhatsApp',
       },
     ],
     links: [
@@ -45,7 +42,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     ],
   }),
   shellComponent: RootDocument,
-});
+})
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -55,6 +52,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster position="top-center" />
         <TanStackDevtools
           config={{
             position: 'bottom-right',
@@ -70,5 +68,5 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <Scripts />
       </body>
     </html>
-  );
+  )
 }
