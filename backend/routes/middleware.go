@@ -34,7 +34,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		token := parts[1]
 
 		// Validate token
-		claims, err := models.ValidateJWT(token)
+		claims, err := ValidateJWT(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 				Error: "Invalid or expired token",

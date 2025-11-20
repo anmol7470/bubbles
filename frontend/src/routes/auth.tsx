@@ -1,12 +1,9 @@
 import { AuthForm } from '@/components/auth-form';
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { getCurrentUserFn } from '../server/auth';
 
 export const Route = createFileRoute('/auth')({
-  beforeLoad: async () => {
-    // If user is already authenticated, redirect to home
-    const user = await getCurrentUserFn();
-    if (user) {
+  beforeLoad: async ({ context }) => {
+    if (context.user) {
       throw redirect({ to: '/' });
     }
   },

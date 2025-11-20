@@ -2,10 +2,15 @@ package routes
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/anmol7470/bubbles/backend/database"
@@ -22,7 +27,58 @@ func NewAuthHandler(dbService *database.Service) *AuthHandler {
 	}
 }
 
-// SignUp handles user registration
+type JWTClaims struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	jwt.RegisteredClaims
+}
+
+func GenerateJWT(userID uuid.UUID, username, email string) (string, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", fmt.Errorf("JWT_SECRET environment variable is not set")
+	}
+
+	claims := JWTClaims{
+		UserID:   userID,
+		Username: username,
+		Email:    email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+func ValidateJWT(tokenString string) (*JWTClaims, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return nil, fmt.Errorf("JWT_SECRET environment variable is not set")
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
 func (h *AuthHandler) SignUp(c *gin.Context) {
 	var req models.SignUpRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -74,7 +130,7 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := models.GenerateJWT(user.ID, user.Username, user.Email)
+	token, err := GenerateJWT(user.ID, user.Username, user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: "Failed to generate token",
@@ -93,7 +149,6 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	})
 }
 
-// SignIn handles user authentication
 func (h *AuthHandler) SignIn(c *gin.Context) {
 	var req models.SignInRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -138,7 +193,7 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := models.GenerateJWT(user.ID, user.Username, user.Email)
+	token, err := GenerateJWT(user.ID, user.Username, user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: "Failed to generate token",
@@ -158,41 +213,22 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 }
 
 // Verify validates the JWT token and returns user details
+// Uses AuthMiddleware() which handles token validation and sets user info in context
 func (h *AuthHandler) Verify(c *gin.Context) {
-	// Get token from Authorization header
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.JSON(http.StatusOK, models.VerifyResponse{
-			Success: false,
-		})
-		return
-	}
-
-	// Extract token from "Bearer <token>"
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		c.JSON(http.StatusOK, models.VerifyResponse{
-			Success: false,
-		})
-		return
-	}
-
-	token := parts[1]
-
-	// Validate token
-	claims, err := models.ValidateJWT(token)
-	if err != nil {
-		c.JSON(http.StatusOK, models.VerifyResponse{
-			Success: false,
+	// Get user ID from context (set by AuthMiddleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "User ID not found in context",
 		})
 		return
 	}
 
 	// Get user from database
-	user, err := h.dbService.Queries.GetUserByID(c.Request.Context(), claims.UserID)
+	user, err := h.dbService.Queries.GetUserByID(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
-		c.JSON(http.StatusOK, models.VerifyResponse{
-			Success: false,
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to retrieve user",
 		})
 		return
 	}

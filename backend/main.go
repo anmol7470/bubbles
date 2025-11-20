@@ -25,10 +25,8 @@ func main() {
 	}
 	defer dbService.Close()
 
-	// Initialize Gin router
 	router := gin.Default()
 
-	// Configure CORS
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
@@ -51,7 +49,7 @@ func main() {
 	{
 		auth.POST("/signup", authHandler.SignUp)
 		auth.POST("/signin", authHandler.SignIn)
-		auth.GET("/verify", authHandler.Verify)
+		auth.GET("/verify", routes.AuthMiddleware(), authHandler.Verify)
 	}
 
 	// Health check

@@ -10,13 +10,19 @@ import TanStackQueryDevtools from '../integrations/tanstack-query/devtools';
 
 import appCss from '../styles.css?url';
 
+import { getCurrentUserFn } from '@/server/auth';
 import type { QueryClient } from '@tanstack/react-query';
 
 interface MyRouterContext {
   queryClient: QueryClient;
+  user: Awaited<ReturnType<typeof getCurrentUserFn>>;
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+  beforeLoad: async () => {
+    const user = await getCurrentUserFn();
+    return { user };
+  },
   head: () => ({
     meta: [
       {
@@ -38,7 +44,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
     ],
   }),
-
   shellComponent: RootDocument,
 });
 

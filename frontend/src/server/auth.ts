@@ -11,7 +11,6 @@ import { useAppSession } from './session';
 
 const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-// Sign Up
 export const signUpFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SignUpData) => data)
   .handler(async ({ data }) => {
@@ -51,7 +50,6 @@ export const signUpFn = createServerFn({ method: 'POST' })
     }
   });
 
-// Sign In
 export const signInFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SignInData) => data)
   .handler(async ({ data }) => {
@@ -126,7 +124,6 @@ export const getCurrentUserFn = createServerFn({ method: 'GET' }).handler(
   }
 );
 
-// Logout
 export const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
   const session = await useAppSession();
   await session.clear();
