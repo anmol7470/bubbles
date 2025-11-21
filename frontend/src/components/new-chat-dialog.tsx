@@ -3,8 +3,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'react-hot-toast'
+import { useDebounceCallback } from 'usehooks-ts'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
@@ -24,12 +25,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const [showGroupNameInput, setShowGroupNameInput] = useState(false)
   const [groupName, setGroupName] = useState('')
 
-  useEffect(() => {
-    const handle = setTimeout(() => {
-      setDebouncedQuery(searchQuery.trim())
-    }, 300)
-    return () => clearTimeout(handle)
-  }, [searchQuery])
+  const debouncedSetQuery = useDebounceCallback(setDebouncedQuery, 300)
 
   const { data, isLoading: isSearching } = useQuery({
     queryKey: ['searchUsers', debouncedQuery, selectedUsers.map((u) => u.id)],
@@ -51,6 +47,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const handleUserSelect = (userId: string, username: string) => {
     setSelectedUsers((prev) => [...prev, { id: userId, username }])
     setSearchQuery('')
+    setDebouncedQuery('')
   }
 
   const handleUserRemove = (userId: string) => {
@@ -110,6 +107,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       setGroupName('')
       setShowGroupNameInput(false)
       setSearchQuery('')
+      setDebouncedQuery('')
     }
   }
 
@@ -128,7 +126,11 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                 <Input
                   placeholder="Search for users..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSearchQuery(value)
+                    debouncedSetQuery(value.trim())
+                  }}
                   autoFocus
                 />
               </div>

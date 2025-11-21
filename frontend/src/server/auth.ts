@@ -19,7 +19,7 @@ export const signUpFn = createServerFn({ method: 'POST' })
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
+        return { success: false, error: error.error, retry_after: error.retry_after }
       }
 
       const authResponse: AuthResponse = await response.json()
@@ -58,7 +58,7 @@ export const signInFn = createServerFn({ method: 'POST' })
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
+        return { success: false, error: error.error, retry_after: error.retry_after }
       }
 
       const authResponse: AuthResponse = await response.json()

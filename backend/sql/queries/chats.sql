@@ -24,6 +24,7 @@ AND c.id IN (
     WHERE cm.user_id = ANY(sqlc.arg(member_ids)::uuid[])
     GROUP BY cm.chat_id
     HAVING COUNT(DISTINCT cm.user_id) = sqlc.arg(member_count)::bigint
+    AND ARRAY_AGG(cm.user_id ORDER BY cm.user_id) = sqlc.arg(member_ids)
 )
 LIMIT 1;
 

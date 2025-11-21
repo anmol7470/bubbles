@@ -123,6 +123,7 @@ AND c.id IN (
     WHERE cm.user_id = ANY($1::uuid[])
     GROUP BY cm.chat_id
     HAVING COUNT(DISTINCT cm.user_id) = $2::bigint
+    AND ARRAY_AGG(cm.user_id ORDER BY cm.user_id) = $1
 )
 LIMIT 1
 `

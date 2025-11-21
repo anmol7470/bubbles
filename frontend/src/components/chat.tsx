@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/user-avatar'
+import { formatRetryAfter } from '@/lib/utils'
 import { getChatByIdFn, sendMessageFn } from '@/server/chat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
@@ -11,6 +11,7 @@ import EmojiPicker from 'emoji-picker-react'
 import { ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
+import { useDocumentTitle } from 'usehooks-ts'
 import { Messages } from './messages'
 
 type ImagePreview = {
@@ -34,6 +35,13 @@ export function Chat({ chatId }: ChatProps) {
 
   const getChatByIdQuery = useServerFn(getChatByIdFn)
   const sendMessageQuery = useServerFn(sendMessageFn)
+
+  // Cleanup Object URLs on component unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      selectedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+    }
+  }, [])
 
   const {
     data: chatData,
@@ -71,6 +79,9 @@ export function Chat({ chatId }: ChatProps) {
 
   const otherParticipant = getOtherParticipant()
   const displayName = chat?.is_group ? chat.name || 'Group Chat' : otherParticipant?.username || 'Unknown'
+
+  // Update document title based on chat
+  useDocumentTitle(chat ? `${displayName} - Bubbles` : 'Bubbles')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -138,11 +149,18 @@ export function Chat({ chatId }: ChatProps) {
 
   const { mutateAsync: sendMessage, isPending: isSending } = useMutation({
     mutationFn: sendMessageQuery,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
-      setMessage('')
-      selectedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
-      setSelectedImages([])
+    onSuccess: (data) => {
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
+        setMessage('')
+        selectedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+        setSelectedImages([])
+      } else {
+        const errorMessage = data.retry_after
+          ? `${data.error} Try again in ${formatRetryAfter(data.retry_after)}.`
+          : data.error || 'Failed to send message'
+        toast.error(errorMessage)
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to send message')
@@ -161,8 +179,6 @@ export function Chat({ chatId }: ChatProps) {
     if (message.trim() === '' && selectedImages.length === 0) return
     if (!chat) return
 
-    const memberIds = chat.members.map((m) => m.id)
-
     // TODO: Implement image upload to get URLs
     const imageUrls: string[] = []
 
@@ -170,41 +186,36 @@ export function Chat({ chatId }: ChatProps) {
       data: {
         chat_id: chatId,
         content: message.trim(),
-        chat_member_ids: memberIds,
         images: imageUrls.length > 0 ? imageUrls : undefined,
       },
     })
   }
 
+  // Show loading spinner while fetching chat (after all hooks)
+  if (isLoading || !chat || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading chat...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <div className="flex min-h-0 flex-1 flex-col">
-        {isLoading ? (
-          <div className="flex h-14 items-center gap-3 border-b border-neutral-300 bg-background/80 px-4 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-8 rounded-full" />
-              <Skeleton className="h-5 w-32" />
-            </div>
+        <div className="flex h-14 items-center gap-3 border-b border-neutral-300 bg-background/80 px-4 dark:border-zinc-800">
+          <div className="flex items-center gap-2">
+            <UserAvatar className="size-8" username={displayName} />
+            <div className="font-medium">{displayName}</div>
           </div>
-        ) : (
-          <div className="flex h-14 items-center gap-3 border-b border-neutral-300 bg-background/80 px-4 dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <UserAvatar className="size-8" username={displayName} />
-              <div className="font-medium">{displayName}</div>
-            </div>
-          </div>
-        )}
+        </div>
 
-        {chat && user ? (
-          <Messages chatId={chatId} isGroupChat={chat.is_group} currentUserId={user.id} />
-        ) : (
-          <div className="flex-1"></div>
-        )}
+        <Messages chatId={chatId} isGroupChat={chat.is_group} currentUserId={user.id} />
 
-        <form
-          onSubmit={handleSendMessage}
-          className="flex flex-col gap-2 border-t border-neutral-300 px-3 py-2 dark:border-zinc-800"
-        >
+        <form onSubmit={handleSendMessage} className="flex flex-col gap-2 px-3 py-2">
           {selectedImages.length > 0 && (
             <div className="flex flex-wrap gap-2 px-1">
               {selectedImages.map((image, index) => (
@@ -223,7 +234,7 @@ export function Chat({ chatId }: ChatProps) {
                     variant="destructive"
                     className="absolute right-1 top-1 h-5 w-5 rounded-full shadow-md"
                     onClick={() => removeImage(index)}
-                    disabled={isLoading || isSending}
+                    disabled={isSending}
                   >
                     <XIcon className="size-4" />
                   </Button>
@@ -240,7 +251,7 @@ export function Chat({ chatId }: ChatProps) {
                 aria-label="Select image"
                 className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2 transform"
                 onClick={() => imageInputRef.current?.click()}
-                disabled={selectedImages.length >= 5 || isLoading || isSending}
+                disabled={selectedImages.length >= 5 || isSending}
               >
                 <ImagePlusIcon className="size-5" />
               </Button>
@@ -251,17 +262,17 @@ export function Chat({ chatId }: ChatProps) {
                 onChange={handleFileChange}
                 accept="image/*"
                 multiple
-                disabled={isLoading || isSending}
+                disabled={isSending}
               />
               <Textarea
-                ref={messageInputRef}
                 autoFocus
+                ref={messageInputRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
-                placeholder={isLoading ? 'Loading...' : 'Type a message...'}
+                placeholder="Type a message..."
                 className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30"
-                disabled={isLoading || isSending}
+                disabled={isSending}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -272,13 +283,7 @@ export function Chat({ chatId }: ChatProps) {
             </div>
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Open emoji picker"
-                  disabled={isLoading || isSending}
-                >
+                <Button type="button" size="icon" variant="ghost" aria-label="Open emoji picker" disabled={isSending}>
                   <SmilePlusIcon className="size-5" />
                 </Button>
               </PopoverTrigger>

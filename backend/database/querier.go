@@ -27,6 +27,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	IsChatMember(ctx context.Context, arg IsChatMemberParams) (bool, error)
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error)
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
 }

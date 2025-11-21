@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/anmol7470/bubbles/backend/models"
+	"github.com/anmol7470/bubbles/backend/utils"
 )
 
 type AuthHandler struct {
@@ -40,12 +43,20 @@ func GenerateJWT(userID uuid.UUID, username, email string) (string, error) {
 		return "", fmt.Errorf("JWT_SECRET environment variable is not set")
 	}
 
+	// Get JWT expiration from environment variable (default: 2 hours)
+	expirationHours := 2
+	if expiryEnv := os.Getenv("JWT_EXPIRY_HOURS"); expiryEnv != "" {
+		if hours, err := strconv.Atoi(expiryEnv); err == nil && hours > 0 {
+			expirationHours = hours
+		}
+	}
+
 	claims := JWTClaims{
 		UserID:   userID,
 		Username: username,
 		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expirationHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
@@ -88,8 +99,16 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 		return
 	}
 
+	// Get bcrypt cost from environment variable (default: 12)
+	bcryptCost := 12
+	if costEnv := os.Getenv("BCRYPT_COST"); costEnv != "" {
+		if cost, err := strconv.Atoi(costEnv); err == nil && cost >= bcrypt.MinCost && cost <= bcrypt.MaxCost {
+			bcryptCost = cost
+		}
+	}
+
 	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: "Failed to hash password",
@@ -105,17 +124,19 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	})
 
 	if err != nil {
-		// Check if it's a duplicate key error
-		if strings.Contains(err.Error(), "duplicate key") {
-			if strings.Contains(err.Error(), "users_email_key") {
+		// Check if it's a duplicate key error using PostgreSQL error codes
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			// 23505 is the PostgreSQL error code for unique_violation
+			switch pqErr.Constraint {
+			case "users_email_key":
 				c.JSON(http.StatusConflict, models.ErrorResponse{
 					Error: "Email already exists",
 				})
-			} else if strings.Contains(err.Error(), "users_username_key") {
+			case "users_username_key":
 				c.JSON(http.StatusConflict, models.ErrorResponse{
 					Error: "Username already exists",
 				})
-			} else {
+			default:
 				c.JSON(http.StatusConflict, models.ErrorResponse{
 					Error: "User already exists",
 				})
@@ -137,6 +158,14 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 		})
 		return
 	}
+
+	// Log successful account creation
+	utils.SecurityLogger.Info("User account created",
+		"user_id", user.ID.String(),
+		"username", user.Username,
+		"email", user.Email,
+		"ip", c.ClientIP(),
+	)
 
 	c.JSON(http.StatusCreated, models.AuthResponse{
 		Token: token,
@@ -172,6 +201,11 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			// Log failed login attempt
+			utils.SecurityLogger.Warn("Failed login attempt - user not found",
+				"input", req.EmailOrUsername,
+				"ip", c.ClientIP(),
+			)
 			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 				Error: "Invalid credentials",
 			})
@@ -186,6 +220,12 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	// Verify password
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
+		// Log failed login attempt - wrong password
+		utils.SecurityLogger.Warn("Failed login attempt - invalid password",
+			"user_id", user.ID.String(),
+			"username", user.Username,
+			"ip", c.ClientIP(),
+		)
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Error: "Invalid credentials",
 		})
@@ -200,6 +240,13 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 		})
 		return
 	}
+
+	// Log successful login
+	utils.SecurityLogger.Info("User logged in",
+		"user_id", user.ID.String(),
+		"username", user.Username,
+		"ip", c.ClientIP(),
+	)
 
 	c.JSON(http.StatusOK, models.AuthResponse{
 		Token: token,

@@ -16,8 +16,7 @@ SELECT
     m.is_deleted,
     m.created_at,
     m.updated_at,
-    u.username as sender_username,
-    u.email as sender_email
+    u.username as sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 WHERE m.chat_id = $1
@@ -33,8 +32,7 @@ SELECT
     m.is_deleted,
     m.created_at,
     m.updated_at,
-    u.username as sender_username,
-    u.email as sender_email
+    u.username as sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 WHERE m.chat_id = $1

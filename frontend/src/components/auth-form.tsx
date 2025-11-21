@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatRetryAfter } from '@/lib/utils'
 import { useForm } from '@tanstack/react-form'
 import { useServerFn } from '@tanstack/react-start'
 import { MessageCircle } from 'lucide-react'
@@ -11,6 +12,7 @@ import { signInFn, signUpFn } from '../server/auth'
 export function AuthForm() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
   const [error, setError] = useState<string | null>(null)
+  const [retryAfter, setRetryAfter] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const signUpMutation = useServerFn(signUpFn)
@@ -25,6 +27,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setIsLoading(true)
       setError(null)
+      setRetryAfter(null)
       try {
         const result = await signUpMutation({
           data: value,
@@ -32,6 +35,7 @@ export function AuthForm() {
 
         if (result && 'error' in result) {
           setError(result.error)
+          setRetryAfter(result.retry_after || null)
         }
       } catch (err) {
         // Redirect will throw, so this only catches real errors
@@ -52,6 +56,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setIsLoading(true)
       setError(null)
+      setRetryAfter(null)
       try {
         const result = await signInMutation({
           data: value,
@@ -59,6 +64,7 @@ export function AuthForm() {
 
         if (result && 'error' in result) {
           setError(result.error)
+          setRetryAfter(result.retry_after || null)
         }
       } catch (err) {
         // Redirect will throw, so this only catches real errors
@@ -96,6 +102,9 @@ export function AuthForm() {
           {error && (
             <div className="mb-5 rounded-lg bg-red-50 border border-red-200 p-3.5 text-sm text-red-800 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400">
               {error}
+              {retryAfter && (
+                <div className="mt-1 text-xs opacity-80">Please try again in {formatRetryAfter(retryAfter)}.</div>
+              )}
             </div>
           )}
 
@@ -160,6 +169,7 @@ export function AuthForm() {
                   onClick={() => {
                     setMode('sign-up')
                     setError(null)
+                    setRetryAfter(null)
                   }}
                   className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >
@@ -250,6 +260,7 @@ export function AuthForm() {
                   onClick={() => {
                     setMode('sign-in')
                     setError(null)
+                    setRetryAfter(null)
                   }}
                   className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >

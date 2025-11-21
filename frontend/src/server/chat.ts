@@ -38,7 +38,7 @@ export const searchUsersFn = createServerFn({ method: 'POST' })
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, users: [] }
+        return { success: false, error: error.error, retry_after: error.retry_after, users: [] }
       }
 
       const users: ChatUser[] = await response.json()
@@ -164,7 +164,7 @@ export const getChatMessagesFn = createServerFn({ method: 'POST' })
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat/messages`, {
+      const response = await fetch(`${BACKEND_URL}/messages/get`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +201,7 @@ export const sendMessageFn = createServerFn({ method: 'POST' })
     }
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat/send`, {
+      const response = await fetch(`${BACKEND_URL}/messages/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +212,7 @@ export const sendMessageFn = createServerFn({ method: 'POST' })
 
       if (!response.ok) {
         const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
+        return { success: false, error: error.error, retry_after: error.retry_after }
       }
 
       const result = await response.json()

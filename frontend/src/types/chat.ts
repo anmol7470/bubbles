@@ -92,6 +92,5 @@ export type GetChatMessagesResponse = {
 export type SendMessageRequest = {
   chat_id: string
   content: string
-  chat_member_ids: string[]
   images?: string[]
 }

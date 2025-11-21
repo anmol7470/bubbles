@@ -14,3 +14,11 @@ export function formatDate(sentAt: Date) {
   if (isThisYear(sentAt)) return format(sentAt, 'MMM d')
   return format(sentAt, 'MMM d, yyyy')
 }
+
+export function formatRetryAfter(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.ceil(seconds)} second${Math.ceil(seconds) !== 1 ? 's' : ''}`
+  }
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} minute${minutes !== 1 ? 's' : ''}`
+}

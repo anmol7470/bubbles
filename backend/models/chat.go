@@ -98,8 +98,7 @@ type GetChatMessagesResponse struct {
 }
 
 type SendMessageRequest struct {
-	ChatID         string      `json:"chat_id" binding:"required"`
-	Content        string      `json:"content"`
-	ChatMemberIds  []uuid.UUID `json:"chat_member_ids" binding:"required"`
-	Images         []string    `json:"images,omitempty"`
+	ChatID  string   `json:"chat_id" binding:"required"`
+	Content string   `json:"content"`
+	Images  []string `json:"images,omitempty"`
 }

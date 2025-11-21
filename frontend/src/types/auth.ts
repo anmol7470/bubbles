@@ -17,6 +17,7 @@ export type VerifyResponse = {
 
 export type ErrorResponse = {
   error: string
+  retry_after?: number
 }
 
 export type SignUpData = {

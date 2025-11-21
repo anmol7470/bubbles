@@ -1,4 +1,4 @@
-package routes
+package middleware
 
 import (
 	"net/http"
@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/anmol7470/bubbles/backend/models"
+	"github.com/anmol7470/bubbles/backend/routes"
 )
 
 // AuthMiddleware is a middleware that validates JWT tokens
@@ -34,7 +35,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		token := parts[1]
 
 		// Validate token
-		claims, err := ValidateJWT(token)
+		claims, err := routes.ValidateJWT(token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 				Error: "Invalid or expired token",

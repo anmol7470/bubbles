@@ -3,17 +3,11 @@ import { cn } from '@/lib/utils'
 import type { Message } from '@/types/chat'
 import Linkify from 'linkify-react'
 import { BanIcon, CopyIcon, PencilIcon, TrashIcon } from 'lucide-react'
-import { toast } from 'react-hot-toast'
+import { useCopyToClipboard } from 'usehooks-ts'
 
 export function MessageContent({ message, isOwn }: { message: Message; isOwn: boolean }) {
   const imageCount = message.images?.length ?? 0
-
-  const handleCopy = () => {
-    if (message.content) {
-      navigator.clipboard.writeText(message.content)
-      toast.success('Message copied to clipboard')
-    }
-  }
+  const [_, copy] = useCopyToClipboard()
 
   if (message.is_deleted) {
     return (
@@ -75,7 +69,7 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
       <ContextMenuContent>
         {isOwn ? (
           <>
-            <ContextMenuItem onClick={handleCopy}>
+            <ContextMenuItem onClick={() => copy(message.content ?? '')}>
               <CopyIcon className="size-4" />
               Copy message
             </ContextMenuItem>
@@ -89,7 +83,7 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
             </ContextMenuItem>
           </>
         ) : (
-          <ContextMenuItem onClick={handleCopy}>
+          <ContextMenuItem onClick={() => copy(message.content ?? '')}>
             <CopyIcon className="size-4" />
             Copy message
           </ContextMenuItem>

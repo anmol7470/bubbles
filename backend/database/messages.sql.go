@@ -110,8 +110,7 @@ SELECT
     m.is_deleted,
     m.created_at,
     m.updated_at,
-    u.username as sender_username,
-    u.email as sender_email
+    u.username as sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 WHERE m.chat_id = $1
@@ -128,7 +127,6 @@ type GetMessagesByChatRow struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	SenderUsername string         `json:"sender_username"`
-	SenderEmail    string         `json:"sender_email"`
 }
 
 func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]GetMessagesByChatRow, error) {
@@ -149,7 +147,6 @@ func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]Ge
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
-			&i.SenderEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -173,8 +170,7 @@ SELECT
     m.is_deleted,
     m.created_at,
     m.updated_at,
-    u.username as sender_username,
-    u.email as sender_email
+    u.username as sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 WHERE m.chat_id = $1
@@ -203,7 +199,6 @@ type GetMessagesByChatPaginatedRow struct {
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	SenderUsername string         `json:"sender_username"`
-	SenderEmail    string         `json:"sender_email"`
 }
 
 func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessagesByChatPaginatedParams) ([]GetMessagesByChatPaginatedRow, error) {
@@ -229,7 +224,6 @@ func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessage
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
-			&i.SenderEmail,
 		); err != nil {
 			return nil, err
 		}

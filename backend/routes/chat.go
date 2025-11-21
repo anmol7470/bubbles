@@ -3,13 +3,14 @@ package routes
 import (
 	"database/sql"
 	"net/http"
-	"time"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/anmol7470/bubbles/backend/models"
+	"github.com/anmol7470/bubbles/backend/utils"
 )
 
 type ChatHandler struct {
@@ -31,8 +32,11 @@ func (h *ChatHandler) SearchUsers(c *gin.Context) {
 		return
 	}
 
+	// Escape ILIKE special characters to prevent pattern injection
+	escapedQuery := utils.EscapeLikePattern(req.Query)
+
 	users, err := h.dbService.Queries.SearchUsers(c.Request.Context(), database.SearchUsersParams{
-		Query:       sql.NullString{String: req.Query, Valid: true},
+		Query:       sql.NullString{String: escapedQuery, Valid: true},
 		ExcludedIds: req.SelectedUserIds,
 	})
 
@@ -66,13 +70,20 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 
 	isGroup := len(req.MemberIds) > 2
 
+	// Sort member IDs for consistent chat lookup
+	sortedMemberIds := make([]uuid.UUID, len(req.MemberIds))
+	copy(sortedMemberIds, req.MemberIds)
+	sort.Slice(sortedMemberIds, func(i, j int) bool {
+		return sortedMemberIds[i].String() < sortedMemberIds[j].String()
+	})
+
 	var chatID uuid.UUID
 	var existing bool
 
 	if !isGroup {
 		existingChat, err := h.dbService.Queries.GetChatByMembers(c.Request.Context(), database.GetChatByMembersParams{
-			MemberIds:   req.MemberIds,
-			MemberCount: int64(len(req.MemberIds)),
+			MemberIds:   sortedMemberIds,
+			MemberCount: int64(len(sortedMemberIds)),
 		})
 
 		if err == nil {
@@ -87,12 +98,24 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 	}
 
 	if !existing {
+		// Use transaction to ensure chat creation and member addition are atomic
+		tx, err := h.dbService.DB.BeginTx(c.Request.Context(), nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+				Error: "Failed to begin transaction",
+			})
+			return
+		}
+		defer tx.Rollback()
+
+		qtx := h.dbService.Queries.WithTx(tx)
+
 		var chatName sql.NullString
 		if req.GroupName != "" {
 			chatName = sql.NullString{String: req.GroupName, Valid: true}
 		}
 
-		chat, err := h.dbService.Queries.CreateChat(c.Request.Context(), database.CreateChatParams{
+		chat, err := qtx.CreateChat(c.Request.Context(), database.CreateChatParams{
 			Name:    chatName,
 			IsGroup: isGroup,
 		})
@@ -107,7 +130,7 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 		chatID = chat.ID
 
 		for _, memberID := range req.MemberIds {
-			err := h.dbService.Queries.AddChatMember(c.Request.Context(), database.AddChatMemberParams{
+			err := qtx.AddChatMember(c.Request.Context(), database.AddChatMemberParams{
 				ChatID: chatID,
 				UserID: memberID,
 			})
@@ -118,6 +141,13 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 				})
 				return
 			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+				Error: "Failed to commit transaction",
+			})
+			return
 		}
 	}
 
@@ -258,6 +288,25 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 		return
 	}
 
+	// Verify user is member of chat first (efficient EXISTS query)
+	isMember, err := h.dbService.Queries.IsChatMember(c.Request.Context(), database.IsChatMemberParams{
+		ChatID: chatID,
+		UserID: userID.(uuid.UUID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to verify chat membership",
+		})
+		return
+	}
+
+	if !isMember {
+		c.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error: "You are not a member of this chat",
+		})
+		return
+	}
+
 	// Get chat info with members
 	chatMembers, err := h.dbService.Queries.GetChatByIdWithMembers(c.Request.Context(), chatID)
 	if err != nil {
@@ -270,22 +319,6 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 	if len(chatMembers) == 0 {
 		c.JSON(http.StatusNotFound, models.ErrorResponse{
 			Error: "Chat not found",
-		})
-		return
-	}
-
-	// Verify user is a member of the chat
-	isMember := false
-	for _, member := range chatMembers {
-		if member.MemberID == userID.(uuid.UUID) {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
-		c.JSON(http.StatusForbidden, models.ErrorResponse{
-			Error: "You are not a member of this chat",
 		})
 		return
 	}
@@ -321,252 +354,4 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
-}
-
-func (h *ChatHandler) GetChatMessages(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error: "User ID not found in context",
-		})
-		return
-	}
-
-	var req models.GetChatMessagesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	chatID, err := uuid.Parse(req.ChatID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: "Invalid chat ID",
-		})
-		return
-	}
-
-	// Verify user is member of chat
-	chatMembers, err := h.dbService.Queries.GetChatByIdWithMembers(c.Request.Context(), chatID)
-	if err != nil || len(chatMembers) == 0 {
-		c.JSON(http.StatusNotFound, models.ErrorResponse{
-			Error: "Chat not found",
-		})
-		return
-	}
-
-	isMember := false
-	for _, member := range chatMembers {
-		if member.MemberID == userID.(uuid.UUID) {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
-		c.JSON(http.StatusForbidden, models.ErrorResponse{
-			Error: "You are not a member of this chat",
-		})
-		return
-	}
-
-	// Set default limit
-	limit := req.Limit
-	if limit <= 0 || limit > 50 {
-		limit = 50
-	}
-
-	// Get messages with cursor-based pagination
-	var cursorTime sql.NullTime
-	var cursorID uuid.NullUUID
-
-	if req.Cursor != nil {
-		cursorTime = sql.NullTime{Time: req.Cursor.SentAt, Valid: true}
-		cursorID = uuid.NullUUID{UUID: req.Cursor.ID, Valid: true}
-	}
-
-	messagesData, err := h.dbService.Queries.GetMessagesByChatPaginated(c.Request.Context(), database.GetMessagesByChatPaginatedParams{
-		ChatID:     chatID,
-		Limit:      int32(limit + 1), // Fetch one extra to check if there are more
-		CursorTime: cursorTime,
-		CursorID:   cursorID,
-	})
-
-	if err != nil && err != sql.ErrNoRows {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "Failed to get messages",
-		})
-		return
-	}
-
-	// Check if there are more messages
-	hasMore := len(messagesData) > limit
-	filteredMessages := messagesData
-	if hasMore {
-		filteredMessages = messagesData[:limit]
-	}
-
-	// Collect message IDs for images
-	messageIDs := make([]uuid.UUID, 0, len(filteredMessages))
-	for _, msg := range filteredMessages {
-		messageIDs = append(messageIDs, msg.ID)
-	}
-
-	// Get images for messages
-	var imagesData []database.Image
-	if len(messageIDs) > 0 {
-		imagesData, err = h.dbService.Queries.GetMessageImages(c.Request.Context(), messageIDs)
-		if err != nil && err != sql.ErrNoRows {
-			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-				Error: "Failed to get message images",
-			})
-			return
-		}
-	}
-
-	// Group images by message ID
-	imagesByMessage := make(map[uuid.UUID][]string)
-	for _, img := range imagesData {
-		imagesByMessage[img.MessageID] = append(imagesByMessage[img.MessageID], img.Url)
-	}
-
-	// Build messages response
-	messages := make([]models.Message, len(filteredMessages))
-	for i, msg := range filteredMessages {
-		var content *string
-		if msg.Content.Valid {
-			content = &msg.Content.String
-		}
-
-		images := imagesByMessage[msg.ID]
-		if images == nil {
-			images = []string{}
-		}
-
-		messages[i] = models.Message{
-			ID:             msg.ID,
-			Content:        content,
-			SenderID:       msg.SenderID,
-			SenderUsername: msg.SenderUsername,
-			IsDeleted:      msg.IsDeleted,
-			Images:         images,
-			CreatedAt:      msg.CreatedAt,
-		}
-	}
-
-	// Build response
-	response := models.GetChatMessagesResponse{
-		Items: messages,
-	}
-
-	if hasMore && len(messages) > 0 {
-		lastMsg := messages[len(messages)-1]
-		response.NextCursor = &struct {
-			SentAt time.Time `json:"sent_at"`
-			ID     uuid.UUID `json:"id"`
-		}{
-			SentAt: lastMsg.CreatedAt,
-			ID:     lastMsg.ID,
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-func (h *ChatHandler) SendMessage(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error: "User ID not found in context",
-		})
-		return
-	}
-
-	var req models.SendMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	chatID, err := uuid.Parse(req.ChatID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: "Invalid chat ID",
-		})
-		return
-	}
-
-	// Verify user is member of chat
-	chatMembers, err := h.dbService.Queries.GetChatByIdWithMembers(c.Request.Context(), chatID)
-	if err != nil || len(chatMembers) == 0 {
-		c.JSON(http.StatusNotFound, models.ErrorResponse{
-			Error: "Chat not found",
-		})
-		return
-	}
-
-	isMember := false
-	for _, member := range chatMembers {
-		if member.MemberID == userID.(uuid.UUID) {
-			isMember = true
-			break
-		}
-	}
-
-	if !isMember {
-		c.JSON(http.StatusForbidden, models.ErrorResponse{
-			Error: "You are not a member of this chat",
-		})
-		return
-	}
-
-	// Validate that message has content or images
-	if req.Content == "" && len(req.Images) == 0 {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: "Message must have content or images",
-		})
-		return
-	}
-
-	// Create message
-	var content sql.NullString
-	if req.Content != "" {
-		content = sql.NullString{String: req.Content, Valid: true}
-	}
-
-	message, err := h.dbService.Queries.CreateMessage(c.Request.Context(), database.CreateMessageParams{
-		ChatID:   chatID,
-		SenderID: userID.(uuid.UUID),
-		Content:  content,
-	})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "Failed to create message",
-		})
-		return
-	}
-
-	// Add images if any
-	for _, imageUrl := range req.Images {
-		err := h.dbService.Queries.AddMessageImage(c.Request.Context(), database.AddMessageImageParams{
-			MessageID: message.ID,
-			Url:       imageUrl,
-		})
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-				Error: "Failed to add message image",
-			})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message_id": message.ID,
-	})
 }
