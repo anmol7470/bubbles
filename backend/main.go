@@ -105,6 +105,26 @@ func main() {
 		messages.POST("/get", messageHandler.GetChatMessages)
 	}
 
+	// Initialize upload handler
+	uploadHandler, err := routes.NewUploadHandler()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize upload handler: %v", err)
+		log.Println("Image upload functionality will be disabled")
+	}
+
+	// Upload routes (with authentication)
+	if uploadHandler != nil {
+		upload := router.Group("/upload")
+		upload.Use(middleware.AuthMiddleware())
+		{
+			if rateLimiter != nil {
+				upload.POST("/image", rateLimiter.MessageLimit(), uploadHandler.UploadImage)
+			} else {
+				upload.POST("/image", uploadHandler.UploadImage)
+			}
+		}
+	}
+
 	// Health check with database connectivity verification
 	router.GET("/health", func(c *gin.Context) {
 		// Check database connection with timeout
