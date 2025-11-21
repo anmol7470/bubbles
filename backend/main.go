@@ -62,6 +62,9 @@ func main() {
 		chat.POST("/search-users", chatHandler.SearchUsers)
 		chat.POST("/create", chatHandler.CreateChat)
 		chat.GET("/all", chatHandler.GetUserChats)
+		chat.GET("/:id", chatHandler.GetChatById)
+		chat.POST("/messages", chatHandler.GetChatMessages)
+		chat.POST("/send", chatHandler.SendMessage)
 	}
 
 	// Health check

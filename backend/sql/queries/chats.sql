@@ -27,10 +27,21 @@ AND c.id IN (
 )
 LIMIT 1;
 
--- name: GetChatById :one
-SELECT id, name, is_group, created_at, updated_at
-FROM chats
-WHERE id = $1;
+-- name: GetChatByIdWithMembers :many
+SELECT
+    c.id as chat_id,
+    c.name as chat_name,
+    c.is_group,
+    c.created_at as chat_created_at,
+    c.updated_at as chat_updated_at,
+    u.id as member_id,
+    u.username as member_username,
+    u.email as member_email
+FROM chats c
+INNER JOIN chat_members cm ON c.id = cm.chat_id
+INNER JOIN users u ON cm.user_id = u.id
+WHERE c.id = $1
+ORDER BY u.username ASC;
 
 -- name: GetChatsWithMembers :many
 SELECT

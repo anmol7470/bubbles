@@ -52,3 +52,46 @@ export type ChatInfo = {
 export type GetChatsResponse = {
   chats: ChatInfo[]
 }
+
+export type Message = {
+  id: string
+  content?: string
+  sender_id: string
+  sender_username: string
+  is_deleted: boolean
+  images: string[]
+  created_at: string
+}
+
+export type GetChatByIdResponse = {
+  id: string
+  name?: string
+  is_group: boolean
+  members: ChatMember[]
+  created_at: string
+  updated_at: string
+}
+
+export type GetChatMessagesRequest = {
+  chat_id: string
+  limit: number
+  cursor?: {
+    sent_at: string
+    id: string
+  }
+}
+
+export type GetChatMessagesResponse = {
+  items: Message[]
+  next_cursor?: {
+    sent_at: string
+    id: string
+  }
+}
+
+export type SendMessageRequest = {
+  chat_id: string
+  content: string
+  chat_member_ids: string[]
+  images?: string[]
+}

@@ -53,23 +53,64 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (Chat, e
 	return i, err
 }
 
-const getChatById = `-- name: GetChatById :one
-SELECT id, name, is_group, created_at, updated_at
-FROM chats
-WHERE id = $1
+const getChatByIdWithMembers = `-- name: GetChatByIdWithMembers :many
+SELECT
+    c.id as chat_id,
+    c.name as chat_name,
+    c.is_group,
+    c.created_at as chat_created_at,
+    c.updated_at as chat_updated_at,
+    u.id as member_id,
+    u.username as member_username,
+    u.email as member_email
+FROM chats c
+INNER JOIN chat_members cm ON c.id = cm.chat_id
+INNER JOIN users u ON cm.user_id = u.id
+WHERE c.id = $1
+ORDER BY u.username ASC
 `
 
-func (q *Queries) GetChatById(ctx context.Context, id uuid.UUID) (Chat, error) {
-	row := q.db.QueryRowContext(ctx, getChatById, id)
-	var i Chat
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.IsGroup,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+type GetChatByIdWithMembersRow struct {
+	ChatID         uuid.UUID      `json:"chat_id"`
+	ChatName       sql.NullString `json:"chat_name"`
+	IsGroup        bool           `json:"is_group"`
+	ChatCreatedAt  time.Time      `json:"chat_created_at"`
+	ChatUpdatedAt  time.Time      `json:"chat_updated_at"`
+	MemberID       uuid.UUID      `json:"member_id"`
+	MemberUsername string         `json:"member_username"`
+	MemberEmail    string         `json:"member_email"`
+}
+
+func (q *Queries) GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]GetChatByIdWithMembersRow, error) {
+	rows, err := q.db.QueryContext(ctx, getChatByIdWithMembers, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetChatByIdWithMembersRow{}
+	for rows.Next() {
+		var i GetChatByIdWithMembersRow
+		if err := rows.Scan(
+			&i.ChatID,
+			&i.ChatName,
+			&i.IsGroup,
+			&i.ChatCreatedAt,
+			&i.ChatUpdatedAt,
+			&i.MemberID,
+			&i.MemberUsername,
+			&i.MemberEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getChatByMembers = `-- name: GetChatByMembers :one

@@ -74,20 +74,27 @@ export function AuthForm() {
   return (
     <div className="w-full max-w-md">
       <div className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <MessageCircle className="size-10 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Bubbles</h1>
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="rounded-2xl bg-primary p-3 shadow-lg">
+            <MessageCircle className="size-8 text-primary-foreground" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-primary">Bubbles</h1>
         </div>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">A real-time messaging app like WhatsApp</p>
+        <p className="mt-2 text-sm text-muted-foreground">Connect and chat in real-time</p>
       </div>
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">{mode === 'sign-in' ? 'Sign In' : 'Sign Up'}</CardTitle>
+      <Card className="shadow-xl">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-semibold">
+            {mode === 'sign-in' ? 'Welcome Back' : 'Create Account'}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {mode === 'sign-in' ? 'Sign in to continue chatting' : 'Join Bubbles today'}
+          </p>
         </CardHeader>
         <CardContent>
           {/* Error Message */}
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
+            <div className="mb-5 rounded-lg bg-red-50 border border-red-200 p-3.5 text-sm text-red-800 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400">
               {error}
             </div>
           )}
@@ -105,7 +112,9 @@ export function AuthForm() {
               <signInForm.Field name="email_or_username">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor="email_or_username">Username or Email</Label>
+                    <Label htmlFor="email_or_username" className="text-sm font-medium">
+                      Username or Email
+                    </Label>
                     <Input
                       id="email_or_username"
                       type="text"
@@ -114,6 +123,7 @@ export function AuthForm() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       required
                       autoComplete="username"
+                      className="h-11"
                     />
                   </div>
                 )}
@@ -122,7 +132,9 @@ export function AuthForm() {
               <signInForm.Field name="password">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <Label htmlFor="signin-password" className="text-sm font-medium">
+                      Password
+                    </Label>
                     <Input
                       id="signin-password"
                       type="password"
@@ -131,16 +143,17 @@ export function AuthForm() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       required
                       autoComplete="current-password"
+                      className="h-11"
                     />
                   </div>
                 )}
               </signInForm.Field>
 
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
 
-              <div className="text-center text-sm text-muted-foreground">
+              <div className="text-center text-sm text-muted-foreground pt-2">
                 Don't have an account?{' '}
                 <button
                   type="button"
@@ -148,7 +161,7 @@ export function AuthForm() {
                     setMode('sign-up')
                     setError(null)
                   }}
-                  className="hover:text-foreground underline"
+                  className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >
                   Sign up
                 </button>
@@ -169,7 +182,9 @@ export function AuthForm() {
               <signUpForm.Field name="email">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-sm font-medium">
+                      Email
+                    </Label>
                     <Input
                       id="email"
                       type="email"
@@ -178,6 +193,7 @@ export function AuthForm() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       required
                       autoComplete="email"
+                      className="h-11"
                     />
                   </div>
                 )}
@@ -186,7 +202,9 @@ export function AuthForm() {
               <signUpForm.Field name="username">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
+                    <Label htmlFor="username" className="text-sm font-medium">
+                      Username
+                    </Label>
                     <Input
                       id="username"
                       type="text"
@@ -195,6 +213,7 @@ export function AuthForm() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       required
                       autoComplete="username"
+                      className="h-11"
                     />
                   </div>
                 )}
@@ -203,7 +222,9 @@ export function AuthForm() {
               <signUpForm.Field name="password">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-medium">
+                      Password
+                    </Label>
                     <Input
                       id="password"
                       type="password"
@@ -212,16 +233,17 @@ export function AuthForm() {
                       onChange={(e) => field.handleChange(e.target.value)}
                       required
                       autoComplete="new-password"
+                      className="h-11"
                     />
                   </div>
                 )}
               </signUpForm.Field>
 
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={isLoading}>
                 {isLoading ? 'Creating account...' : 'Sign Up'}
               </Button>
 
-              <div className="text-center text-sm text-muted-foreground ">
+              <div className="text-center text-sm text-muted-foreground pt-2">
                 Already have an account?{' '}
                 <button
                   type="button"
@@ -229,7 +251,7 @@ export function AuthForm() {
                     setMode('sign-in')
                     setError(null)
                   }}
-                  className="hover:text-foreground underline"
+                  className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >
                   Sign in
                 </button>

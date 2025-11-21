@@ -60,3 +60,46 @@ type ChatInfo struct {
 type GetChatsResponse struct {
 	Chats []ChatInfo `json:"chats"`
 }
+
+type Message struct {
+	ID             uuid.UUID      `json:"id"`
+	Content        *string        `json:"content,omitempty"`
+	SenderID       uuid.UUID      `json:"sender_id"`
+	SenderUsername string         `json:"sender_username"`
+	IsDeleted      bool           `json:"is_deleted"`
+	Images         []string       `json:"images"`
+	CreatedAt      time.Time      `json:"created_at"`
+}
+
+type GetChatByIdResponse struct {
+	ID        uuid.UUID    `json:"id"`
+	Name      *string      `json:"name,omitempty"`
+	IsGroup   bool         `json:"is_group"`
+	Members   []ChatMember `json:"members"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+type GetChatMessagesRequest struct {
+	ChatID string `json:"chat_id" binding:"required"`
+	Limit  int    `json:"limit"`
+	Cursor *struct {
+		SentAt time.Time `json:"sent_at"`
+		ID     uuid.UUID `json:"id"`
+	} `json:"cursor,omitempty"`
+}
+
+type GetChatMessagesResponse struct {
+	Items      []Message `json:"items"`
+	NextCursor *struct {
+		SentAt time.Time `json:"sent_at"`
+		ID     uuid.UUID `json:"id"`
+	} `json:"next_cursor,omitempty"`
+}
+
+type SendMessageRequest struct {
+	ChatID         string      `json:"chat_id" binding:"required"`
+	Content        string      `json:"content"`
+	ChatMemberIds  []uuid.UUID `json:"chat_member_ids" binding:"required"`
+	Images         []string    `json:"images,omitempty"`
+}

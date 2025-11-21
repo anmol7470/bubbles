@@ -5,7 +5,7 @@ import type { ChatInfo } from '@/types/chat'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { BanIcon, HomeIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { BanIcon, LogOutIcon, PenBoxIcon, SearchIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { NewChatDialog } from './new-chat-dialog'
@@ -118,27 +118,37 @@ export function ChatsList() {
 
   return (
     <>
-      <div className="border-r border-border w-1/4 px-2 py-4 justify-between flex flex-col">
+      <div className="border-r border-border/50 w-1/4 p-3 justify-between flex flex-col">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <SearchIcon className="h-5 w-5 text-gray-400 absolute top-2 left-2" />
-              <Input
-                placeholder="Search"
-                className="rounded-full pl-9 w-full"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="flex justify-between items-center gap-2">
+            <Link to="/chats" className="cursor-pointer text-lg font-medium">
+              Chats
+            </Link>
+            <div className="flex items-center gap-2">
+              <Button
+                size="icon-sm"
+                variant="outline"
+                onClick={async () => {
+                  await logoutMutation()
+                  navigate({ to: '/auth' })
+                }}
+              >
+                <LogOutIcon />
+              </Button>
+              <Button size="icon-sm" variant="outline" onClick={() => setIsDialogOpen(true)}>
+                <PenBoxIcon />
+              </Button>
             </div>
-            {chatId ? (
-              <Button size="icon" variant="outline" className="rounded-full" onClick={() => navigate({ to: '/chats' })}>
-                <HomeIcon />
-              </Button>
-            ) : (
-              <Button size="icon" variant="outline" className="rounded-full" onClick={() => setIsDialogOpen(true)}>
-                <PlusIcon />
-              </Button>
-            )}
+          </div>
+
+          <div className="relative flex-1">
+            <SearchIcon className="h-5 w-5 text-gray-400 absolute top-2 left-2" />
+            <Input
+              placeholder="Search"
+              className="rounded-xl pl-9 w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
           <div className="flex flex-col gap-1 overflow-y-auto">
@@ -168,7 +178,7 @@ export function ChatsList() {
                     to="/chats/$chatId"
                     params={{ chatId: chat.id }}
                     className={cn(
-                      'hover:bg-primary/5 block rounded-lg',
+                      'hover:bg-primary/5 block rounded-xl',
                       chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
                     )}
                   >
@@ -196,16 +206,6 @@ export function ChatsList() {
             )}
           </div>
         </div>
-
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={async () => {
-            await logoutMutation()
-          }}
-        >
-          Sign Out
-        </Button>
       </div>
 
       <NewChatDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
