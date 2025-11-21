@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/user-avatar'
+import { useImageUpload } from '@/hooks/use-image-upload'
 import { formatRetryAfter } from '@/lib/utils'
 import { getChatByIdFn, sendMessageFn } from '@/server/chat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -35,6 +36,7 @@ export function Chat({ chatId }: ChatProps) {
 
   const getChatByIdQuery = useServerFn(getChatByIdFn)
   const sendMessageQuery = useServerFn(sendMessageFn)
+  const { uploadImages, isUploading } = useImageUpload()
 
   // Cleanup Object URLs on component unmount to prevent memory leaks
   useEffect(() => {
@@ -179,8 +181,18 @@ export function Chat({ chatId }: ChatProps) {
     if (message.trim() === '' && selectedImages.length === 0) return
     if (!chat) return
 
-    // TODO: Implement image upload to get URLs
-    const imageUrls: string[] = []
+    let imageUrls: string[] = []
+
+    // Upload images if any are selected
+    if (selectedImages.length > 0) {
+      try {
+        const files = selectedImages.map((img) => img.file)
+        imageUrls = await uploadImages(files)
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to upload images')
+        return
+      }
+    }
 
     await sendMessage({
       data: {
@@ -234,7 +246,7 @@ export function Chat({ chatId }: ChatProps) {
                     variant="destructive"
                     className="absolute right-1 top-1 h-5 w-5 rounded-full shadow-md"
                     onClick={() => removeImage(index)}
-                    disabled={isSending}
+                    disabled={isSending || isUploading}
                   >
                     <XIcon className="size-4" />
                   </Button>
@@ -251,7 +263,7 @@ export function Chat({ chatId }: ChatProps) {
                 aria-label="Select image"
                 className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2 transform"
                 onClick={() => imageInputRef.current?.click()}
-                disabled={selectedImages.length >= 5 || isSending}
+                disabled={selectedImages.length >= 5 || isSending || isUploading}
               >
                 <ImagePlusIcon className="size-5" />
               </Button>
@@ -262,7 +274,7 @@ export function Chat({ chatId }: ChatProps) {
                 onChange={handleFileChange}
                 accept="image/*"
                 multiple
-                disabled={isSending}
+                disabled={isSending || isUploading}
               />
               <Textarea
                 autoFocus
@@ -270,9 +282,9 @@ export function Chat({ chatId }: ChatProps) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
-                placeholder="Type a message..."
+                placeholder={isUploading ? 'Uploading images...' : 'Type a message...'}
                 className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30"
-                disabled={isSending}
+                disabled={isSending || isUploading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -283,7 +295,7 @@ export function Chat({ chatId }: ChatProps) {
             </div>
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" aria-label="Open emoji picker" disabled={isSending}>
+                <Button type="button" size="icon" variant="ghost" aria-label="Open emoji picker" disabled={isSending || isUploading}>
                   <SmilePlusIcon className="size-5" />
                 </Button>
               </PopoverTrigger>
