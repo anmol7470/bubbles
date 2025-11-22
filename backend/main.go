@@ -93,6 +93,13 @@ func main() {
 	// Initialize message handler
 	messageHandler := routes.NewMessageHandler(dbService)
 
+	// Initialize upload handler
+	uploadHandler, err := routes.NewUploadHandler()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize upload handler: %v", err)
+		log.Println("Image upload functionality will be disabled")
+	}
+
 	// Message routes (with authentication and rate limiting)
 	messages := router.Group("/messages")
 	messages.Use(middleware.AuthMiddleware())
@@ -103,13 +110,15 @@ func main() {
 			messages.POST("/send", messageHandler.SendMessage)
 		}
 		messages.POST("/get", messageHandler.GetChatMessages)
-	}
 
-	// Initialize upload handler
-	uploadHandler, err := routes.NewUploadHandler()
-	if err != nil {
-		log.Printf("Warning: Failed to initialize upload handler: %v", err)
-		log.Println("Image upload functionality will be disabled")
+		if uploadHandler != nil {
+			messages.POST("/edit", func(c *gin.Context) {
+				messageHandler.EditMessage(c, uploadHandler)
+			})
+			messages.POST("/delete", func(c *gin.Context) {
+				messageHandler.DeleteMessage(c, uploadHandler)
+			})
+		}
 	}
 
 	// Upload routes (with authentication)

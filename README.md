@@ -1,8 +1,7 @@
 ## TODOS
 
 - [x] Add r2 storage for images
-- [ ] Fix message content styling
-- [ ] Fix chat input making the chat page stretch horizontally
+- [ ] Fix message content styling taking inspiration from whatsapp
 - [ ] Add websocket for real-time chat for sending, deleting, editing messages, and typing indicators
 - [ ] Add read receipts for messages
 - [ ] Add unread message count for chats

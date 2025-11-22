@@ -28,8 +28,8 @@ run: ## Run the application
 dev: ## Run the application with hot reload (requires air)
 	air
 
-test: ## Run tests
-	go test -v ./...
+format: ## Format Go files
+	gofmt -w .
 
 sqlc-gen: ## Generate sqlc code
 	sqlc generate

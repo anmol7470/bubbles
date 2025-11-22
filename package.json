@@ -1,8 +1,22 @@
 {
   "scripts": {
-    "dev": "mprocs"
+    "dev": "mprocs",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx,json,css,md,go}": [
+      "prettier --write --cache"
+    ],
+    "**/*.{go}": [
+      "make format"
+    ]
   },
   "dependencies": {
-    "mprocs": "^0.7.3"
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "mprocs": "^0.7.3",
+    "prettier": "^3.6.2",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-tailwindcss": "^0.7.1"
   }
 }

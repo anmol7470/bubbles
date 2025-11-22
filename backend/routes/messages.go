@@ -149,6 +149,7 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 			SenderID:       msg.SenderID,
 			SenderUsername: msg.SenderUsername,
 			IsDeleted:      msg.IsDeleted,
+			IsEdited:       msg.IsEdited,
 			Images:         images,
 			CreatedAt:      msg.CreatedAt,
 		}
@@ -297,5 +298,231 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message_id": message.ID,
+	})
+}
+
+func (h *MessageHandler) EditMessage(c *gin.Context, uploadHandler *UploadHandler) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: "User ID not found in context",
+		})
+		return
+	}
+
+	var req models.EditMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	messageID, err := uuid.Parse(req.MessageID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid message ID",
+		})
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+
+	if len(req.Content) > constants.MaxMessageLength {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Message content exceeds maximum length of 5000 characters",
+		})
+		return
+	}
+
+	message, err := h.dbService.Queries.GetMessageById(c.Request.Context(), messageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, models.ErrorResponse{
+				Error: "Message not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get message",
+		})
+		return
+	}
+
+	if message.SenderID != userID.(uuid.UUID) {
+		c.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error: "You can only edit your own messages",
+		})
+		return
+	}
+
+	if message.IsDeleted {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Cannot edit a deleted message",
+		})
+		return
+	}
+
+	if time.Since(message.CreatedAt) > 15*time.Minute {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Messages can only be edited within 15 minutes of sending",
+		})
+		return
+	}
+
+	tx, err := h.dbService.DB.BeginTx(c.Request.Context(), nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to begin transaction",
+		})
+		return
+	}
+	defer tx.Rollback()
+
+	qtx := h.dbService.Queries.WithTx(tx)
+
+	var content sql.NullString
+	if req.Content != "" {
+		content = sql.NullString{String: req.Content, Valid: true}
+	}
+
+	err = qtx.EditMessage(c.Request.Context(), database.EditMessageParams{
+		ID:      messageID,
+		Content: content,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to edit message",
+		})
+		return
+	}
+
+	if len(req.RemovedImages) > 0 {
+		err = qtx.DeleteMessageImages(c.Request.Context(), database.DeleteMessageImagesParams{
+			MessageID: messageID,
+			Column2:   req.RemovedImages,
+		})
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+				Error: "Failed to delete images from database",
+			})
+			return
+		}
+
+		for _, imageURL := range req.RemovedImages {
+			if err := uploadHandler.DeleteImage(imageURL); err != nil {
+				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+					Error: "Failed to delete image from storage",
+				})
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to commit transaction",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+	})
+}
+
+func (h *MessageHandler) DeleteMessage(c *gin.Context, uploadHandler *UploadHandler) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: "User ID not found in context",
+		})
+		return
+	}
+
+	var req models.DeleteMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	messageID, err := uuid.Parse(req.MessageID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "Invalid message ID",
+		})
+		return
+	}
+
+	message, err := h.dbService.Queries.GetMessageById(c.Request.Context(), messageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, models.ErrorResponse{
+				Error: "Message not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get message",
+		})
+		return
+	}
+
+	if message.SenderID != userID.(uuid.UUID) {
+		c.JSON(http.StatusForbidden, models.ErrorResponse{
+			Error: "You can only delete your own messages",
+		})
+		return
+	}
+
+	images, err := h.dbService.Queries.GetMessageImages(c.Request.Context(), []uuid.UUID{messageID})
+	if err != nil && err != sql.ErrNoRows {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get message images",
+		})
+		return
+	}
+
+	tx, err := h.dbService.DB.BeginTx(c.Request.Context(), nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to begin transaction",
+		})
+		return
+	}
+	defer tx.Rollback()
+
+	qtx := h.dbService.Queries.WithTx(tx)
+
+	err = qtx.DeleteMessage(c.Request.Context(), messageID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to delete message",
+		})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to commit transaction",
+		})
+		return
+	}
+
+	for _, image := range images {
+		if err := uploadHandler.DeleteImage(image.Url); err != nil {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+				Error: "Failed to delete image from storage",
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 	})
 }

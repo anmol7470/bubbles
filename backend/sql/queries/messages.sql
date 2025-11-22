@@ -14,6 +14,7 @@ SELECT
     m.sender_id,
     m.content,
     m.is_deleted,
+    m.is_edited,
     m.created_at,
     m.updated_at,
     u.username as sender_username
@@ -30,6 +31,7 @@ SELECT
     m.sender_id,
     m.content,
     m.is_deleted,
+    m.is_edited,
     m.created_at,
     m.updated_at,
     u.username as sender_username
@@ -53,3 +55,29 @@ WHERE message_id = ANY($1::uuid[]);
 UPDATE messages
 SET is_deleted = true, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1;
+
+-- name: EditMessage :exec
+UPDATE messages
+SET content = $2, is_edited = true, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: GetMessageById :one
+SELECT
+    m.id,
+    m.chat_id,
+    m.sender_id,
+    m.content,
+    m.is_deleted,
+    m.is_edited,
+    m.created_at,
+    m.updated_at
+FROM messages m
+WHERE m.id = $1;
+
+-- name: DeleteMessageImages :exec
+DELETE FROM images
+WHERE message_id = $1 AND url = ANY($2::text[]);
+
+-- name: DeleteImageByUrl :exec
+DELETE FROM images
+WHERE url = $1;

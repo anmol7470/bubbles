@@ -5,6 +5,8 @@ import type {
   ChatUser,
   CreateChatRequest,
   CreateChatResponse,
+  DeleteMessageRequest,
+  EditMessageRequest,
   GetChatByIdResponse,
   GetChatMessagesRequest,
   GetChatMessagesResponse,
@@ -195,44 +197,6 @@ export const getChatMessagesFn = createServerFn({ method: 'POST' })
     }
   })
 
-export const uploadImageFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: any) => data)
-  .handler(async ({ data }: { data: { file: File } }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const formData = new FormData()
-      formData.append('image', data.file)
-
-      const response = await fetch(`${BACKEND_URL}/upload/image`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, url: null }
-      }
-
-      const result: { url: string } = await response.json()
-      return { success: true, url: result.url }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to upload image',
-        url: null,
-      }
-    }
-  })
-
 export const sendMessageFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SendMessageRequest) => data)
   .handler(async ({ data }) => {
@@ -260,6 +224,74 @@ export const sendMessageFn = createServerFn({ method: 'POST' })
 
       const result = await response.json()
       return { success: true, message_id: result.message_id }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to connect to server',
+      }
+    }
+  })
+
+export const editMessageFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: EditMessageRequest) => data)
+  .handler(async ({ data }) => {
+    const session = await useAppSession()
+    const token = session.data.token
+
+    if (!token) {
+      throw redirect({ to: '/auth' })
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/messages/edit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error: ErrorResponse = await response.json()
+        return { success: false, error: error.error }
+      }
+
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to connect to server',
+      }
+    }
+  })
+
+export const deleteMessageFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: DeleteMessageRequest) => data)
+  .handler(async ({ data }) => {
+    const session = await useAppSession()
+    const token = session.data.token
+
+    if (!token) {
+      throw redirect({ to: '/auth' })
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/messages/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error: ErrorResponse = await response.json()
+        return { success: false, error: error.error }
+      }
+
+      return { success: true }
     } catch (error) {
       return {
         success: false,

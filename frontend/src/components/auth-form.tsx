@@ -4,19 +4,38 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatRetryAfter } from '@/lib/utils'
 import { useForm } from '@tanstack/react-form'
+import { useMutation } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { MessageCircle } from 'lucide-react'
 import { useState } from 'react'
 import { signInFn, signUpFn } from '../server/auth'
+import type { SignInData, SignUpData } from '../types/auth'
 
 export function AuthForm() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
   const [error, setError] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   const signUpMutation = useServerFn(signUpFn)
   const signInMutation = useServerFn(signInFn)
+
+  const signUp = useMutation({
+    mutationFn: async (values: SignUpData) => {
+      const result = await signUpMutation({
+        data: values,
+      })
+      return result
+    },
+  })
+
+  const signIn = useMutation({
+    mutationFn: async (values: SignInData) => {
+      const result = await signInMutation({
+        data: values,
+      })
+      return result
+    },
+  })
 
   const signUpForm = useForm({
     defaultValues: {
@@ -25,13 +44,10 @@ export function AuthForm() {
       password: '',
     },
     onSubmit: async ({ value }) => {
-      setIsLoading(true)
       setError(null)
       setRetryAfter(null)
       try {
-        const result = await signUpMutation({
-          data: value,
-        })
+        const result = await signUp.mutateAsync(value)
 
         if (result && 'error' in result) {
           setError(result.error)
@@ -42,8 +58,6 @@ export function AuthForm() {
         if (!(err instanceof Response)) {
           setError('An unexpected error occurred')
         }
-      } finally {
-        setIsLoading(false)
       }
     },
   })
@@ -54,13 +68,10 @@ export function AuthForm() {
       password: '',
     },
     onSubmit: async ({ value }) => {
-      setIsLoading(true)
       setError(null)
       setRetryAfter(null)
       try {
-        const result = await signInMutation({
-          data: value,
-        })
+        const result = await signIn.mutateAsync(value)
 
         if (result && 'error' in result) {
           setError(result.error)
@@ -71,8 +82,6 @@ export function AuthForm() {
         if (!(err instanceof Response)) {
           setError('An unexpected error occurred')
         }
-      } finally {
-        setIsLoading(false)
       }
     },
   })
@@ -158,8 +167,8 @@ export function AuthForm() {
                 )}
               </signInForm.Field>
 
-              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={signIn.isPending}>
+                {signIn.isPending ? 'Signing in...' : 'Sign In'}
               </Button>
 
               <div className="text-center text-sm text-muted-foreground pt-2">
@@ -249,8 +258,8 @@ export function AuthForm() {
                 )}
               </signUpForm.Field>
 
-              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Sign Up'}
+              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={signUp.isPending}>
+                {signUp.isPending ? 'Creating account...' : 'Sign Up'}
               </Button>
 
               <div className="text-center text-sm text-muted-foreground pt-2">

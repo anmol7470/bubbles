@@ -9,6 +9,9 @@ export type ImagePreview = {
 }
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024 // 4MB
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
+const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpeg', 'jpg', 'png', 'webp'])
 
 export function useImageUpload() {
   const [selectedImages, setSelectedImages] = useState<ImagePreview[]>([])
@@ -36,8 +39,18 @@ export function useImageUpload() {
         return
       }
 
+      const mimeType = file.type.toLowerCase()
+      const extension = file.name.split('.').pop()?.toLowerCase()
+      const isAllowedType = ALLOWED_IMAGE_TYPES.has(mimeType)
+      const isAllowedExtension = extension ? ALLOWED_IMAGE_EXTENSIONS.has(extension) : false
+
+      if (!isAllowedType && !isAllowedExtension) {
+        errors.push(`${file.name} must be JPEG, JPG, PNG, or WebP`)
+        return
+      }
+
       // Check file size (4MB limit)
-      if (file.size > 4 * 1024 * 1024) {
+      if (file.size > MAX_IMAGE_SIZE) {
         errors.push(`${file.name} exceeds 4MB limit`)
         return
       }

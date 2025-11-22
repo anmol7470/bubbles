@@ -41,6 +41,7 @@ type Message struct {
 	IsDeleted bool           `json:"is_deleted"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
+	IsEdited  bool           `json:"is_edited"`
 }
 
 type User struct {

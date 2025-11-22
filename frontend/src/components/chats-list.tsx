@@ -2,7 +2,7 @@ import { cn, formatDate } from '@/lib/utils'
 import { logoutFn } from '@/server/auth'
 import { getUserChatsFn } from '@/server/chat'
 import type { ChatInfo } from '@/types/chat'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { BanIcon, LogOutIcon, PenBoxIcon, SearchIcon } from 'lucide-react'
@@ -24,6 +24,18 @@ export function ChatsList() {
 
   const logoutMutation = useServerFn(logoutFn)
   const getUserChatsQuery = useServerFn(getUserChatsFn)
+
+  const logout = useMutation({
+    mutationFn: async () => {
+      await logoutMutation()
+    },
+    onSuccess: () => {
+      navigate({ to: '/auth' })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to log out')
+    },
+  })
 
   const {
     data: chatsData,
@@ -128,10 +140,8 @@ export function ChatsList() {
               <Button
                 size="icon-sm"
                 variant="outline"
-                onClick={async () => {
-                  await logoutMutation()
-                  navigate({ to: '/auth' })
-                }}
+                disabled={logout.isPending}
+                onClick={async () => await logout.mutateAsync()}
               >
                 <LogOutIcon />
               </Button>

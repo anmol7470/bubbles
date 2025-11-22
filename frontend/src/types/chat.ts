@@ -59,6 +59,7 @@ export type Message = {
   sender_id: string
   sender_username: string
   is_deleted: boolean
+  is_edited: boolean
   images: string[]
   created_at: string
 }
@@ -93,4 +94,14 @@ export type SendMessageRequest = {
   chat_id: string
   content: string
   images?: string[]
+}
+
+export type EditMessageRequest = {
+  message_id: string
+  content: string
+  removed_images?: string[]
+}
+
+export type DeleteMessageRequest = {
+  message_id: string
 }

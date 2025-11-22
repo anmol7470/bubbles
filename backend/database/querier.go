@@ -16,11 +16,15 @@ type Querier interface {
 	CreateChat(ctx context.Context, arg CreateChatParams) (Chat, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteImageByUrl(ctx context.Context, url string) error
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
+	DeleteMessageImages(ctx context.Context, arg DeleteMessageImagesParams) error
+	EditMessage(ctx context.Context, arg EditMessageParams) error
 	GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]GetChatByIdWithMembersRow, error)
 	GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (Chat, error)
 	GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]GetChatsWithMembersRow, error)
 	GetLastMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]GetLastMessageImagesRow, error)
+	GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageByIdRow, error)
 	GetMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]Image, error)
 	GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]GetMessagesByChatRow, error)
 	GetMessagesByChatPaginated(ctx context.Context, arg GetMessagesByChatPaginatedParams) ([]GetMessagesByChatPaginatedRow, error)

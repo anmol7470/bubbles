@@ -71,7 +71,6 @@ var allowedImageTypes = map[string]bool{
 	"image/jpeg": true,
 	"image/jpg":  true,
 	"image/png":  true,
-	"image/gif":  true,
 	"image/webp": true,
 }
 
@@ -125,7 +124,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	// Validate content type
 	if !allowedImageTypes[contentType] {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: "Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed",
+			Error: "Invalid file type. Only JPEG, PNG, and WebP images are allowed",
 		})
 		return
 	}
@@ -157,8 +156,6 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 			ext = ".jpg"
 		case "image/png":
 			ext = ".png"
-		case "image/gif":
-			ext = ".gif"
 		case "image/webp":
 			ext = ".webp"
 		}
@@ -189,4 +186,17 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"url": imageURL,
 	})
+}
+
+func (h *UploadHandler) DeleteImage(imageURL string) error {
+	key := strings.TrimPrefix(imageURL, h.publicURL+"/")
+	key = strings.TrimPrefix(key, h.publicURL)
+	key = strings.TrimPrefix(key, "/")
+
+	_, err := h.s3Client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+		Bucket: aws.String(h.bucketName),
+		Key:    aws.String(key),
+	})
+
+	return err
 }

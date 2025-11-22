@@ -32,7 +32,7 @@ func (q *Queries) AddMessageImage(ctx context.Context, arg AddMessageImageParams
 const createMessage = `-- name: CreateMessage :one
 INSERT INTO messages (chat_id, sender_id, content)
 VALUES ($1, $2, $3)
-RETURNING id, chat_id, sender_id, content, is_deleted, created_at, updated_at
+RETURNING id, chat_id, sender_id, content, is_deleted, created_at, updated_at, is_edited
 `
 
 type CreateMessageParams struct {
@@ -52,8 +52,19 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsEdited,
 	)
 	return i, err
+}
+
+const deleteImageByUrl = `-- name: DeleteImageByUrl :exec
+DELETE FROM images
+WHERE url = $1
+`
+
+func (q *Queries) DeleteImageByUrl(ctx context.Context, url string) error {
+	_, err := q.db.ExecContext(ctx, deleteImageByUrl, url)
+	return err
 }
 
 const deleteMessage = `-- name: DeleteMessage :exec
@@ -65,6 +76,78 @@ WHERE id = $1
 func (q *Queries) DeleteMessage(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteMessage, id)
 	return err
+}
+
+const deleteMessageImages = `-- name: DeleteMessageImages :exec
+DELETE FROM images
+WHERE message_id = $1 AND url = ANY($2::text[])
+`
+
+type DeleteMessageImagesParams struct {
+	MessageID uuid.UUID `json:"message_id"`
+	Column2   []string  `json:"column_2"`
+}
+
+func (q *Queries) DeleteMessageImages(ctx context.Context, arg DeleteMessageImagesParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMessageImages, arg.MessageID, pq.Array(arg.Column2))
+	return err
+}
+
+const editMessage = `-- name: EditMessage :exec
+UPDATE messages
+SET content = $2, is_edited = true, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type EditMessageParams struct {
+	ID      uuid.UUID      `json:"id"`
+	Content sql.NullString `json:"content"`
+}
+
+func (q *Queries) EditMessage(ctx context.Context, arg EditMessageParams) error {
+	_, err := q.db.ExecContext(ctx, editMessage, arg.ID, arg.Content)
+	return err
+}
+
+const getMessageById = `-- name: GetMessageById :one
+SELECT
+    m.id,
+    m.chat_id,
+    m.sender_id,
+    m.content,
+    m.is_deleted,
+    m.is_edited,
+    m.created_at,
+    m.updated_at
+FROM messages m
+WHERE m.id = $1
+`
+
+type GetMessageByIdRow struct {
+	ID        uuid.UUID      `json:"id"`
+	ChatID    uuid.UUID      `json:"chat_id"`
+	SenderID  uuid.UUID      `json:"sender_id"`
+	Content   sql.NullString `json:"content"`
+	IsDeleted bool           `json:"is_deleted"`
+	IsEdited  bool           `json:"is_edited"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageByIdRow, error) {
+	row := q.db.QueryRowContext(ctx, getMessageById, id)
+	var i GetMessageByIdRow
+	err := row.Scan(
+		&i.ID,
+		&i.ChatID,
+		&i.SenderID,
+		&i.Content,
+		&i.IsDeleted,
+		&i.IsEdited,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getMessageImages = `-- name: GetMessageImages :many
@@ -108,6 +191,7 @@ SELECT
     m.sender_id,
     m.content,
     m.is_deleted,
+    m.is_edited,
     m.created_at,
     m.updated_at,
     u.username as sender_username
@@ -124,6 +208,7 @@ type GetMessagesByChatRow struct {
 	SenderID       uuid.UUID      `json:"sender_id"`
 	Content        sql.NullString `json:"content"`
 	IsDeleted      bool           `json:"is_deleted"`
+	IsEdited       bool           `json:"is_edited"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	SenderUsername string         `json:"sender_username"`
@@ -144,6 +229,7 @@ func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]Ge
 			&i.SenderID,
 			&i.Content,
 			&i.IsDeleted,
+			&i.IsEdited,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
@@ -168,6 +254,7 @@ SELECT
     m.sender_id,
     m.content,
     m.is_deleted,
+    m.is_edited,
     m.created_at,
     m.updated_at,
     u.username as sender_username
@@ -196,6 +283,7 @@ type GetMessagesByChatPaginatedRow struct {
 	SenderID       uuid.UUID      `json:"sender_id"`
 	Content        sql.NullString `json:"content"`
 	IsDeleted      bool           `json:"is_deleted"`
+	IsEdited       bool           `json:"is_edited"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	SenderUsername string         `json:"sender_username"`
@@ -221,6 +309,7 @@ func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessage
 			&i.SenderID,
 			&i.Content,
 			&i.IsDeleted,
+			&i.IsEdited,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,

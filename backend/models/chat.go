@@ -62,13 +62,14 @@ type GetChatsResponse struct {
 }
 
 type Message struct {
-	ID             uuid.UUID      `json:"id"`
-	Content        *string        `json:"content,omitempty"`
-	SenderID       uuid.UUID      `json:"sender_id"`
-	SenderUsername string         `json:"sender_username"`
-	IsDeleted      bool           `json:"is_deleted"`
-	Images         []string       `json:"images"`
-	CreatedAt      time.Time      `json:"created_at"`
+	ID             uuid.UUID `json:"id"`
+	Content        *string   `json:"content,omitempty"`
+	SenderID       uuid.UUID `json:"sender_id"`
+	SenderUsername string    `json:"sender_username"`
+	IsDeleted      bool      `json:"is_deleted"`
+	IsEdited       bool      `json:"is_edited"`
+	Images         []string  `json:"images"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type GetChatByIdResponse struct {
@@ -101,4 +102,14 @@ type SendMessageRequest struct {
 	ChatID  string   `json:"chat_id" binding:"required"`
 	Content string   `json:"content"`
 	Images  []string `json:"images,omitempty"`
+}
+
+type EditMessageRequest struct {
+	MessageID     string   `json:"message_id" binding:"required"`
+	Content       string   `json:"content"`
+	RemovedImages []string `json:"removed_images,omitempty"`
+}
+
+type DeleteMessageRequest struct {
+	MessageID string `json:"message_id" binding:"required"`
 }

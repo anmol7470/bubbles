@@ -200,7 +200,7 @@ export function Chat({ chatId }: ChatProps) {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Button
                 type="button"
                 size="icon"
@@ -217,7 +217,7 @@ export function Chat({ chatId }: ChatProps) {
                 className="hidden"
                 ref={imageInputRef}
                 onChange={handleFileChange}
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                 multiple
                 disabled={isSending || isUploading}
               />
@@ -228,7 +228,7 @@ export function Chat({ chatId }: ChatProps) {
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
                 placeholder={isUploading ? 'Uploading images...' : 'Type a message...'}
-                className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30"
+                className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30 wrap-break-word"
                 disabled={isSending || isUploading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
