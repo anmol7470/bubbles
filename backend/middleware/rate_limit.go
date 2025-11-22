@@ -17,6 +17,7 @@ type RateLimiter struct {
 	authLimiter    *limiter.Limiter
 	searchLimiter  *limiter.Limiter
 	messageLimiter *limiter.Limiter
+	uploadLimiter  *limiter.Limiter
 }
 
 func NewRateLimiter() (*RateLimiter, error) {
@@ -42,6 +43,7 @@ func NewRateLimiter() (*RateLimiter, error) {
 	// Auth: 5 requests per 10 minutes (prevent brute force)
 	// Search: 30 requests per minute (prevent spam searches)
 	// Messages: 60 requests per minute (allow normal chatting)
+	// Upload: 20 requests per minute (prevent abuse of image uploads)
 
 	authLimiter := limiter.New(store, limiter.Rate{
 		Period: 10 * time.Minute,
@@ -58,10 +60,16 @@ func NewRateLimiter() (*RateLimiter, error) {
 		Limit:  60,
 	})
 
+	uploadLimiter := limiter.New(store, limiter.Rate{
+		Period: 1 * time.Minute,
+		Limit:  20,
+	})
+
 	return &RateLimiter{
 		authLimiter:    authLimiter,
 		searchLimiter:  searchLimiter,
 		messageLimiter: messageLimiter,
+		uploadLimiter:  uploadLimiter,
 	}, nil
 }
 
@@ -75,6 +83,10 @@ func (rl *RateLimiter) SearchLimit() gin.HandlerFunc {
 
 func (rl *RateLimiter) MessageLimit() gin.HandlerFunc {
 	return rl.createUserBasedMiddleware(rl.messageLimiter)
+}
+
+func (rl *RateLimiter) UploadLimit() gin.HandlerFunc {
+	return rl.createUserBasedMiddleware(rl.uploadLimiter)
 }
 
 // IP-based rate limiting for unauthenticated endpoints (auth)

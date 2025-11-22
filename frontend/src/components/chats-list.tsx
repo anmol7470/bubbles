@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams, useRouteContext } from '@tanstack/react-r
 import { useServerFn } from '@tanstack/react-start'
 import { BanIcon, LogOutIcon, PenBoxIcon, SearchIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 import { NewChatDialog } from './new-chat-dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'

@@ -16,6 +16,11 @@ import { useAppSession } from './session'
 
 const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
+export const getAuthTokenFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const session = await useAppSession()
+  return session.data.token || null
+})
+
 export const searchUsersFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SearchUsersRequest) => data)
   .handler(async ({ data }) => {
@@ -186,6 +191,44 @@ export const getChatMessagesFn = createServerFn({ method: 'POST' })
         error: 'Failed to connect to server',
         items: [],
         next_cursor: undefined,
+      }
+    }
+  })
+
+export const uploadImageFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: any) => data)
+  .handler(async ({ data }: { data: { file: File } }) => {
+    const session = await useAppSession()
+    const token = session.data.token
+
+    if (!token) {
+      throw redirect({ to: '/auth' })
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('image', data.file)
+
+      const response = await fetch(`${BACKEND_URL}/upload/image`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error: ErrorResponse = await response.json()
+        return { success: false, error: error.error, url: null }
+      }
+
+      const result: { url: string } = await response.json()
+      return { success: true, url: result.url }
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to upload image',
+        url: null,
       }
     }
   })

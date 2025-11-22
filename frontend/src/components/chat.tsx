@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/user-avatar'
+import { useImageUpload } from '@/hooks/use-image-upload'
 import { formatRetryAfter } from '@/lib/utils'
 import { getChatByIdFn, sendMessageFn } from '@/server/chat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -10,14 +11,9 @@ import { useServerFn } from '@tanstack/react-start'
 import EmojiPicker from 'emoji-picker-react'
 import { ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import { useDocumentTitle } from 'usehooks-ts'
 import { Messages } from './messages'
-
-type ImagePreview = {
-  file: File
-  previewUrl: string
-}
 
 type ChatProps = {
   chatId: string
@@ -28,20 +24,14 @@ export function Chat({ chatId }: ChatProps) {
   const queryClient = useQueryClient()
   const { user } = useRouteContext({ from: '__root__' })
   const [message, setMessage] = useState('')
-  const [selectedImages, setSelectedImages] = useState<ImagePreview[]>([])
   const [emojiOpen, setEmojiOpen] = useState(false)
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
 
   const getChatByIdQuery = useServerFn(getChatByIdFn)
   const sendMessageQuery = useServerFn(sendMessageFn)
-
-  // Cleanup Object URLs on component unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      selectedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
-    }
-  }, [])
+  const { selectedImages, setSelectedImages, handleFileChange, removeImage, clearImages, uploadImages, isUploading } =
+    useImageUpload()
 
   const {
     data: chatData,
@@ -80,72 +70,7 @@ export function Chat({ chatId }: ChatProps) {
   const otherParticipant = getOtherParticipant()
   const displayName = chat?.is_group ? chat.name || 'Group Chat' : otherParticipant?.username || 'Unknown'
 
-  // Update document title based on chat
   useDocumentTitle(chat ? `${displayName} - Bubbles` : 'Bubbles')
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-
-    const validFiles: File[] = []
-    const errors: string[] = []
-
-    Array.from(files).forEach((file) => {
-      // Check if it's an image
-      if (!file.type.startsWith('image/')) {
-        errors.push(`${file.name} is not an image file`)
-        return
-      }
-
-      // Check file size (4MB limit)
-      if (file.size > 4 * 1024 * 1024) {
-        errors.push(`${file.name} exceeds 4MB limit`)
-        return
-      }
-
-      // Check for duplicates (by name and size)
-      const isDuplicate = selectedImages.some((img) => img.file.name === file.name && img.file.size === file.size)
-
-      if (isDuplicate) {
-        errors.push(`${file.name} is already selected`)
-        return
-      }
-
-      validFiles.push(file)
-    })
-
-    // Check max count
-    const availableSlots = 5 - selectedImages.length
-    if (validFiles.length > availableSlots) {
-      errors.push(`Can only select ${availableSlots} more image(s)`)
-      validFiles.splice(availableSlots)
-    }
-
-    // Create preview URLs
-    const newPreviews: ImagePreview[] = validFiles.map((file) => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }))
-
-    setSelectedImages((prev) => [...prev, ...newPreviews])
-
-    // Show errors if any
-    if (errors.length > 0) {
-      toast.error(errors.join('\n'))
-    }
-
-    e.target.value = ''
-  }
-
-  const removeImage = (index: number) => {
-    setSelectedImages((prev) => {
-      const newImages = [...prev]
-      // Revoke the object URL to free memory
-      URL.revokeObjectURL(newImages[index].previewUrl)
-      newImages.splice(index, 1)
-      return newImages
-    })
-  }
 
   const { mutateAsync: sendMessage, isPending: isSending } = useMutation({
     mutationFn: sendMessageQuery,
@@ -153,8 +78,7 @@ export function Chat({ chatId }: ChatProps) {
       if (data.success) {
         queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
         setMessage('')
-        selectedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
-        setSelectedImages([])
+        clearImages()
       } else {
         const errorMessage = data.retry_after
           ? `${data.error} Try again in ${formatRetryAfter(data.retry_after)}.`
@@ -166,7 +90,7 @@ export function Chat({ chatId }: ChatProps) {
       toast.error(error instanceof Error ? error.message : 'Failed to send message')
     },
     onSettled: () => {
-      // Use requestAnimationFrame to ensure input is enabled before focusing
+      // Focus back on input after sending message
       requestAnimationFrame(() => {
         messageInputRef.current?.focus()
       })
@@ -179,16 +103,49 @@ export function Chat({ chatId }: ChatProps) {
     if (message.trim() === '' && selectedImages.length === 0) return
     if (!chat) return
 
-    // TODO: Implement image upload to get URLs
-    const imageUrls: string[] = []
+    const messageContent = message.trim()
+    const imagesToSend = [...selectedImages]
 
-    await sendMessage({
-      data: {
-        chat_id: chatId,
-        content: message.trim(),
-        images: imageUrls.length > 0 ? imageUrls : undefined,
-      },
-    })
+    setMessage('')
+    clearImages()
+
+    let imageUrls: string[] = []
+
+    if (imagesToSend.length > 0) {
+      const files = imagesToSend.map((img) => img.file)
+      const uploadPromise = uploadImages(files)
+
+      try {
+        toast.promise(uploadPromise, {
+          loading: 'Uploading images...',
+          success: 'Images uploaded successfully',
+          error: 'Failed to upload images',
+        })
+
+        imageUrls = await uploadPromise
+      } catch (error) {
+        setMessage(messageContent)
+        const restoredImages = imagesToSend.map((img) => ({
+          file: img.file,
+          previewUrl: URL.createObjectURL(img.file),
+        }))
+        setSelectedImages(restoredImages)
+        requestAnimationFrame(() => {
+          messageInputRef.current?.focus()
+        })
+        return
+      }
+    }
+
+    if (messageContent || imageUrls.length > 0) {
+      await sendMessage({
+        data: {
+          chat_id: chatId,
+          content: messageContent,
+          images: imageUrls.length > 0 ? imageUrls : undefined,
+        },
+      })
+    }
   }
 
   // Show loading spinner while fetching chat (after all hooks)
@@ -234,7 +191,7 @@ export function Chat({ chatId }: ChatProps) {
                     variant="destructive"
                     className="absolute right-1 top-1 h-5 w-5 rounded-full shadow-md"
                     onClick={() => removeImage(index)}
-                    disabled={isSending}
+                    disabled={isSending || isUploading}
                   >
                     <XIcon className="size-4" />
                   </Button>
@@ -251,7 +208,7 @@ export function Chat({ chatId }: ChatProps) {
                 aria-label="Select image"
                 className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2 transform"
                 onClick={() => imageInputRef.current?.click()}
-                disabled={selectedImages.length >= 5 || isSending}
+                disabled={selectedImages.length >= 5 || isSending || isUploading}
               >
                 <ImagePlusIcon className="size-5" />
               </Button>
@@ -262,7 +219,7 @@ export function Chat({ chatId }: ChatProps) {
                 onChange={handleFileChange}
                 accept="image/*"
                 multiple
-                disabled={isSending}
+                disabled={isSending || isUploading}
               />
               <Textarea
                 autoFocus
@@ -270,9 +227,9 @@ export function Chat({ chatId }: ChatProps) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={1}
-                placeholder="Type a message..."
+                placeholder={isUploading ? 'Uploading images...' : 'Type a message...'}
                 className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30"
-                disabled={isSending}
+                disabled={isSending || isUploading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -283,7 +240,13 @@ export function Chat({ chatId }: ChatProps) {
             </div>
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" aria-label="Open emoji picker" disabled={isSending}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Open emoji picker"
+                  disabled={isSending || isUploading}
+                >
                   <SmilePlusIcon className="size-5" />
                 </Button>
               </PopoverTrigger>

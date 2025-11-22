@@ -1,5 +1,5 @@
+import { Toaster } from '@/components/ui/sonner'
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
-import { Toaster } from 'react-hot-toast'
 
 import appCss from '../styles.css?url'
 
@@ -48,7 +48,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <Toaster position="top-center" />
+        <Toaster richColors position="top-center" />
         {/* <TanStackDevtools
           config={{
             position: 'bottom-right',
