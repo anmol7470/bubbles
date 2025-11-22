@@ -118,7 +118,7 @@ func main() {
 		upload.Use(middleware.AuthMiddleware())
 		{
 			if rateLimiter != nil {
-				upload.POST("/image", rateLimiter.MessageLimit(), uploadHandler.UploadImage)
+				upload.POST("/image", rateLimiter.UploadLimit(), uploadHandler.UploadImage)
 			} else {
 				upload.POST("/image", uploadHandler.UploadImage)
 			}

@@ -16,6 +16,11 @@ import { useAppSession } from './session'
 
 const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000'
 
+export const getAuthTokenFn = createServerFn({ method: 'GET' }).handler(async () => {
+  const session = await useAppSession()
+  return session.data.token || null
+})
+
 export const searchUsersFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SearchUsersRequest) => data)
   .handler(async ({ data }) => {

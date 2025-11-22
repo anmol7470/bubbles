@@ -35,26 +35,15 @@ func NewUploadHandler() (*UploadHandler, error) {
 	bucketName := os.Getenv("R2_BUCKET_NAME")
 	publicURL := os.Getenv("R2_PUBLIC_URL")
 
-	if accountID == "" || accessKeyID == "" || secretAccessKey == "" || bucketName == "" {
+	if accountID == "" || accessKeyID == "" || secretAccessKey == "" || bucketName == "" || publicURL == "" {
 		return nil, fmt.Errorf("missing required R2 configuration")
 	}
 
 	// Construct the R2 endpoint
 	r2Endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
 
-	// Create custom endpoint resolver for R2
-	customResolver := aws.EndpointResolverWithOptionsFunc(
-		func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:           r2Endpoint,
-				SigningRegion: "auto",
-			}, nil
-		},
-	)
-
-	// Create AWS config with custom credentials and endpoint
+	// Create AWS config with custom credentials
 	cfg, err := config.LoadDefaultConfig(context.Background(),
-		config.WithEndpointResolverWithOptions(customResolver),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			accessKeyID,
 			secretAccessKey,
@@ -66,8 +55,10 @@ func NewUploadHandler() (*UploadHandler, error) {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	// Create S3 client
-	s3Client := s3.NewFromConfig(cfg)
+	// Create S3 client with R2 endpoint
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(r2Endpoint)
+	})
 
 	return &UploadHandler{
 		s3Client:   s3Client,
@@ -193,14 +184,7 @@ func (h *UploadHandler) UploadImage(c *gin.Context) {
 	}
 
 	// Construct public URL
-	var imageURL string
-	if h.publicURL != "" {
-		// Use custom public URL if provided
-		imageURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(h.publicURL, "/"), filename)
-	} else {
-		// Fallback to default R2 public URL
-		imageURL = fmt.Sprintf("https://%s.r2.dev/%s", h.bucketName, filename)
-	}
+	var imageURL = fmt.Sprintf("%s/%s", strings.TrimSuffix(h.publicURL, "/"), filename)
 
 	c.JSON(http.StatusOK, gin.H{
 		"url": imageURL,
