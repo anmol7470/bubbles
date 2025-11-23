@@ -1,0 +1,70 @@
+package websocket
+
+import "time"
+
+type EventType string
+
+const (
+	EventMessageSent    EventType = "message_sent"
+	EventMessageEdited  EventType = "message_edited"
+	EventMessageDeleted EventType = "message_deleted"
+	EventTypingStart    EventType = "typing_start"
+	EventTypingStop     EventType = "typing_stop"
+	EventJoinChat       EventType = "join_chat"
+	EventLeaveChat      EventType = "leave_chat"
+)
+
+type WSMessage struct {
+	Type    EventType   `json:"type"`
+	Payload interface{} `json:"payload"`
+}
+
+type MessageSentPayload struct {
+	ID             string    `json:"id"`
+	ChatID         string    `json:"chat_id"`
+	SenderID       string    `json:"sender_id"`
+	SenderUsername string    `json:"sender_username"`
+	Content        *string   `json:"content,omitempty"`
+	Images         []string  `json:"images"`
+	IsDeleted      bool      `json:"is_deleted"`
+	IsEdited       bool      `json:"is_edited"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type MessageEditedPayload struct {
+	ID        string    `json:"id"`
+	ChatID    string    `json:"chat_id"`
+	Content   *string   `json:"content,omitempty"`
+	Images    []string  `json:"images"`
+	IsEdited  bool      `json:"is_edited"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type MessageDeletedPayload struct {
+	ID        string `json:"id"`
+	ChatID    string `json:"chat_id"`
+	IsDeleted bool   `json:"is_deleted"`
+}
+
+type TypingPayload struct {
+	ChatID   string `json:"chat_id"`
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+}
+
+type JoinChatPayload struct {
+	ChatID string `json:"chat_id"`
+}
+
+type LeaveChatPayload struct {
+	ChatID string `json:"chat_id"`
+}
+
+type ClientMessage struct {
+	Type    EventType `json:"type"`
+	Payload struct {
+		ChatID   string `json:"chat_id"`
+		UserID   string `json:"user_id,omitempty"`
+		Username string `json:"username,omitempty"`
+	} `json:"payload"`
+}

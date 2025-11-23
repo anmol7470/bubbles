@@ -1,8 +1,8 @@
 ## TODOS
 
 - [x] Add r2 storage for images
-- [ ] Fix message content styling taking inspiration from whatsapp
-- [ ] Add websocket for real-time chat for sending, deleting, editing messages, and typing indicators
+- [x] Fix message content styling taking inspiration from whatsapp
+- [x] Add websocket for real-time chat for sending, deleting, editing messages, and typing indicators
 - [ ] Add read receipts for messages
 - [ ] Add unread message count for chats
 - [ ] Context menu to manage chats - Delete, Leave. Rename, Add/remove members if group chat

@@ -4,11 +4,11 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "**/*.{ts,tsx,json,css,md,go}": [
+    "**/*.{ts,tsx,json,css,md}": [
       "prettier --write --cache"
     ],
-    "**/*.{go}": [
-      "make format"
+    "**/*.go": [
+      "bash -c 'cd backend && make format'"
     ]
   },
   "dependencies": {

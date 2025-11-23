@@ -17,6 +17,7 @@ import (
 	"github.com/anmol7470/bubbles/backend/middleware"
 	"github.com/anmol7470/bubbles/backend/routes"
 	"github.com/anmol7470/bubbles/backend/utils"
+	ws "github.com/anmol7470/bubbles/backend/websocket"
 )
 
 func main() {
@@ -57,6 +58,10 @@ func main() {
 		log.Println("Continuing without rate limiting...")
 	}
 
+	// Initialize WebSocket hub
+	hub := ws.NewHub(dbService)
+	go hub.Run()
+
 	// Initialize auth handler
 	authHandler := routes.NewAuthHandler(dbService)
 
@@ -91,7 +96,7 @@ func main() {
 	}
 
 	// Initialize message handler
-	messageHandler := routes.NewMessageHandler(dbService)
+	messageHandler := routes.NewMessageHandler(dbService, hub)
 
 	// Initialize upload handler
 	uploadHandler, err := routes.NewUploadHandler()
@@ -133,6 +138,9 @@ func main() {
 			}
 		}
 	}
+
+	// WebSocket endpoint (with authentication)
+	router.GET("/ws", routes.HandleWebSocket(hub))
 
 	// Health check with database connectivity verification
 	router.GET("/health", func(c *gin.Context) {

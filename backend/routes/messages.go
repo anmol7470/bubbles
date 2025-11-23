@@ -12,15 +12,18 @@ import (
 	"github.com/anmol7470/bubbles/backend/constants"
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/anmol7470/bubbles/backend/models"
+	ws "github.com/anmol7470/bubbles/backend/websocket"
 )
 
 type MessageHandler struct {
 	dbService *database.Service
+	hub       *ws.Hub
 }
 
-func NewMessageHandler(dbService *database.Service) *MessageHandler {
+func NewMessageHandler(dbService *database.Service, hub *ws.Hub) *MessageHandler {
 	return &MessageHandler{
 		dbService: dbService,
+		hub:       hub,
 	}
 }
 
@@ -296,6 +299,31 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Get username for WebSocket broadcast
+	username, _ := c.Get("username")
+
+	// Prepare content for broadcast
+	var broadcastContent *string
+	if content.Valid {
+		broadcastContent = &content.String
+	}
+
+	// Broadcast message to WebSocket clients
+	h.hub.BroadcastToChat(chatID.String(), ws.WSMessage{
+		Type: ws.EventMessageSent,
+		Payload: ws.MessageSentPayload{
+			ID:             message.ID.String(),
+			ChatID:         chatID.String(),
+			SenderID:       userID.(uuid.UUID).String(),
+			SenderUsername: username.(string),
+			Content:        broadcastContent,
+			Images:         req.Images,
+			IsDeleted:      false,
+			IsEdited:       false,
+			CreatedAt:      message.CreatedAt,
+		},
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"message_id": message.ID,
 	})
@@ -428,6 +456,39 @@ func (h *MessageHandler) EditMessage(c *gin.Context, uploadHandler *UploadHandle
 		return
 	}
 
+	// Get remaining images after deletion
+	remainingImages, err := h.dbService.Queries.GetMessageImages(c.Request.Context(), []uuid.UUID{messageID})
+	if err != nil && err != sql.ErrNoRows {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get updated images",
+		})
+		return
+	}
+
+	imageUrls := make([]string, 0, len(remainingImages))
+	for _, img := range remainingImages {
+		imageUrls = append(imageUrls, img.Url)
+	}
+
+	// Prepare content for broadcast
+	var broadcastContent *string
+	if content.Valid {
+		broadcastContent = &content.String
+	}
+
+	// Broadcast edit to WebSocket clients
+	h.hub.BroadcastToChat(message.ChatID.String(), ws.WSMessage{
+		Type: ws.EventMessageEdited,
+		Payload: ws.MessageEditedPayload{
+			ID:        messageID.String(),
+			ChatID:    message.ChatID.String(),
+			Content:   broadcastContent,
+			Images:    imageUrls,
+			IsEdited:  true,
+			UpdatedAt: time.Now(),
+		},
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 	})
@@ -521,6 +582,16 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context, uploadHandler *UploadHand
 			return
 		}
 	}
+
+	// Broadcast delete to WebSocket clients
+	h.hub.BroadcastToChat(message.ChatID.String(), ws.WSMessage{
+		Type: ws.EventMessageDeleted,
+		Payload: ws.MessageDeletedPayload{
+			ID:        messageID.String(),
+			ChatID:    message.ChatID.String(),
+			IsDeleted: true,
+		},
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

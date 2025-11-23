@@ -1,3 +1,4 @@
+import { WebSocketProvider } from '@/contexts/websocket-context'
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { ChatsList } from '../components/chats-list'
 
@@ -12,11 +13,13 @@ export const Route = createFileRoute('/chats')({
 
 function ChatsLayout() {
   return (
-    <div className="flex h-screen">
-      <ChatsList />
-      <div className="flex-1">
-        <Outlet />
+    <WebSocketProvider>
+      <div className="flex h-screen">
+        <ChatsList />
+        <div className="flex-1">
+          <Outlet />
+        </div>
       </div>
-    </div>
+    </WebSocketProvider>
   )
 }

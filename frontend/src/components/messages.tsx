@@ -1,3 +1,4 @@
+import { useChatWebSocket } from '@/hooks/use-chat-websocket'
 import { useScroll } from '@/hooks/use-scroll'
 import { cn, formatDate } from '@/lib/utils'
 import { getChatMessagesFn } from '@/server/chat'
@@ -19,6 +20,8 @@ type MessagesProps = {
 export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) {
   const getChatMessagesQuery = useServerFn(getChatMessagesFn)
   const observerTarget = useRef<HTMLDivElement>(null)
+
+  useChatWebSocket(chatId)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['messages', chatId],

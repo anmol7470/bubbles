@@ -3,9 +3,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/user-avatar'
 import { useImageUpload } from '@/hooks/use-image-upload'
+import { useTypingIndicator } from '@/hooks/use-typing-indicator'
 import { formatRetryAfter } from '@/lib/utils'
 import { getChatByIdFn, sendMessageFn } from '@/server/chat'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import EmojiPicker from 'emoji-picker-react'
@@ -21,7 +22,6 @@ type ChatProps = {
 
 export function Chat({ chatId }: ChatProps) {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { user } = useRouteContext({ from: '__root__' })
   const [message, setMessage] = useState('')
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -32,6 +32,7 @@ export function Chat({ chatId }: ChatProps) {
   const sendMessageQuery = useServerFn(sendMessageFn)
   const { selectedImages, setSelectedImages, handleFileChange, removeImage, clearImages, uploadImages, isUploading } =
     useImageUpload()
+  const { typingUsers, handleTyping } = useTypingIndicator(chatId, user?.id || '', user?.username || '')
 
   const {
     data: chatData,
@@ -76,7 +77,6 @@ export function Chat({ chatId }: ChatProps) {
     mutationFn: sendMessageQuery,
     onSuccess: (data) => {
       if (data.success) {
-        queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
         setMessage('')
         clearImages()
       } else {
@@ -90,7 +90,6 @@ export function Chat({ chatId }: ChatProps) {
       toast.error(error instanceof Error ? error.message : 'Failed to send message')
     },
     onSettled: () => {
-      // Focus back on input after sending message
       requestAnimationFrame(() => {
         messageInputRef.current?.focus()
       })
@@ -148,7 +147,6 @@ export function Chat({ chatId }: ChatProps) {
     }
   }
 
-  // Show loading spinner while fetching chat (after all hooks)
   if (isLoading || !chat || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -171,6 +169,16 @@ export function Chat({ chatId }: ChatProps) {
         </div>
 
         <Messages chatId={chatId} isGroupChat={chat.is_group} currentUserId={user.id} />
+
+        {typingUsers.length > 0 && (
+          <div className="px-4 py-1 text-sm text-muted-foreground">
+            {typingUsers.length === 1
+              ? `${typingUsers[0].username} is typing...`
+              : typingUsers.length === 2
+                ? `${typingUsers[0].username} and ${typingUsers[1].username} are typing...`
+                : `${typingUsers.length} people are typing...`}
+          </div>
+        )}
 
         <form onSubmit={handleSendMessage} className="flex flex-col gap-2 px-3 py-2">
           {selectedImages.length > 0 && (
@@ -225,7 +233,10 @@ export function Chat({ chatId }: ChatProps) {
                 autoFocus
                 ref={messageInputRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value)
+                  handleTyping()
+                }}
                 rows={1}
                 placeholder={isUploading ? 'Uploading images...' : 'Type a message...'}
                 className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30 wrap-break-word"

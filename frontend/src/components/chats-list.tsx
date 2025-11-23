@@ -1,3 +1,4 @@
+import { useChatListWebSocket } from '@/hooks/use-chat-websocket'
 import { cn, formatDate } from '@/lib/utils'
 import { logoutFn } from '@/server/auth'
 import { getUserChatsFn } from '@/server/chat'
@@ -24,6 +25,8 @@ export function ChatsList() {
 
   const logoutMutation = useServerFn(logoutFn)
   const getUserChatsQuery = useServerFn(getUserChatsFn)
+
+  useChatListWebSocket()
 
   const logout = useMutation({
     mutationFn: async () => {

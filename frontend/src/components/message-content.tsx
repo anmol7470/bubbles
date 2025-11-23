@@ -4,8 +4,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn, formatMessageTime } from '@/lib/utils'
 import { deleteMessageFn, editMessageFn } from '@/server/chat'
 import type { Message } from '@/types/chat'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
 import Linkify from 'linkify-react'
 import { BanIcon, CheckIcon, CopyIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
@@ -18,8 +17,6 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content ?? '')
   const [remainingImages, setRemainingImages] = useState<string[]>(message.images ?? [])
-  const { chatId } = useParams({ from: '/chats/$chatId' })
-  const queryClient = useQueryClient()
   const timestampLabel = formatMessageTime(new Date(message.created_at))
 
   const canEdit = () => {
@@ -39,7 +36,6 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
     },
     onSuccess: (result) => {
       if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
         setIsEditing(false)
       }
     },
@@ -48,11 +44,6 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
   const deleteMutation = useMutation({
     mutationFn: async () => {
       return await deleteMessageFn({ data: { message_id: message.id } })
-    },
-    onSuccess: (result) => {
-      if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ['messages', chatId] })
-      }
     },
   })
 
