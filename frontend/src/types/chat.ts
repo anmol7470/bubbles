@@ -62,6 +62,16 @@ export type Message = {
   is_edited: boolean
   images: string[]
   created_at: string
+  reply_to?: ReplyToMessage
+}
+
+export type ReplyToMessage = {
+  id: string
+  sender_id: string
+  sender_username: string
+  content?: string
+  images: string[]
+  is_deleted: boolean
 }
 
 export type GetChatByIdResponse = {
@@ -94,6 +104,7 @@ export type SendMessageRequest = {
   chat_id: string
   content: string
   images?: string[]
+  reply_to_message_id?: string
 }
 
 export type EditMessageRequest = {

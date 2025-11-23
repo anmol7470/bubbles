@@ -30,19 +30,25 @@ func (q *Queries) AddMessageImage(ctx context.Context, arg AddMessageImageParams
 }
 
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO messages (chat_id, sender_id, content)
-VALUES ($1, $2, $3)
-RETURNING id, chat_id, sender_id, content, is_deleted, created_at, updated_at, is_edited
+INSERT INTO messages (chat_id, sender_id, content, reply_to_message_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, chat_id, sender_id, content, is_deleted, created_at, updated_at, is_edited, reply_to_message_id
 `
 
 type CreateMessageParams struct {
-	ChatID   uuid.UUID      `json:"chat_id"`
-	SenderID uuid.UUID      `json:"sender_id"`
-	Content  sql.NullString `json:"content"`
+	ChatID           uuid.UUID      `json:"chat_id"`
+	SenderID         uuid.UUID      `json:"sender_id"`
+	Content          sql.NullString `json:"content"`
+	ReplyToMessageID uuid.NullUUID  `json:"reply_to_message_id"`
 }
 
 func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error) {
-	row := q.db.QueryRowContext(ctx, createMessage, arg.ChatID, arg.SenderID, arg.Content)
+	row := q.db.QueryRowContext(ctx, createMessage,
+		arg.ChatID,
+		arg.SenderID,
+		arg.Content,
+		arg.ReplyToMessageID,
+	)
 	var i Message
 	err := row.Scan(
 		&i.ID,
@@ -53,6 +59,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsEdited,
+		&i.ReplyToMessageID,
 	)
 	return i, err
 }
@@ -117,6 +124,7 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at
 FROM messages m
@@ -124,14 +132,15 @@ WHERE m.id = $1
 `
 
 type GetMessageByIdRow struct {
-	ID        uuid.UUID      `json:"id"`
-	ChatID    uuid.UUID      `json:"chat_id"`
-	SenderID  uuid.UUID      `json:"sender_id"`
-	Content   sql.NullString `json:"content"`
-	IsDeleted bool           `json:"is_deleted"`
-	IsEdited  bool           `json:"is_edited"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID               uuid.UUID      `json:"id"`
+	ChatID           uuid.UUID      `json:"chat_id"`
+	SenderID         uuid.UUID      `json:"sender_id"`
+	Content          sql.NullString `json:"content"`
+	IsDeleted        bool           `json:"is_deleted"`
+	IsEdited         bool           `json:"is_edited"`
+	ReplyToMessageID uuid.NullUUID  `json:"reply_to_message_id"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageByIdRow, error) {
@@ -144,6 +153,7 @@ func (q *Queries) GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageB
 		&i.Content,
 		&i.IsDeleted,
 		&i.IsEdited,
+		&i.ReplyToMessageID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -192,26 +202,38 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at,
-    u.username as sender_username
+    u.username as sender_username,
+    rm.content AS reply_content,
+    rm.is_deleted AS reply_is_deleted,
+    rm.sender_id AS reply_sender_id,
+    ru.username AS reply_sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
+LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
+LEFT JOIN users ru ON rm.sender_id = ru.id
 WHERE m.chat_id = $1
 ORDER BY m.created_at ASC
 LIMIT 50
 `
 
 type GetMessagesByChatRow struct {
-	ID             uuid.UUID      `json:"id"`
-	ChatID         uuid.UUID      `json:"chat_id"`
-	SenderID       uuid.UUID      `json:"sender_id"`
-	Content        sql.NullString `json:"content"`
-	IsDeleted      bool           `json:"is_deleted"`
-	IsEdited       bool           `json:"is_edited"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	SenderUsername string         `json:"sender_username"`
+	ID                  uuid.UUID      `json:"id"`
+	ChatID              uuid.UUID      `json:"chat_id"`
+	SenderID            uuid.UUID      `json:"sender_id"`
+	Content             sql.NullString `json:"content"`
+	IsDeleted           bool           `json:"is_deleted"`
+	IsEdited            bool           `json:"is_edited"`
+	ReplyToMessageID    uuid.NullUUID  `json:"reply_to_message_id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	SenderUsername      string         `json:"sender_username"`
+	ReplyContent        sql.NullString `json:"reply_content"`
+	ReplyIsDeleted      sql.NullBool   `json:"reply_is_deleted"`
+	ReplySenderID       uuid.NullUUID  `json:"reply_sender_id"`
+	ReplySenderUsername sql.NullString `json:"reply_sender_username"`
 }
 
 func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]GetMessagesByChatRow, error) {
@@ -230,9 +252,14 @@ func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]Ge
 			&i.Content,
 			&i.IsDeleted,
 			&i.IsEdited,
+			&i.ReplyToMessageID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
+			&i.ReplyContent,
+			&i.ReplyIsDeleted,
+			&i.ReplySenderID,
+			&i.ReplySenderUsername,
 		); err != nil {
 			return nil, err
 		}
@@ -255,11 +282,18 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at,
-    u.username as sender_username
+    u.username as sender_username,
+    rm.content AS reply_content,
+    rm.is_deleted AS reply_is_deleted,
+    rm.sender_id AS reply_sender_id,
+    ru.username AS reply_sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
+LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
+LEFT JOIN users ru ON rm.sender_id = ru.id
 WHERE m.chat_id = $1
   AND (
     $3::timestamp IS NULL OR
@@ -278,15 +312,20 @@ type GetMessagesByChatPaginatedParams struct {
 }
 
 type GetMessagesByChatPaginatedRow struct {
-	ID             uuid.UUID      `json:"id"`
-	ChatID         uuid.UUID      `json:"chat_id"`
-	SenderID       uuid.UUID      `json:"sender_id"`
-	Content        sql.NullString `json:"content"`
-	IsDeleted      bool           `json:"is_deleted"`
-	IsEdited       bool           `json:"is_edited"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	SenderUsername string         `json:"sender_username"`
+	ID                  uuid.UUID      `json:"id"`
+	ChatID              uuid.UUID      `json:"chat_id"`
+	SenderID            uuid.UUID      `json:"sender_id"`
+	Content             sql.NullString `json:"content"`
+	IsDeleted           bool           `json:"is_deleted"`
+	IsEdited            bool           `json:"is_edited"`
+	ReplyToMessageID    uuid.NullUUID  `json:"reply_to_message_id"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	SenderUsername      string         `json:"sender_username"`
+	ReplyContent        sql.NullString `json:"reply_content"`
+	ReplyIsDeleted      sql.NullBool   `json:"reply_is_deleted"`
+	ReplySenderID       uuid.NullUUID  `json:"reply_sender_id"`
+	ReplySenderUsername sql.NullString `json:"reply_sender_username"`
 }
 
 func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessagesByChatPaginatedParams) ([]GetMessagesByChatPaginatedRow, error) {
@@ -310,9 +349,14 @@ func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessage
 			&i.Content,
 			&i.IsDeleted,
 			&i.IsEdited,
+			&i.ReplyToMessageID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
+			&i.ReplyContent,
+			&i.ReplyIsDeleted,
+			&i.ReplySenderID,
+			&i.ReplySenderUsername,
 		); err != nil {
 			return nil, err
 		}

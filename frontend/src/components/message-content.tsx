@@ -6,12 +6,24 @@ import { deleteMessageFn, editMessageFn } from '@/server/chat'
 import type { Message } from '@/types/chat'
 import { useMutation } from '@tanstack/react-query'
 import Linkify from 'linkify-react'
-import { BanIcon, CheckIcon, CopyIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react'
+import { CheckIcon, CopyIcon, CornerUpLeftIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useCopyToClipboard } from 'usehooks-ts'
 
-export function MessageContent({ message, isOwn }: { message: Message; isOwn: boolean }) {
+export function MessageContent({
+  message,
+  isOwn,
+  onReply,
+  onReplyJump,
+  isHighlighted,
+}: {
+  message: Message
+  isOwn: boolean
+  onReply: (message: Message) => void
+  onReplyJump?: (messageId: string) => void
+  isHighlighted?: boolean
+}) {
   const imageCount = message.images?.length ?? 0
   const [_, copy] = useCopyToClipboard()
   const [isEditing, setIsEditing] = useState(false)
@@ -85,16 +97,62 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
     </div>
   )
 
+  const renderReplyPreview = () => {
+    if (!message.reply_to) return null
+    const reply = message.reply_to
+    const replyText = reply.is_deleted
+      ? 'This message was deleted'
+      : reply.content?.trim() ||
+        (reply.images.length > 0 ? `${reply.images.length} photo${reply.images.length > 1 ? 's' : ''}` : 'No content')
+
+    const containerClasses = isOwn
+      ? 'border-white/40 bg-white/10 text-primary-foreground/90'
+      : 'border-primary/40 bg-muted/80 text-muted-foreground'
+    const nameClasses = isOwn ? 'text-primary-foreground font-semibold' : 'text-foreground font-semibold'
+    const moreLabelClasses = isOwn ? 'text-primary-foreground/80' : 'text-muted-foreground'
+    const thumbnailBorder = isOwn ? 'border border-white/40' : 'border border-neutral-300 dark:border-zinc-700'
+
+    return (
+      <button
+        type="button"
+        onClick={() => onReplyJump?.(reply.id)}
+        className={cn(
+          'group mb-2 rounded-2xl border-l-2 px-3 py-2 text-left text-xs transition-colors cursor-pointer',
+          containerClasses
+        )}
+      >
+        <div className={cn('text-[11px]', nameClasses)}>{reply.sender_username}</div>
+        <p className="line-clamp-2">{replyText}</p>
+        {!reply.is_deleted && reply.images.length > 0 && (
+          <div className="mt-2 flex gap-1">
+            {reply.images.slice(0, 2).map((imageUrl, index) => (
+              <img
+                key={imageUrl + index}
+                src={imageUrl}
+                alt="Replied message attachment"
+                className={cn('h-10 w-10 rounded-md object-cover', thumbnailBorder)}
+              />
+            ))}
+            {reply.images.length > 2 && (
+              <span className={cn('text-[10px] font-medium', moreLabelClasses)}>+{reply.images.length - 2} more</span>
+            )}
+          </div>
+        )}
+      </button>
+    )
+  }
+
   if (message.is_deleted) {
     return (
       <div
         className={cn(
-          'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm',
-          isOwn ? 'self-end bg-primary/20 text-muted-foreground' : 'self-start bg-muted text-muted-foreground'
+          'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
+          isOwn ? 'self-end bg-primary/20 text-muted-foreground' : 'self-start bg-muted text-muted-foreground',
+          isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
         )}
       >
         <div className="flex items-center gap-1 italic">
-          <BanIcon className="size-4 shrink-0" />
+          <TrashIcon className="size-4 shrink-0" />
           <span>{isOwn ? 'You deleted this message' : 'This message was deleted'}</span>
         </div>
         {renderMetadata({ showEdited: false, tone: 'muted' })}
@@ -105,6 +163,7 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
   if (isEditing) {
     return (
       <div className="flex flex-col gap-2">
+        {message.reply_to && renderReplyPreview()}
         {remainingImages.length > 0 && (
           <div className={cn('flex flex-wrap gap-2', isOwn ? 'justify-end' : 'justify-start')}>
             {remainingImages.map((imageUrl, index) => (
@@ -149,10 +208,12 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
   const messageContent = (
     <div
       className={cn(
-        'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm',
-        isOwn ? 'self-end bg-primary text-primary-foreground' : 'self-start bg-secondary text-secondary-foreground'
+        'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
+        isOwn ? 'self-end bg-primary text-primary-foreground' : 'self-start bg-secondary text-secondary-foreground',
+        isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
       )}
     >
+      {renderReplyPreview()}
       {hasBodyContent && (
         <div className="flex flex-col gap-2">
           {imageCount > 0 && (
@@ -201,6 +262,14 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
     <ContextMenu>
       <ContextMenuTrigger>{messageContent}</ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem
+          onClick={() => {
+            onReply(message)
+          }}
+        >
+          <CornerUpLeftIcon className="size-4" />
+          Reply
+        </ContextMenuItem>
         {isOwn ? (
           <>
             <ContextMenuItem

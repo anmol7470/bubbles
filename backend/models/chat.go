@@ -62,14 +62,24 @@ type GetChatsResponse struct {
 }
 
 type Message struct {
+	ID             uuid.UUID       `json:"id"`
+	Content        *string         `json:"content,omitempty"`
+	SenderID       uuid.UUID       `json:"sender_id"`
+	SenderUsername string          `json:"sender_username"`
+	IsDeleted      bool            `json:"is_deleted"`
+	IsEdited       bool            `json:"is_edited"`
+	Images         []string        `json:"images"`
+	CreatedAt      time.Time       `json:"created_at"`
+	ReplyTo        *ReplyToMessage `json:"reply_to,omitempty"`
+}
+
+type ReplyToMessage struct {
 	ID             uuid.UUID `json:"id"`
-	Content        *string   `json:"content,omitempty"`
 	SenderID       uuid.UUID `json:"sender_id"`
 	SenderUsername string    `json:"sender_username"`
-	IsDeleted      bool      `json:"is_deleted"`
-	IsEdited       bool      `json:"is_edited"`
+	Content        *string   `json:"content,omitempty"`
 	Images         []string  `json:"images"`
-	CreatedAt      time.Time `json:"created_at"`
+	IsDeleted      bool      `json:"is_deleted"`
 }
 
 type GetChatByIdResponse struct {
@@ -99,9 +109,10 @@ type GetChatMessagesResponse struct {
 }
 
 type SendMessageRequest struct {
-	ChatID  string   `json:"chat_id" binding:"required"`
-	Content string   `json:"content"`
-	Images  []string `json:"images,omitempty"`
+	ChatID           string   `json:"chat_id" binding:"required"`
+	Content          string   `json:"content"`
+	Images           []string `json:"images,omitempty"`
+	ReplyToMessageID *string  `json:"reply_to_message_id"`
 }
 
 type EditMessageRequest struct {

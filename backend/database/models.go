@@ -34,14 +34,15 @@ type Image struct {
 }
 
 type Message struct {
-	ID        uuid.UUID      `json:"id"`
-	ChatID    uuid.UUID      `json:"chat_id"`
-	SenderID  uuid.UUID      `json:"sender_id"`
-	Content   sql.NullString `json:"content"`
-	IsDeleted bool           `json:"is_deleted"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	IsEdited  bool           `json:"is_edited"`
+	ID               uuid.UUID      `json:"id"`
+	ChatID           uuid.UUID      `json:"chat_id"`
+	SenderID         uuid.UUID      `json:"sender_id"`
+	Content          sql.NullString `json:"content"`
+	IsDeleted        bool           `json:"is_deleted"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	IsEdited         bool           `json:"is_edited"`
+	ReplyToMessageID uuid.NullUUID  `json:"reply_to_message_id"`
 }
 
 type User struct {

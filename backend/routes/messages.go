@@ -109,10 +109,18 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 		filteredMessages = messagesData[:limit]
 	}
 
-	// Collect message IDs for images
-	messageIDs := make([]uuid.UUID, 0, len(filteredMessages))
+	// Collect message IDs (including replied-to messages) for image lookup
+	imageIDSet := make(map[uuid.UUID]struct{})
 	for _, msg := range filteredMessages {
-		messageIDs = append(messageIDs, msg.ID)
+		imageIDSet[msg.ID] = struct{}{}
+		if msg.ReplyToMessageID.Valid {
+			imageIDSet[msg.ReplyToMessageID.UUID] = struct{}{}
+		}
+	}
+
+	messageIDs := make([]uuid.UUID, 0, len(imageIDSet))
+	for id := range imageIDSet {
+		messageIDs = append(messageIDs, id)
 	}
 
 	// Get images for messages
@@ -146,6 +154,33 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 			images = []string{}
 		}
 
+		var replyTo *models.ReplyToMessage
+		if msg.ReplyToMessageID.Valid && msg.ReplySenderID.Valid {
+			replyImages := imagesByMessage[msg.ReplyToMessageID.UUID]
+			if replyImages == nil {
+				replyImages = []string{}
+			}
+
+			var replyContent *string
+			if msg.ReplyContent.Valid && !(msg.ReplyIsDeleted.Valid && msg.ReplyIsDeleted.Bool) {
+				replyContent = &msg.ReplyContent.String
+			}
+
+			replyUsername := "Unknown"
+			if msg.ReplySenderUsername.Valid {
+				replyUsername = msg.ReplySenderUsername.String
+			}
+
+			replyTo = &models.ReplyToMessage{
+				ID:             msg.ReplyToMessageID.UUID,
+				SenderID:       msg.ReplySenderID.UUID,
+				SenderUsername: replyUsername,
+				Content:        replyContent,
+				Images:         replyImages,
+				IsDeleted:      msg.ReplyIsDeleted.Valid && msg.ReplyIsDeleted.Bool,
+			}
+		}
+
 		messages[i] = models.Message{
 			ID:             msg.ID,
 			Content:        content,
@@ -155,6 +190,7 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 			IsEdited:       msg.IsEdited,
 			Images:         images,
 			CreatedAt:      msg.CreatedAt,
+			ReplyTo:        replyTo,
 		}
 	}
 
@@ -246,6 +282,79 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
+	// Validate reply target if provided
+	var replyTo uuid.NullUUID
+	var replyPayload *ws.ReplyMessage
+	if req.ReplyToMessageID != nil {
+		replyIDStr := strings.TrimSpace(*req.ReplyToMessageID)
+		if replyIDStr != "" {
+			replyUUID, err := uuid.Parse(replyIDStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, models.ErrorResponse{
+					Error: "Invalid reply_to_message_id",
+				})
+				return
+			}
+
+			replyMessage, err := h.dbService.Queries.GetMessageById(c.Request.Context(), replyUUID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, models.ErrorResponse{
+						Error: "Replied message not found",
+					})
+					return
+				}
+				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+					Error: "Failed to fetch replied message",
+				})
+				return
+			}
+
+			if replyMessage.ChatID != chatID {
+				c.JSON(http.StatusBadRequest, models.ErrorResponse{
+					Error: "Cannot reply to a message from another chat",
+				})
+				return
+			}
+
+			user, err := h.dbService.Queries.GetUserByID(c.Request.Context(), replyMessage.SenderID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+					Error: "Failed to get replied message sender",
+				})
+				return
+			}
+
+			replyImageRows, err := h.dbService.Queries.GetMessageImages(c.Request.Context(), []uuid.UUID{replyUUID})
+			if err != nil && err != sql.ErrNoRows {
+				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+					Error: "Failed to get replied message images",
+				})
+				return
+			}
+
+			replyImages := make([]string, 0, len(replyImageRows))
+			for _, img := range replyImageRows {
+				replyImages = append(replyImages, img.Url)
+			}
+
+			var replyContent *string
+			if replyMessage.Content.Valid && !replyMessage.IsDeleted {
+				replyContent = &replyMessage.Content.String
+			}
+
+			replyTo = uuid.NullUUID{UUID: replyUUID, Valid: true}
+			replyPayload = &ws.ReplyMessage{
+				ID:             replyUUID.String(),
+				SenderID:       replyMessage.SenderID.String(),
+				SenderUsername: user.Username,
+				Content:        replyContent,
+				Images:         replyImages,
+				IsDeleted:      replyMessage.IsDeleted,
+			}
+		}
+	}
+
 	// Use transaction to ensure message creation and image addition are atomic
 	tx, err := h.dbService.DB.BeginTx(c.Request.Context(), nil)
 	if err != nil {
@@ -265,9 +374,10 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 	}
 
 	message, err := qtx.CreateMessage(c.Request.Context(), database.CreateMessageParams{
-		ChatID:   chatID,
-		SenderID: userID.(uuid.UUID),
-		Content:  content,
+		ChatID:           chatID,
+		SenderID:         userID.(uuid.UUID),
+		Content:          content,
+		ReplyToMessageID: replyTo,
 	})
 
 	if err != nil {
@@ -321,6 +431,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 			IsDeleted:      false,
 			IsEdited:       false,
 			CreatedAt:      message.CreatedAt,
+			ReplyTo:        replyPayload,
 		},
 	})
 

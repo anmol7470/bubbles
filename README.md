@@ -11,5 +11,5 @@
 - [ ] Add voice message support??
 - [ ] Add online/offline status for DMs
 - [ ] Add message reactions
-- [ ] Message reply to feature
+- [x] Message reply to feature
 - [ ] Add mentions in group chats

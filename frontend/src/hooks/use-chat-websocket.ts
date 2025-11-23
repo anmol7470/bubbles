@@ -1,7 +1,7 @@
 import { useWebSocket } from '@/contexts/websocket-context'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import type { ChatInfo, GetChatMessagesResponse, Message } from '../types/chat'
+import type { ChatInfo, GetChatMessagesResponse, Message, ReplyToMessage } from '../types/chat'
 
 type MessageSentPayload = {
   id: string
@@ -13,6 +13,16 @@ type MessageSentPayload = {
   is_deleted: boolean
   is_edited: boolean
   created_at: string
+  reply_to?: ReplyPayload
+}
+
+type ReplyPayload = {
+  id: string
+  sender_id: string
+  sender_username: string
+  content?: string
+  images: string[]
+  is_deleted: boolean
 }
 
 type MessageEditedPayload = {
@@ -69,6 +79,16 @@ export function useChatWebSocket(chatId?: string) {
             is_edited: payload.is_edited,
             images: payload.images,
             created_at: payload.created_at,
+            reply_to: payload.reply_to
+              ? ({
+                  id: payload.reply_to.id,
+                  sender_id: payload.reply_to.sender_id,
+                  sender_username: payload.reply_to.sender_username,
+                  content: payload.reply_to.content,
+                  images: payload.reply_to.images,
+                  is_deleted: payload.reply_to.is_deleted,
+                } satisfies ReplyToMessage)
+              : undefined,
           }
 
           const firstPage = oldData.pages[0]

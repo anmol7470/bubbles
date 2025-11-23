@@ -20,15 +20,16 @@ type WSMessage struct {
 }
 
 type MessageSentPayload struct {
-	ID             string    `json:"id"`
-	ChatID         string    `json:"chat_id"`
-	SenderID       string    `json:"sender_id"`
-	SenderUsername string    `json:"sender_username"`
-	Content        *string   `json:"content,omitempty"`
-	Images         []string  `json:"images"`
-	IsDeleted      bool      `json:"is_deleted"`
-	IsEdited       bool      `json:"is_edited"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             string        `json:"id"`
+	ChatID         string        `json:"chat_id"`
+	SenderID       string        `json:"sender_id"`
+	SenderUsername string        `json:"sender_username"`
+	Content        *string       `json:"content,omitempty"`
+	Images         []string      `json:"images"`
+	IsDeleted      bool          `json:"is_deleted"`
+	IsEdited       bool          `json:"is_edited"`
+	CreatedAt      time.Time     `json:"created_at"`
+	ReplyTo        *ReplyMessage `json:"reply_to,omitempty"`
 }
 
 type MessageEditedPayload struct {
@@ -44,6 +45,15 @@ type MessageDeletedPayload struct {
 	ID        string `json:"id"`
 	ChatID    string `json:"chat_id"`
 	IsDeleted bool   `json:"is_deleted"`
+}
+
+type ReplyMessage struct {
+	ID             string   `json:"id"`
+	SenderID       string   `json:"sender_id"`
+	SenderUsername string   `json:"sender_username"`
+	Content        *string  `json:"content,omitempty"`
+	Images         []string `json:"images"`
+	IsDeleted      bool     `json:"is_deleted"`
 }
 
 type TypingPayload struct {

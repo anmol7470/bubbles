@@ -3,10 +3,12 @@ import { useScroll } from '@/hooks/use-scroll'
 import type { TypingUser } from '@/hooks/use-typing-indicator'
 import { cn, formatDate } from '@/lib/utils'
 import { getChatMessagesFn } from '@/server/chat'
+import type { Message } from '@/types/chat'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowDownIcon, Loader2Icon } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { MessageContent } from './message-content'
 import { Button } from './ui/button'
 import { ScrollArea } from './ui/scroll-area'
@@ -17,15 +19,24 @@ type MessagesProps = {
   isGroupChat: boolean
   currentUserId: string
   typingUsers: TypingUser[]
+  onReplySelect: (message: Message) => void
 }
 
-export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: MessagesProps) {
+export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onReplySelect }: MessagesProps) {
   const getChatMessagesQuery = useServerFn(getChatMessagesFn)
   const observerTarget = useRef<HTMLDivElement>(null)
 
   useChatWebSocket(chatId)
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isError: isMessagesError,
+    error: messagesError,
+    refetch,
+  } = useInfiniteQuery({
     queryKey: ['messages', chatId],
     queryFn: async ({ pageParam }) => {
       const result = await getChatMessagesQuery({
@@ -40,6 +51,11 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
     initialPageParam: undefined as { sent_at: string; id: string } | undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor,
   })
+  useEffect(() => {
+    if (isMessagesError) {
+      toast.error(messagesError instanceof Error ? messagesError.message : 'Failed to load messages')
+    }
+  }, [isMessagesError, messagesError])
 
   const messages = useMemo(() => {
     if (!data?.pages) return []
@@ -90,6 +106,19 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const { scrollToBottom, scrollAreaRef, isAtBottom } = useScroll(messages, typingUsers)
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const handleReplyJump = (messageId: string) => {
+    const targetRef = messageRefs.current[messageId]
+    if (targetRef) {
+      targetRef.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightedMessageId(messageId)
+      setTimeout(() => {
+        setHighlightedMessageId((current) => (current === messageId ? null : current))
+      }, 1500)
+    }
+  }
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
   const isSameDay = (dateA: Date, dateB: Date) => dateA.toDateString() === dateB.toDateString()
 
@@ -155,6 +184,22 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
           </div>
         )}
 
+        {isMessagesError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-center justify-between gap-3">
+              <span>Failed to load messages.</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => refetch()}
+                className="text-destructive hover:text-destructive"
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         {groupedMessages.map((group) => (
           <div key={group.key} className="flex flex-col gap-2">
             <div className="flex justify-center">
@@ -170,11 +215,23 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
                 const marginTopClass = itemIndex === 0 ? 'mt-2' : isChained ? 'mt-1' : 'mt-3'
 
                 return (
-                  <div key={m.id} className={marginTopClass}>
+                  <div
+                    key={m.id}
+                    className={marginTopClass}
+                    ref={(node) => {
+                      messageRefs.current[m.id] = node
+                    }}
+                  >
                     <div className={cn('flex w-full', isOwn ? 'justify-end' : 'justify-start')}>
                       {isOwn ? (
                         <div className="flex max-w-[75%] flex-col gap-1">
-                          <MessageContent message={m} isOwn={true} />
+                          <MessageContent
+                            message={m}
+                            isOwn={true}
+                            onReply={onReplySelect}
+                            onReplyJump={handleReplyJump}
+                            isHighlighted={highlightedMessageId === m.id}
+                          />
                         </div>
                       ) : (
                         <div className="flex max-w-[75%] items-end gap-2.5">
@@ -189,7 +246,15 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: Me
                                 <span className="text-sm font-medium">{m.sender_username}</span>
                               </div>
                             )}
-                            <MessageContent message={m} isOwn={false} />
+                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                              <MessageContent
+                                message={m}
+                                isOwn={false}
+                                onReply={onReplySelect}
+                                onReplyJump={handleReplyJump}
+                                isHighlighted={highlightedMessageId === m.id}
+                              />
+                            </div>
                           </div>
                         </div>
                       )}

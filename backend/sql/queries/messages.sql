@@ -1,6 +1,6 @@
 -- name: CreateMessage :one
-INSERT INTO messages (chat_id, sender_id, content)
-VALUES ($1, $2, $3)
+INSERT INTO messages (chat_id, sender_id, content, reply_to_message_id)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: AddMessageImage :exec
@@ -15,11 +15,18 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at,
-    u.username as sender_username
+    u.username as sender_username,
+    rm.content AS reply_content,
+    rm.is_deleted AS reply_is_deleted,
+    rm.sender_id AS reply_sender_id,
+    ru.username AS reply_sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
+LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
+LEFT JOIN users ru ON rm.sender_id = ru.id
 WHERE m.chat_id = $1
 ORDER BY m.created_at ASC
 LIMIT 50;
@@ -32,11 +39,18 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at,
-    u.username as sender_username
+    u.username as sender_username,
+    rm.content AS reply_content,
+    rm.is_deleted AS reply_is_deleted,
+    rm.sender_id AS reply_sender_id,
+    ru.username AS reply_sender_username
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
+LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
+LEFT JOIN users ru ON rm.sender_id = ru.id
 WHERE m.chat_id = $1
   AND (
     sqlc.narg(cursor_time)::timestamp IS NULL OR
@@ -69,6 +83,7 @@ SELECT
     m.content,
     m.is_deleted,
     m.is_edited,
+    m.reply_to_message_id,
     m.created_at,
     m.updated_at
 FROM messages m
