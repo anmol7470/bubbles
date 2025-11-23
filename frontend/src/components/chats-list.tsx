@@ -6,14 +6,44 @@ import type { ChatInfo } from '@/types/chat'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { BanIcon, LogOutIcon, PenBoxIcon, SearchIcon } from 'lucide-react'
+import {
+  LogOutIcon,
+  MonitorIcon,
+  MoonIcon,
+  PenBoxIcon,
+  SearchIcon,
+  Settings2Icon,
+  SunIcon,
+  SunMoonIcon,
+  TrashIcon,
+  UserIcon,
+} from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { NewChatDialog } from './new-chat-dialog'
 import { Button } from './ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
 import { Input } from './ui/input'
 import { Skeleton } from './ui/skeleton'
 import { UserAvatar } from './user-avatar'
+
+const THEME_OPTIONS = [
+  { label: 'Light', value: 'light', icon: SunIcon },
+  { label: 'Dark', value: 'dark', icon: MoonIcon },
+  { label: 'System', value: 'system', icon: MonitorIcon },
+] as const
 
 export function ChatsList() {
   const [search, setSearch] = useState('')
@@ -39,6 +69,7 @@ export function ChatsList() {
       toast.error(error instanceof Error ? error.message : 'Failed to log out')
     },
   })
+  const { theme, setTheme } = useTheme()
 
   const {
     data: chats = [],
@@ -100,7 +131,7 @@ export function ChatsList() {
     if (lastMessage.is_deleted) {
       return (
         <span className="flex items-center gap-1">
-          <BanIcon className="size-3.5 shrink-0" />
+          <TrashIcon className="size-3.5 shrink-0" />
           <span>{isGroupChat ? `${senderName} deleted this message` : 'This message was deleted'}</span>
         </span>
       )
@@ -129,14 +160,49 @@ export function ChatsList() {
               Chats
             </Link>
             <div className="flex items-center gap-2">
-              <Button
-                size="icon-sm"
-                variant="outline"
-                disabled={logout.isPending}
-                onClick={async () => await logout.mutateAsync()}
-              >
-                <LogOutIcon />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon-sm" variant="outline" disabled={logout.isPending}>
+                    <Settings2Icon />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <SunMoonIcon className="size-4" />
+                      <span>Toggle theme</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value)}>
+                        {THEME_OPTIONS.map((option) => {
+                          const Icon = option.icon
+                          return (
+                            <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-2">
+                              <Icon className="size-4" />
+                              <span>{option.label}</span>
+                            </DropdownMenuRadioItem>
+                          )
+                        })}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem>
+                    <UserIcon className="size-4" />
+                    <span>User settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={logout.isPending}
+                    onSelect={() => {
+                      void logout.mutateAsync()
+                    }}
+                  >
+                    <LogOutIcon className="size-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="icon-sm" variant="outline" onClick={() => setIsDialogOpen(true)}>
                 <PenBoxIcon />
               </Button>

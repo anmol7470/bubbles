@@ -6,6 +6,8 @@ export function useScroll(messages: Message[], typingUsers?: TypingUser[]) {
   const [isAtBottom, setIsAtBottom] = useState(true)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const bottomLockThreshold = 4
 
   const scrollToBottom = useCallback(() => {
     const scrollViewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
@@ -23,7 +25,8 @@ export function useScroll(messages: Message[], typingUsers?: TypingUser[]) {
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollViewport
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      const distanceFromBottom = Math.max(scrollHeight - scrollTop - clientHeight, 0)
+      const isNearBottom = distanceFromBottom <= bottomLockThreshold
       setIsAtBottom(isNearBottom)
       isAtBottomRef.current = isNearBottom
     }
@@ -33,10 +36,22 @@ export function useScroll(messages: Message[], typingUsers?: TypingUser[]) {
     return () => scrollViewport.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Scroll to bottom when new messages load (existing behavior)
+  // Scroll to bottom on initial load or when a newer message arrives while already at bottom
   useEffect(() => {
-    if (messages.length === 0) return
-    scrollToBottom()
+    if (messages.length === 0) {
+      lastMessageIdRef.current = null
+      return
+    }
+
+    const latestMessageId = messages[messages.length - 1]?.id ?? null
+    const isInitialLoad = lastMessageIdRef.current === null
+    const hasNewerMessage = lastMessageIdRef.current !== null && lastMessageIdRef.current !== latestMessageId
+
+    if (isInitialLoad || (hasNewerMessage && isAtBottomRef.current)) {
+      scrollToBottom()
+    }
+
+    lastMessageIdRef.current = latestMessageId
   }, [messages, scrollToBottom])
 
   // Only auto-scroll for typing indicators if user is already at bottom
@@ -44,7 +59,7 @@ export function useScroll(messages: Message[], typingUsers?: TypingUser[]) {
     if (!typingUsers || typingUsers.length === 0) return
     if (!isAtBottomRef.current) return
     scrollToBottom()
-  }, [typingUsers, scrollToBottom])
+  }, [typingUsers?.length, scrollToBottom])
 
   return { scrollToBottom, scrollAreaRef, isAtBottom }
 }

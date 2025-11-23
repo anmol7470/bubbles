@@ -3,9 +3,12 @@ import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/reac
 
 import appCss from '../styles.css?url'
 
+import { ThemeProvider } from '@/components/theme-provider'
+import TanStackQueryDevtools from '@/integrations/tanstack-query/devtools'
 import { getCurrentUserFn } from '@/server/auth'
+import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { QueryClient } from '@tanstack/react-query'
-
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 interface MyRouterContext {
   queryClient: QueryClient
   user: Awaited<ReturnType<typeof getCurrentUserFn>>
@@ -42,16 +45,18 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
-        <Toaster richColors position="top-center" />
-        {/* <TanStackDevtools
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster richColors position="top-center" />
+        </ThemeProvider>
+        <TanStackDevtools
           config={{
-            position: 'bottom-right',
+            position: 'bottom-left',
           }}
           plugins={[
             {
@@ -60,7 +65,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             },
             TanStackQueryDevtools,
           ]}
-        /> */}
+        />
         <Scripts />
       </body>
     </html>

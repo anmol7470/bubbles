@@ -147,7 +147,7 @@ export function MessageContent({
       <div
         className={cn(
           'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
-          isOwn ? 'self-end bg-primary/20 text-muted-foreground' : 'self-start bg-muted text-muted-foreground',
+          isOwn ? 'self-end bg-primary/20 text-muted-foreground' : 'self-start bg-secondary/50 text-muted-foreground',
           isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
         )}
       >
@@ -240,6 +240,7 @@ export function MessageContent({
             <div className={cn(canInlineMetadata ? 'flex items-end gap-2' : undefined)}>
               <div className={cn('whitespace-pre-wrap wrap-break-word', canInlineMetadata ? 'flex-1' : undefined)}>
                 <Linkify
+                  tagName="span"
                   options={{
                     className: 'underline hover:opacity-80 transition-opacity',
                     target: '_blank',

@@ -293,7 +293,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
         <Button
           size="icon"
           variant="outline"
-          className="absolute bottom-3 left-[50%] translate-x-[-50%] rounded-full"
+          className="absolute bottom-3 left-[50%] translate-x-[-50%] rounded-full bg-background!"
           onClick={scrollToBottom}
         >
           <ArrowDownIcon className="size-5" />
