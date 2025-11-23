@@ -2,7 +2,7 @@ import { useWebSocket } from '@/contexts/websocket-context'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDebounceCallback } from 'usehooks-ts'
 
-type TypingUser = {
+export type TypingUser = {
   user_id: string
   username: string
 }
@@ -41,6 +41,11 @@ export function useTypingIndicator(chatId: string, currentUserId: string, curren
     debouncedTypingStop()
   }, [sendTypingStart, debouncedTypingStop])
 
+  const stopTyping = useCallback(() => {
+    debouncedTypingStop.cancel()
+    sendTypingStop()
+  }, [debouncedTypingStop, sendTypingStop])
+
   useEffect(() => {
     const unsubscribeStart = on('typing_start', (payload: TypingUser & { chat_id: string }) => {
       if (payload.chat_id !== chatId || payload.user_id === currentUserId) return
@@ -65,14 +70,13 @@ export function useTypingIndicator(chatId: string, currentUserId: string, curren
     return () => {
       unsubscribeStart()
       unsubscribeStop()
-      if (isTypingRef.current) {
-        sendTypingStop()
-      }
+      stopTyping()
     }
-  }, [chatId, currentUserId, on, sendTypingStop])
+  }, [chatId, currentUserId, on, stopTyping])
 
   return {
     typingUsers: Array.from(typingUsers.values()),
     handleTyping,
+    stopTyping,
   }
 }

@@ -10,7 +10,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import EmojiPicker from 'emoji-picker-react'
-import { ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, ImagePlusIcon, SmilePlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useDocumentTitle } from 'usehooks-ts'
@@ -32,10 +32,10 @@ export function Chat({ chatId }: ChatProps) {
   const sendMessageQuery = useServerFn(sendMessageFn)
   const { selectedImages, setSelectedImages, handleFileChange, removeImage, clearImages, uploadImages, isUploading } =
     useImageUpload()
-  const { typingUsers, handleTyping } = useTypingIndicator(chatId, user?.id || '', user?.username || '')
+  const { typingUsers, handleTyping, stopTyping } = useTypingIndicator(chatId, user?.id || '', user?.username || '')
 
   const {
-    data: chatData,
+    data: chat,
     isLoading,
     isError,
     error,
@@ -53,15 +53,6 @@ export function Chat({ chatId }: ChatProps) {
       navigate({ to: '/chats' })
     }
   }, [isError, error, navigate])
-
-  useEffect(() => {
-    if (chatData && !chatData.success && chatData.error) {
-      toast.error(chatData.error)
-      navigate({ to: '/chats' })
-    }
-  }, [chatData, navigate])
-
-  const chat = chatData?.success ? chatData.chat : null
 
   const getOtherParticipant = () => {
     if (!chat || !user) return null
@@ -101,6 +92,7 @@ export function Chat({ chatId }: ChatProps) {
 
     if (message.trim() === '' && selectedImages.length === 0) return
     if (!chat) return
+    stopTyping()
 
     const messageContent = message.trim()
     const imagesToSend = [...selectedImages]
@@ -149,7 +141,7 @@ export function Chat({ chatId }: ChatProps) {
 
   if (isLoading || !chat || !user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-sm text-muted-foreground">Loading chat...</p>
@@ -159,26 +151,26 @@ export function Chat({ chatId }: ChatProps) {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex h-14 items-center gap-3 border-b border-neutral-300 bg-background/80 px-4 dark:border-zinc-800">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className="lg:hidden"
+            onClick={() => navigate({ to: '/chats' })}
+            aria-label="Back to chats"
+          >
+            <ArrowLeftIcon className="size-5" />
+          </Button>
           <div className="flex items-center gap-2">
             <UserAvatar className="size-8" username={displayName} />
             <div className="font-medium">{displayName}</div>
           </div>
         </div>
 
-        <Messages chatId={chatId} isGroupChat={chat.is_group} currentUserId={user.id} />
-
-        {typingUsers.length > 0 && (
-          <div className="px-4 py-1 text-sm text-muted-foreground">
-            {typingUsers.length === 1
-              ? `${typingUsers[0].username} is typing...`
-              : typingUsers.length === 2
-                ? `${typingUsers[0].username} and ${typingUsers[1].username} are typing...`
-                : `${typingUsers.length} people are typing...`}
-          </div>
-        )}
+        <Messages chatId={chatId} isGroupChat={chat.is_group} currentUserId={user.id} typingUsers={typingUsers} />
 
         <form onSubmit={handleSendMessage} className="flex flex-col gap-2 px-3 py-2">
           {selectedImages.length > 0 && (
@@ -195,7 +187,7 @@ export function Chat({ chatId }: ChatProps) {
                   />
                   <Button
                     type="button"
-                    size="icon"
+                    size="icon-sm"
                     variant="destructive"
                     className="absolute right-1 top-1 h-5 w-5 rounded-full shadow-md"
                     onClick={() => removeImage(index)}
@@ -207,28 +199,8 @@ export function Chat({ chatId }: ChatProps) {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label="Select image"
-                className="absolute left-2 top-1/2 z-10 h-8 w-8 -translate-y-1/2 transform"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={selectedImages.length >= 5 || isSending || isUploading}
-              >
-                <ImagePlusIcon className="size-5" />
-              </Button>
-              <input
-                type="file"
-                className="hidden"
-                ref={imageInputRef}
-                onChange={handleFileChange}
-                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                multiple
-                disabled={isSending || isUploading}
-              />
+          <div className="flex items-end gap-2">
+            <div className="relative flex-1">
               <Textarea
                 autoFocus
                 ref={messageInputRef}
@@ -239,7 +211,7 @@ export function Chat({ chatId }: ChatProps) {
                 }}
                 rows={1}
                 placeholder={isUploading ? 'Uploading images...' : 'Type a message...'}
-                className="max-h-40 min-h-10 resize-none bg-background pl-12 pr-4 focus-visible:ring-0 dark:bg-input/30 wrap-break-word"
+                className="max-h-40 min-h-10 w-full resize-none bg-background pl-4 pr-24 focus-visible:ring-0 dark:bg-input/30 wrap-break-word text-sm!"
                 disabled={isSending || isUploading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -248,31 +220,52 @@ export function Chat({ chatId }: ChatProps) {
                   }
                 }}
               />
-            </div>
-            <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-              <PopoverTrigger asChild>
+              <input
+                type="file"
+                className="hidden"
+                ref={imageInputRef}
+                onChange={handleFileChange}
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                multiple
+                disabled={isSending || isUploading}
+              />
+              <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+                <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Open emoji picker"
+                      disabled={isSending || isUploading}
+                    >
+                      <SmilePlusIcon className="size-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-fit overflow-hidden p-0">
+                    <EmojiPicker
+                      lazyLoadEmojis
+                      width={320}
+                      onEmojiClick={(emoji) => {
+                        setMessage((prev) => prev + emoji.emoji)
+                        messageInputRef.current?.focus()
+                        setEmojiOpen(false)
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
                 <Button
                   type="button"
-                  size="icon"
+                  size="icon-sm"
                   variant="ghost"
-                  aria-label="Open emoji picker"
-                  disabled={isSending || isUploading}
+                  aria-label="Select image"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={selectedImages.length >= 5 || isSending || isUploading}
                 >
-                  <SmilePlusIcon className="size-5" />
+                  <ImagePlusIcon className="size-5" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-fit overflow-hidden p-0">
-                <EmojiPicker
-                  lazyLoadEmojis
-                  width={320}
-                  onEmojiClick={(emoji) => {
-                    setMessage((prev) => prev + emoji.emoji)
-                    messageInputRef.current?.focus()
-                    setEmojiOpen(false)
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
+              </div>
+            </div>
           </div>
         </form>
       </div>

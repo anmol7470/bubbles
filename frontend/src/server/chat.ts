@@ -102,28 +102,20 @@ export const getUserChatsFn = createServerFn({ method: 'GET' }).handler(async ()
     throw redirect({ to: '/auth' })
   }
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/chat/all`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+  const response = await fetch(`${BACKEND_URL}/chat/all`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
 
-    if (!response.ok) {
-      const error: ErrorResponse = await response.json()
-      return { success: false, error: error.error, chats: [] }
-    }
-
-    const result: GetChatsResponse = await response.json()
-    return { success: true, chats: result.chats }
-  } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to connect to server',
-      chats: [],
-    }
+  if (!response.ok) {
+    const error: ErrorResponse = await response.json()
+    throw new Error(error.error)
   }
+
+  const result: GetChatsResponse = await response.json()
+  return result.chats
 })
 
 export const getChatByIdFn = createServerFn({ method: 'GET' })
@@ -136,28 +128,20 @@ export const getChatByIdFn = createServerFn({ method: 'GET' })
       throw redirect({ to: '/auth' })
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/chat/${chatId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+    const response = await fetch(`${BACKEND_URL}/chat/${chatId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, chat: null }
-      }
-
-      const result: GetChatByIdResponse = await response.json()
-      return { success: true, chat: result }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-        chat: null,
-      }
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      throw new Error(error.error)
     }
+
+    const result: GetChatByIdResponse = await response.json()
+    return result
   })
 
 export const getChatMessagesFn = createServerFn({ method: 'POST' })
@@ -170,31 +154,22 @@ export const getChatMessagesFn = createServerFn({ method: 'POST' })
       throw redirect({ to: '/auth' })
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/get`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      })
+    const response = await fetch(`${BACKEND_URL}/messages/get`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, items: [], next_cursor: undefined }
-      }
-
-      const result: GetChatMessagesResponse = await response.json()
-      return { success: true, ...result }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-        items: [],
-        next_cursor: undefined,
-      }
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      throw new Error(error.error)
     }
+
+    const result: GetChatMessagesResponse = await response.json()
+    return result
   })
 
 export const sendMessageFn = createServerFn({ method: 'POST' })
@@ -207,29 +182,22 @@ export const sendMessageFn = createServerFn({ method: 'POST' })
       throw redirect({ to: '/auth' })
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      })
+    const response = await fetch(`${BACKEND_URL}/messages/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, retry_after: error.retry_after }
-      }
-
-      const result = await response.json()
-      return { success: true, message_id: result.message_id }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      return { success: false, error: error.error, retry_after: error.retry_after }
     }
+
+    const result = await response.json()
+    return { success: true, message_id: result.message_id }
   })
 
 export const editMessageFn = createServerFn({ method: 'POST' })
@@ -242,27 +210,18 @@ export const editMessageFn = createServerFn({ method: 'POST' })
       throw redirect({ to: '/auth' })
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/edit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      })
+    const response = await fetch(`${BACKEND_URL}/messages/edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      throw new Error(error.error)
     }
   })
 
@@ -276,26 +235,17 @@ export const deleteMessageFn = createServerFn({ method: 'POST' })
       throw redirect({ to: '/auth' })
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      })
+    const response = await fetch(`${BACKEND_URL}/messages/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      throw new Error(error.error)
     }
   })

@@ -41,16 +41,13 @@ export function ChatsList() {
   })
 
   const {
-    data: chatsData,
+    data: chats = [],
     isLoading,
     isError,
     error,
   } = useQuery({
     queryKey: ['chats'],
-    queryFn: async () => {
-      const result = await getUserChatsQuery()
-      return result
-    },
+    queryFn: getUserChatsQuery,
   })
 
   useEffect(() => {
@@ -58,14 +55,6 @@ export function ChatsList() {
       toast.error(error instanceof Error ? error.message : 'Failed to load chats')
     }
   }, [isError, error])
-
-  useEffect(() => {
-    if (chatsData && !chatsData.success && chatsData.error) {
-      toast.error(chatsData.error)
-    }
-  }, [chatsData])
-
-  const chats = chatsData?.success ? chatsData.chats : []
 
   const filteredChats = useMemo(() => {
     if (!search) return chats
@@ -132,10 +121,10 @@ export function ChatsList() {
   }
 
   return (
-    <>
-      <div className="border-r border-border/50 w-1/4 p-3 justify-between flex flex-col">
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center gap-2">
+    <div className={cn(chatId ? 'hidden lg:block' : 'block', 'w-full shrink-0 lg:w-1/4')}>
+      <div className="flex h-full flex-col gap-4 border-b border-border/50 bg-background p-4 lg:border-b-0 lg:border-r">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
             <Link to="/chats" className="cursor-pointer text-lg font-medium">
               Chats
             </Link>
@@ -154,20 +143,21 @@ export function ChatsList() {
             </div>
           </div>
 
-          <div className="relative flex-1">
-            <SearchIcon className="h-5 w-5 text-gray-400 absolute top-2 left-2" />
+          <div className="relative">
+            <SearchIcon className="absolute left-2 top-2 h-5 w-5 text-gray-400" />
             <Input
               placeholder="Search"
-              className="rounded-xl pl-9 w-full"
+              className="w-full rounded-xl pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+        </div>
 
-          <div className="flex flex-col gap-1 overflow-y-auto">
-            {isLoading ? (
-              <>
-                {Array.from({ length: 5 }).map((_, i) => (
+        <div className="flex-1 overflow-hidden">
+          <div className="flex h-full flex-col gap-1 overflow-y-auto">
+            {isLoading
+              ? Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2">
                     <Skeleton className="size-10 rounded-full" />
                     <div className="min-w-0 flex-1 space-y-2">
@@ -178,50 +168,47 @@ export function ChatsList() {
                       <Skeleton className="h-3 w-48" />
                     </div>
                   </div>
-                ))}
-              </>
-            ) : (
-              filteredChats.map((chat) => {
-                const otherParticipant = getOtherParticipant(chat)
-                const displayName = getChatDisplayName(chat)
+                ))
+              : filteredChats.map((chat) => {
+                  const otherParticipant = getOtherParticipant(chat)
+                  const displayName = getChatDisplayName(chat)
 
-                return (
-                  <Link
-                    key={chat.id}
-                    to="/chats/$chatId"
-                    params={{ chatId: chat.id }}
-                    className={cn(
-                      'hover:bg-primary/5 block rounded-xl',
-                      chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
-                    )}
-                  >
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      {chat.is_group ? (
-                        <UserAvatar username={displayName} className="size-10" />
-                      ) : (
-                        <UserAvatar username={otherParticipant?.username || 'Unknown'} className="size-10" />
+                  return (
+                    <Link
+                      key={chat.id}
+                      to="/chats/$chatId"
+                      params={{ chatId: chat.id }}
+                      className={cn(
+                        'block rounded-xl px-3 py-2 transition-colors hover:bg-primary/5',
+                        chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
                       )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="line-clamp-1 truncate font-medium">{displayName}</div>
-                          <div className="text-muted-foreground ml-2 shrink-0 text-xs">
-                            {formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))}
+                    >
+                      <div className="flex items-center gap-2">
+                        {chat.is_group ? (
+                          <UserAvatar username={displayName} className="size-10" />
+                        ) : (
+                          <UserAvatar username={otherParticipant?.username || 'Unknown'} className="size-10" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="line-clamp-1 truncate font-medium">{displayName}</div>
+                            <div className="ml-2 shrink-0 text-xs text-muted-foreground">
+                              {formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))}
+                            </div>
+                          </div>
+                          <div className="truncate text-sm text-muted-foreground">
+                            {user && displayLastMessage(chat, user.id)}
                           </div>
                         </div>
-                        <div className="text-muted-foreground truncate text-sm">
-                          {user && displayLastMessage(chat, user.id)}
-                        </div>
                       </div>
-                    </div>
-                  </Link>
-                )
-              })
-            )}
+                    </Link>
+                  )
+                })}
           </div>
         </div>
       </div>
 
       <NewChatDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
-    </>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useChatWebSocket } from '@/hooks/use-chat-websocket'
 import { useScroll } from '@/hooks/use-scroll'
+import type { TypingUser } from '@/hooks/use-typing-indicator'
 import { cn, formatDate } from '@/lib/utils'
 import { getChatMessagesFn } from '@/server/chat'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -15,9 +16,10 @@ type MessagesProps = {
   chatId: string
   isGroupChat: boolean
   currentUserId: string
+  typingUsers: TypingUser[]
 }
 
-export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) {
+export function Messages({ chatId, isGroupChat, currentUserId, typingUsers }: MessagesProps) {
   const getChatMessagesQuery = useServerFn(getChatMessagesFn)
   const observerTarget = useRef<HTMLDivElement>(null)
 
@@ -36,17 +38,12 @@ export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) 
       return result
     },
     initialPageParam: undefined as { sent_at: string; id: string } | undefined,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.success && lastPage.next_cursor) {
-        return lastPage.next_cursor
-      }
-      return undefined
-    },
+    getNextPageParam: (lastPage) => lastPage.next_cursor,
   })
 
   const messages = useMemo(() => {
     if (!data?.pages) return []
-    return data.pages.flatMap((page) => (page.success ? page.items : [])).reverse()
+    return data.pages.flatMap((page) => page.items).reverse()
   }, [data?.pages])
 
   const groupedMessages = useMemo(() => {
@@ -92,7 +89,7 @@ export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) 
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const { scrollToBottom, scrollAreaRef, isAtBottom } = useScroll(messages)
+  const { scrollToBottom, scrollAreaRef, isAtBottom } = useScroll(messages, typingUsers)
 
   const isSameDay = (dateA: Date, dateB: Date) => dateA.toDateString() === dateB.toDateString()
 
@@ -137,6 +134,17 @@ export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) 
 
     return getTimeDiffMinutes(currentDate, previousDate) <= 2
   }
+
+  const typingLabel = (() => {
+    if (typingUsers.length === 0) return ''
+    if (!isGroupChat) return 'typing...'
+    if (typingUsers.length === 1) return `${typingUsers[0].username} is typing...`
+    if (typingUsers.length === 2) {
+      const secondUser = typingUsers[1] ?? typingUsers[0]
+      return `${typingUsers[0].username} and ${secondUser.username} are typing...`
+    }
+    return `${typingUsers[0].username} and ${typingUsers.length - 1} others are typing...`
+  })()
 
   return (
     <ScrollArea ref={scrollAreaRef} className="relative min-h-0 flex-1">
@@ -192,6 +200,28 @@ export function Messages({ chatId, isGroupChat, currentUserId }: MessagesProps) 
             </div>
           </div>
         ))}
+
+        {typingUsers.length > 0 && (
+          <div className="flex w-full justify-start">
+            <div className="flex max-w-[75%] items-end gap-2.5">
+              {isGroupChat && (
+                <div className="h-10 w-10 shrink-0">
+                  <UserAvatar username={typingUsers[0]?.username ?? 'Typing'} />
+                </div>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex w-fit flex-wrap items-center gap-3 rounded-2xl bg-secondary px-3 py-2 text-sm text-secondary-foreground">
+                  <span className="leading-tight">{typingLabel}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="size-2 rounded-full bg-muted-foreground/60 opacity-80 animate-bounce" />
+                    <span className="size-2 rounded-full bg-muted-foreground/60 opacity-80 animate-bounce [animation-delay:0.15s]" />
+                    <span className="size-2 rounded-full bg-muted-foreground/60 opacity-80 animate-bounce [animation-delay:0.3s]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {!isAtBottom && (

@@ -14,9 +14,9 @@ export const Route = createFileRoute('/chats')({
 function ChatsLayout() {
   return (
     <WebSocketProvider>
-      <div className="flex h-screen">
+      <div className="flex h-screen overflow-hidden bg-background">
         <ChatsList />
-        <div className="flex-1">
+        <div className="h-full w-full flex-1">
           <Outlet />
         </div>
       </div>

@@ -160,24 +160,17 @@ export function useChatWebSocket(chatId?: string) {
   }, [chatId, on, queryClient])
 }
 
-type GetChatsResponse = {
-  success: boolean
-  chats: ChatInfo[]
-  error?: string
-}
-
 export function useChatListWebSocket() {
   const queryClient = useQueryClient()
   const { on } = useWebSocket()
 
   useEffect(() => {
     const unsubscribeSent = on('message_sent', (payload: MessageSentPayload) => {
-      queryClient.setQueryData<GetChatsResponse>(['chats'], (oldData) => {
-        if (!oldData || !oldData.success) return oldData
+      queryClient.setQueryData<ChatInfo[]>(['chats'], (oldChats) => {
+        if (!oldChats) return oldChats
 
-        const oldChats = oldData.chats
         const chatIndex = oldChats.findIndex((chat) => chat.id === payload.chat_id)
-        if (chatIndex === -1) return oldData
+        if (chatIndex === -1) return oldChats
 
         const updatedChat = {
           ...oldChats[chatIndex],
@@ -199,55 +192,46 @@ export function useChatListWebSocket() {
         updatedChats.splice(chatIndex, 1)
         updatedChats.unshift(updatedChat)
 
-        return {
-          ...oldData,
-          chats: updatedChats,
-        }
+        return updatedChats
       })
     })
 
     const unsubscribeEdited = on('message_edited', (payload: MessageEditedPayload) => {
-      queryClient.setQueryData<GetChatsResponse>(['chats'], (oldData) => {
-        if (!oldData || !oldData.success) return oldData
+      queryClient.setQueryData<ChatInfo[]>(['chats'], (oldChats) => {
+        if (!oldChats) return oldChats
 
-        return {
-          ...oldData,
-          chats: oldData.chats.map((chat) => {
-            if (chat.id === payload.chat_id && chat.last_message?.id === payload.id) {
-              return {
-                ...chat,
-                last_message: {
-                  ...chat.last_message,
-                  content: payload.content,
-                  images: payload.images,
-                },
-              }
+        return oldChats.map((chat) => {
+          if (chat.id === payload.chat_id && chat.last_message?.id === payload.id) {
+            return {
+              ...chat,
+              last_message: {
+                ...chat.last_message,
+                content: payload.content,
+                images: payload.images,
+              },
             }
-            return chat
-          }),
-        }
+          }
+          return chat
+        })
       })
     })
 
     const unsubscribeDeleted = on('message_deleted', (payload: MessageDeletedPayload) => {
-      queryClient.setQueryData<GetChatsResponse>(['chats'], (oldData) => {
-        if (!oldData || !oldData.success) return oldData
+      queryClient.setQueryData<ChatInfo[]>(['chats'], (oldChats) => {
+        if (!oldChats) return oldChats
 
-        return {
-          ...oldData,
-          chats: oldData.chats.map((chat) => {
-            if (chat.id === payload.chat_id && chat.last_message?.id === payload.id) {
-              return {
-                ...chat,
-                last_message: {
-                  ...chat.last_message,
-                  is_deleted: payload.is_deleted,
-                },
-              }
+        return oldChats.map((chat) => {
+          if (chat.id === payload.chat_id && chat.last_message?.id === payload.id) {
+            return {
+              ...chat,
+              last_message: {
+                ...chat.last_message,
+                is_deleted: payload.is_deleted,
+              },
             }
-            return chat
-          }),
-        }
+          }
+          return chat
+        })
       })
     })
 

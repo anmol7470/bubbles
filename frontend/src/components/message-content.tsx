@@ -34,10 +34,8 @@ export function MessageContent({ message, isOwn }: { message: Message; isOwn: bo
         data: { message_id: message.id, content: editContent, removed_images: removedImages },
       })
     },
-    onSuccess: (result) => {
-      if (result.success) {
-        setIsEditing(false)
-      }
+    onSuccess: () => {
+      setIsEditing(false)
     },
   })
 
