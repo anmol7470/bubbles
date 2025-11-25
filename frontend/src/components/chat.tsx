@@ -54,7 +54,10 @@ export function Chat({ chatId }: ChatProps) {
     queryKey: ['chat', chatId],
     queryFn: async () => {
       const result = await getChatByIdQuery({ data: chatId })
-      return result
+      if ('error' in result && !result.success) {
+        throw new Error(result.error)
+      }
+      return result.data
     },
   })
 

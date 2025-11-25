@@ -78,7 +78,13 @@ export function ChatsList() {
     error,
   } = useQuery({
     queryKey: ['chats'],
-    queryFn: getUserChatsQuery,
+    queryFn: async () => {
+      const result = await getUserChatsQuery()
+      if ('error' in result && !result.success) {
+        throw new Error(result.error)
+      }
+      return result.chats
+    },
   })
 
   useEffect(() => {

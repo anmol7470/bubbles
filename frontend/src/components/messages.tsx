@@ -46,6 +46,9 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
           cursor: pageParam,
         },
       })
+      if ('error' in result && !result.success) {
+        throw new Error(result.error)
+      }
       return result
     },
     initialPageParam: undefined as { sent_at: string; id: string } | undefined,

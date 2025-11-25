@@ -38,8 +38,8 @@ func HandleWebSocket(hub *ws.Hub) gin.HandlerFunc {
 		parts := strings.Split(protocols, ", ")
 		var token string
 		for _, p := range parts {
-			if strings.HasPrefix(p, "Bearer.") {
-				token = strings.TrimPrefix(p, "Bearer.")
+			if after, found := strings.CutPrefix(p, "Bearer."); found {
+				token = after
 				break
 			}
 		}

@@ -46,14 +46,29 @@ export function MessageContent({
         data: { message_id: message.id, content: editContent, removed_images: removedImages },
       })
     },
-    onSuccess: () => {
-      setIsEditing(false)
+    onSuccess: (result) => {
+      if (result.success) {
+        setIsEditing(false)
+      } else {
+        toast.error(result.error || 'Failed to edit message')
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to edit message')
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
       return await deleteMessageFn({ data: { message_id: message.id } })
+    },
+    onSuccess: (result) => {
+      if (!result.success) {
+        toast.error(result.error || 'Failed to delete message')
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete message')
     },
   })
 

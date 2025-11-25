@@ -13,3 +13,5 @@
 - [ ] Add message reactions
 - [x] Message reply to feature
 - [ ] Add mentions in group chats
+
+Clean up codebase first

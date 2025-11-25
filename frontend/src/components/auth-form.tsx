@@ -9,7 +9,6 @@ import { useServerFn } from '@tanstack/react-start'
 import { MessageCircle } from 'lucide-react'
 import { useState } from 'react'
 import { signInFn, signUpFn } from '../server/auth'
-import type { SignInData, SignUpData } from '../types/auth'
 
 export function AuthForm() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
@@ -20,20 +19,32 @@ export function AuthForm() {
   const signInMutation = useServerFn(signInFn)
 
   const signUp = useMutation({
-    mutationFn: async (values: SignUpData) => {
-      const result = await signUpMutation({
-        data: values,
-      })
-      return result
+    mutationFn: signUpMutation,
+    onSuccess: (result) => {
+      if (result && 'error' in result) {
+        setError(result.error)
+        setRetryAfter(result.retry_after || null)
+      }
+    },
+    onError: (err) => {
+      if (!(err instanceof Response)) {
+        setError('An unexpected error occurred')
+      }
     },
   })
 
   const signIn = useMutation({
-    mutationFn: async (values: SignInData) => {
-      const result = await signInMutation({
-        data: values,
-      })
-      return result
+    mutationFn: signInMutation,
+    onSuccess: (result) => {
+      if (result && 'error' in result) {
+        setError(result.error)
+        setRetryAfter(result.retry_after || null)
+      }
+    },
+    onError: (err) => {
+      if (!(err instanceof Response)) {
+        setError('An unexpected error occurred')
+      }
     },
   })
 
@@ -46,19 +57,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setError(null)
       setRetryAfter(null)
-      try {
-        const result = await signUp.mutateAsync(value)
-
-        if (result && 'error' in result) {
-          setError(result.error)
-          setRetryAfter(result.retry_after || null)
-        }
-      } catch (err) {
-        // Redirect will throw, so this only catches real errors
-        if (!(err instanceof Response)) {
-          setError('An unexpected error occurred')
-        }
-      }
+      await signUp.mutateAsync({ data: value })
     },
   })
 
@@ -70,19 +69,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setError(null)
       setRetryAfter(null)
-      try {
-        const result = await signIn.mutateAsync(value)
-
-        if (result && 'error' in result) {
-          setError(result.error)
-          setRetryAfter(result.retry_after || null)
-        }
-      } catch (err) {
-        // Redirect will throw, so this only catches real errors
-        if (!(err instanceof Response)) {
-          setError('An unexpected error occurred')
-        }
-      }
+      await signIn.mutateAsync({ data: value })
     },
   })
 

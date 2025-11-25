@@ -42,17 +42,7 @@ type MessageDeletedPayload = {
 
 export function useChatWebSocket(chatId?: string) {
   const queryClient = useQueryClient()
-  const { on, send } = useWebSocket()
-
-  useEffect(() => {
-    if (!chatId) return
-
-    send('join_chat', { chat_id: chatId })
-
-    return () => {
-      send('leave_chat', { chat_id: chatId })
-    }
-  }, [chatId, send])
+  const { on } = useWebSocket()
 
   useEffect(() => {
     if (!chatId) return
@@ -60,15 +50,10 @@ export function useChatWebSocket(chatId?: string) {
     const unsubscribeSent = on('message_sent', (payload: MessageSentPayload) => {
       if (payload.chat_id !== chatId) return
 
-      console.log('[useChatWebSocket] Received message_sent for chat:', chatId, payload)
-
       queryClient.setQueryData<{ pages: GetChatMessagesResponse[]; pageParams: any[] }>(
         ['messages', chatId],
         (oldData) => {
-          if (!oldData) {
-            console.log('[useChatWebSocket] No existing data, skipping update')
-            return oldData
-          }
+          if (!oldData) return oldData
 
           const newMessage: Message = {
             id: payload.id,
@@ -92,18 +77,11 @@ export function useChatWebSocket(chatId?: string) {
           }
 
           const firstPage = oldData.pages[0]
-          if (!firstPage) {
-            console.log('[useChatWebSocket] No first page, skipping update')
-            return oldData
-          }
+          if (!firstPage) return oldData
 
           const messageExists = firstPage.items.some((msg) => msg.id === newMessage.id)
-          if (messageExists) {
-            console.log('[useChatWebSocket] Message already exists, skipping')
-            return oldData
-          }
+          if (messageExists) return oldData
 
-          console.log('[useChatWebSocket] Adding new message to cache')
           return {
             ...oldData,
             pages: [

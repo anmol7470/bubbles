@@ -1,7 +1,8 @@
 import { getAuthTokenFn } from '@/server/chat'
-import { useQuery } from '@tanstack/react-query'
+import type { ChatInfo } from '@/types/chat'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
-import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
 
 type EventType = 'message_sent' | 'message_edited' | 'message_deleted' | 'typing_start' | 'typing_stop'
 
@@ -13,14 +14,14 @@ type WSMessage = {
 type EventHandler = (payload: any) => void
 
 type WebSocketContextType = {
-  send: (type: EventType | 'join_chat' | 'leave_chat', payload: any) => void
+  send: (type: EventType, payload: any) => void
   on: (type: EventType, handler: EventHandler) => () => void
   isConnected: boolean
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null)
 
-export function WebSocketProvider({ children }: { children: ReactNode }) {
+export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const reconnectAttemptsRef = useRef(0)
@@ -30,7 +31,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const pendingMessagesRef = useRef<Array<{ type: string; payload: any }>>([])
   const joinedChatsRef = useRef<Set<string>>(new Set())
 
+  const queryClient = useQueryClient()
   const getAuthTokenQuery = useServerFn(getAuthTokenFn)
+
   const { data: token } = useQuery({
     queryKey: ['authToken'],
     queryFn: async () => {
@@ -45,7 +48,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
 
     if (!token || !shouldReconnectRef.current) {
-      console.log('[WebSocket] Not connecting:', !token ? 'no token' : 'reconnect disabled')
       return
     }
 
@@ -59,17 +61,25 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       reconnectAttemptsRef.current = 0
       isConnectedRef.current = true
 
-      // Re-join all previously joined chats
-      joinedChatsRef.current.forEach((chatId) => {
-        console.log('[WebSocket] Re-joining chat:', chatId)
-        ws.send(JSON.stringify({ type: 'join_chat', payload: { chat_id: chatId } }))
-      })
+      // Get chats from TanStack Query cache
+      const chats = queryClient.getQueryData<ChatInfo[]>(['chats'])
+
+      if (chats) {
+        chats.forEach((chat) => {
+          joinedChatsRef.current.add(chat.id)
+          ws.send(JSON.stringify({ type: 'join_chat', payload: { chat_id: chat.id } }))
+        })
+      } else {
+        // Fallback: re-join previously tracked chats
+        joinedChatsRef.current.forEach((chatId) => {
+          ws.send(JSON.stringify({ type: 'join_chat', payload: { chat_id: chatId } }))
+        })
+      }
 
       // Send any pending messages
       while (pendingMessagesRef.current.length > 0) {
         const msg = pendingMessagesRef.current.shift()
         if (msg) {
-          console.log('[WebSocket] Sending pending message:', msg.type)
           ws.send(JSON.stringify(msg))
         }
       }
@@ -78,7 +88,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     ws.onmessage = (event) => {
       try {
         const message: WSMessage = JSON.parse(event.data)
-        console.log('[WebSocket] Received:', message.type, message.payload)
         const handlers = eventHandlersRef.current.get(message.type)
 
         if (handlers) {
@@ -94,12 +103,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
 
     ws.onclose = () => {
-      console.log('[WebSocket] Disconnected')
       isConnectedRef.current = false
       wsRef.current = null
 
       if (!shouldReconnectRef.current) {
-        console.log('[WebSocket] Reconnection disabled, not reconnecting')
         return
       }
 
@@ -113,7 +120,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
 
     wsRef.current = ws
-  }, [token])
+  }, [token, queryClient])
 
   const disconnect = useCallback(() => {
     shouldReconnectRef.current = false
@@ -129,21 +136,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const send = useCallback((type: EventType | 'join_chat' | 'leave_chat', payload: any) => {
-    // Track joined chats
-    if (type === 'join_chat' && payload.chat_id) {
-      joinedChatsRef.current.add(payload.chat_id)
-      console.log('[WebSocket] Tracking joined chat:', payload.chat_id)
-    } else if (type === 'leave_chat' && payload.chat_id) {
-      joinedChatsRef.current.delete(payload.chat_id)
-      console.log('[WebSocket] Untracking left chat:', payload.chat_id)
-    }
-
+  const send = useCallback((type: EventType, payload: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Sending:', type, payload)
       wsRef.current.send(JSON.stringify({ type, payload }))
     } else {
-      console.log('[WebSocket] Not connected, queuing message:', type)
       pendingMessagesRef.current.push({ type, payload })
     }
   }, [])

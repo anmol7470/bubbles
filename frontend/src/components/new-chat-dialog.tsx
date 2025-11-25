@@ -37,6 +37,10 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
           selected_user_ids: [user.id, ...selectedUsers.map((u) => u.id)],
         },
       })
+      if (!result.success) {
+        toast.error(result.error || 'Failed to search users')
+        return []
+      }
       return result.users
     },
     enabled: debouncedQuery.length > 0,
@@ -55,15 +59,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   }
 
   const { mutateAsync: createChat, isPending: isCreatingChat } = useMutation({
-    mutationFn: async () => {
-      const result = await createChatMutation({
-        data: {
-          member_ids: [user.id, ...selectedUsers.map((user) => user.id)],
-          group_name: groupName,
-        },
-      })
-      return result
-    },
+    mutationFn: createChatMutation,
     onSuccess: (result) => {
       if (result.success && result.data) {
         if (result.data.existing) {
@@ -83,6 +79,9 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         toast.error(result.error || 'Failed to create chat')
       }
     },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to create chat')
+    },
   })
 
   const handleStartNewChat = async () => {
@@ -91,7 +90,12 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       return
     }
 
-    await createChat()
+    await createChat({
+      data: {
+        member_ids: [user.id, ...selectedUsers.map((user) => user.id)],
+        group_name: groupName,
+      },
+    })
   }
 
   const handleBack = () => {
