@@ -17,13 +17,16 @@ type Chat struct {
 	IsGroup   bool           `json:"is_group"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
+	CreatedBy uuid.UUID      `json:"created_by"`
 }
 
 type ChatMember struct {
-	ID       uuid.UUID `json:"id"`
-	ChatID   uuid.UUID `json:"chat_id"`
-	UserID   uuid.UUID `json:"user_id"`
-	JoinedAt time.Time `json:"joined_at"`
+	ID        uuid.UUID    `json:"id"`
+	ChatID    uuid.UUID    `json:"chat_id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	JoinedAt  time.Time    `json:"joined_at"`
+	ClearedAt sql.NullTime `json:"cleared_at"`
+	DeletedAt sql.NullTime `json:"deleted_at"`
 }
 
 type Image struct {

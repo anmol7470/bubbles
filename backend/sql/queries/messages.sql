@@ -48,17 +48,19 @@ SELECT
     rm.sender_id AS reply_sender_id,
     ru.username AS reply_sender_username
 FROM messages m
+INNER JOIN chat_members cm_filter ON cm_filter.chat_id = m.chat_id AND cm_filter.user_id = sqlc.arg(user_id)::uuid
 INNER JOIN users u ON m.sender_id = u.id
 LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
 LEFT JOIN users ru ON rm.sender_id = ru.id
-WHERE m.chat_id = $1
+WHERE m.chat_id = sqlc.arg(chat_id)::uuid
+  AND (cm_filter.cleared_at IS NULL OR m.created_at > cm_filter.cleared_at)
   AND (
     sqlc.narg(cursor_time)::timestamp IS NULL OR
     m.created_at < sqlc.narg(cursor_time)::timestamp OR
     (m.created_at = sqlc.narg(cursor_time)::timestamp AND m.id < sqlc.narg(cursor_id)::uuid)
   )
 ORDER BY m.created_at DESC, m.id DESC
-LIMIT $2;
+LIMIT sqlc.arg(page_limit);
 
 -- name: GetMessageImages :many
 SELECT id, message_id, url, created_at
@@ -96,3 +98,9 @@ WHERE message_id = $1 AND url = ANY($2::text[]);
 -- name: DeleteImageByUrl :exec
 DELETE FROM images
 WHERE url = $1;
+
+-- name: GetChatImageUrls :many
+SELECT i.url
+FROM images i
+INNER JOIN messages m ON i.message_id = m.id
+WHERE m.chat_id = $1;

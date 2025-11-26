@@ -21,6 +21,7 @@ import {
 import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { ChatActions } from './chat-actions'
 import { NewChatDialog } from './new-chat-dialog'
 import { Button } from './ui/button'
 import {
@@ -52,6 +53,10 @@ export function ChatsList() {
   const params = useParams({ strict: false })
   const chatId = 'chatId' in params ? params.chatId : null
   const { user } = useRouteContext({ from: '__root__' })
+
+  if (!user) {
+    return null
+  }
 
   const logoutMutation = useServerFn(logoutFn)
   const getUserChatsQuery = useServerFn(getUserChatsFn)
@@ -246,34 +251,45 @@ export function ChatsList() {
                   const displayName = getChatDisplayName(chat)
 
                   return (
-                    <Link
+                    <ChatActions
                       key={chat.id}
-                      to="/chats/$chatId"
-                      params={{ chatId: chat.id }}
-                      className={cn(
-                        'block rounded-xl px-3 py-2 transition-colors hover:bg-primary/5',
-                        chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
-                      )}
+                      chat={chat}
+                      currentUserId={user.id}
+                      isActive={chat.id === chatId}
+                      onChatRemoved={() => {
+                        if (chat.id === chatId) {
+                          navigate({ to: '/chats' })
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        {chat.is_group ? (
-                          <UserAvatar username={displayName} className="size-10" />
-                        ) : (
-                          <UserAvatar username={otherParticipant?.username || 'Unknown'} className="size-10" />
+                      <Link
+                        to="/chats/$chatId"
+                        params={{ chatId: chat.id }}
+                        className={cn(
+                          'block rounded-xl px-3 py-2 transition-colors hover:bg-primary/5',
+                          chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
                         )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <div className="line-clamp-1 truncate font-medium">{displayName}</div>
-                            <div className="ml-2 shrink-0 text-xs text-muted-foreground">
-                              {formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))}
+                      >
+                        <div className="flex items-center gap-2">
+                          {chat.is_group ? (
+                            <UserAvatar username={displayName} className="size-10" />
+                          ) : (
+                            <UserAvatar username={otherParticipant?.username || 'Unknown'} className="size-10" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="line-clamp-1 truncate font-medium">{displayName}</div>
+                              <div className="ml-2 shrink-0 text-xs text-muted-foreground">
+                                {formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))}
+                              </div>
+                            </div>
+                            <div className="truncate text-sm text-muted-foreground">
+                              {displayLastMessage(chat, user.id)}
                             </div>
                           </div>
-                          <div className="truncate text-sm text-muted-foreground">
-                            {user && displayLastMessage(chat, user.id)}
-                          </div>
                         </div>
-                      </div>
-                    </Link>
+                      </Link>
+                    </ChatActions>
                   )
                 })}
           </div>

@@ -89,10 +89,11 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 	}
 
 	messagesData, err := h.dbService.Queries.GetMessagesByChatPaginated(c.Request.Context(), database.GetMessagesByChatPaginatedParams{
+		UserID:     userID.(uuid.UUID),
 		ChatID:     chatID,
-		Limit:      int32(limit + 1), // Fetch one extra to check if there are more
 		CursorTime: cursorTime,
 		CursorID:   cursorID,
+		PageLimit:  int32(limit + 1), // Fetch one extra to check if there are more
 	})
 
 	if err != nil && err != sql.ErrNoRows {

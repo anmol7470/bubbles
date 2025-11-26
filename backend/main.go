@@ -62,6 +62,12 @@ func main() {
 	hub := ws.NewHub(dbService)
 	go hub.Run()
 
+	// Initialize upload handler
+	uploadHandler, err := routes.NewUploadHandler()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize upload handler: %v", err)
+	}
+
 	// Initialize auth handler
 	authHandler := routes.NewAuthHandler(dbService)
 
@@ -80,6 +86,7 @@ func main() {
 
 	// Initialize chat handler
 	chatHandler := routes.NewChatHandler(dbService)
+	chatActionsHandler := routes.NewChatActionsHandler(dbService, uploadHandler)
 
 	// Chat routes (with authentication)
 	chat := router.Group("/chat")
@@ -93,17 +100,21 @@ func main() {
 		chat.POST("/create", chatHandler.CreateChat)
 		chat.GET("/all", chatHandler.GetUserChats)
 		chat.GET("/:id", chatHandler.GetChatById)
+
+		chatActions := chat.Group("/:id")
+		{
+			chatActions.POST("/clear", chatActionsHandler.ClearChat)
+			chatActions.POST("/delete", chatActionsHandler.DeleteChat)
+			chatActions.POST("/leave", chatActionsHandler.LeaveChat)
+			chatActions.POST("/rename", chatActionsHandler.RenameChat)
+			chatActions.POST("/members/add", chatActionsHandler.AddChatMember)
+			chatActions.POST("/members/remove", chatActionsHandler.RemoveChatMember)
+			chatActions.POST("/change-admin", chatActionsHandler.ChangeChatAdmin)
+		}
 	}
 
 	// Initialize message handler
 	messageHandler := routes.NewMessageHandler(dbService, hub)
-
-	// Initialize upload handler
-	uploadHandler, err := routes.NewUploadHandler()
-	if err != nil {
-		log.Printf("Warning: Failed to initialize upload handler: %v", err)
-		log.Println("Image upload functionality will be disabled")
-	}
 
 	// Message routes (with authentication and rate limiting)
 	messages := router.Group("/messages")

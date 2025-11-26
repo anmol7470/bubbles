@@ -16,12 +16,17 @@ type Querier interface {
 	CreateChat(ctx context.Context, arg CreateChatParams) (Chat, error)
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteChat(ctx context.Context, id uuid.UUID) error
 	DeleteImageByUrl(ctx context.Context, url string) error
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	DeleteMessageImages(ctx context.Context, arg DeleteMessageImagesParams) error
 	EditMessage(ctx context.Context, arg EditMessageParams) error
 	GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]GetChatByIdWithMembersRow, error)
-	GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (Chat, error)
+	GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (GetChatByMembersRow, error)
+	GetChatDeletionStats(ctx context.Context, chatID uuid.UUID) (GetChatDeletionStatsRow, error)
+	GetChatImageUrls(ctx context.Context, chatID uuid.UUID) ([]string, error)
+	GetChatMember(ctx context.Context, arg GetChatMemberParams) (ChatMember, error)
+	GetChatMetadata(ctx context.Context, id uuid.UUID) (GetChatMetadataRow, error)
 	GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]GetChatsWithMembersRow, error)
 	GetLastMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]GetLastMessageImagesRow, error)
 	GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageByIdRow, error)
@@ -32,7 +37,12 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	IsChatMember(ctx context.Context, arg IsChatMemberParams) (bool, error)
+	RemoveChatMember(ctx context.Context, arg RemoveChatMemberParams) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error)
+	UpdateChatCreator(ctx context.Context, arg UpdateChatCreatorParams) error
+	UpdateChatMemberClearedAt(ctx context.Context, arg UpdateChatMemberClearedAtParams) error
+	UpdateChatMemberDeletedAt(ctx context.Context, arg UpdateChatMemberDeletedAtParams) error
+	UpdateChatName(ctx context.Context, arg UpdateChatNameParams) error
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
 }
 

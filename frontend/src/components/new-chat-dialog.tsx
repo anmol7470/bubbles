@@ -1,5 +1,5 @@
 import { createChatFn, searchUsersFn } from '@/server/chat'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowLeft, X } from 'lucide-react'
@@ -12,6 +12,7 @@ import { Input } from './ui/input'
 import { UserAvatar } from './user-avatar'
 
 export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { user } = useRouteContext({ from: '__root__' })
   const searchUsersQuery = useServerFn(searchUsersFn)
@@ -68,6 +69,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
           toast.success('Chat created')
         }
 
+        queryClient.invalidateQueries({ queryKey: ['chats'] })
         navigate({ to: `/chats/${result.data.chat_id}` })
 
         setSelectedUsers([])

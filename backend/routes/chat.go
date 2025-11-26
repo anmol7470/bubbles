@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -60,6 +61,11 @@ func (h *ChatHandler) SearchUsers(c *gin.Context) {
 }
 
 func (h *ChatHandler) CreateChat(c *gin.Context) {
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
+		return
+	}
+
 	var req models.CreateChatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
@@ -68,11 +74,33 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 		return
 	}
 
-	isGroup := len(req.MemberIds) > 2
+	memberMap := make(map[uuid.UUID]struct{})
+	for _, memberID := range req.MemberIds {
+		memberMap[memberID] = struct{}{}
+	}
+	memberMap[userID] = struct{}{}
+
+	memberIds := make([]uuid.UUID, 0, len(memberMap))
+	for id := range memberMap {
+		memberIds = append(memberIds, id)
+	}
+
+	if len(memberIds) < 2 {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: "At least two unique members are required",
+		})
+		return
+	}
+
+	sort.Slice(memberIds, func(i, j int) bool {
+		return memberIds[i].String() < memberIds[j].String()
+	})
+
+	isGroup := len(memberIds) > 2
 
 	// Sort member IDs for consistent chat lookup
-	sortedMemberIds := make([]uuid.UUID, len(req.MemberIds))
-	copy(sortedMemberIds, req.MemberIds)
+	sortedMemberIds := make([]uuid.UUID, len(memberIds))
+	copy(sortedMemberIds, memberIds)
 	sort.Slice(sortedMemberIds, func(i, j int) bool {
 		return sortedMemberIds[i].String() < sortedMemberIds[j].String()
 	})
@@ -111,13 +139,14 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 		qtx := h.dbService.Queries.WithTx(tx)
 
 		var chatName sql.NullString
-		if req.GroupName != "" {
-			chatName = sql.NullString{String: req.GroupName, Valid: true}
+		if trimmed := strings.TrimSpace(req.GroupName); trimmed != "" {
+			chatName = sql.NullString{String: trimmed, Valid: true}
 		}
 
 		chat, err := qtx.CreateChat(c.Request.Context(), database.CreateChatParams{
-			Name:    chatName,
-			IsGroup: isGroup,
+			Name:      chatName,
+			IsGroup:   isGroup,
+			CreatedBy: userID,
 		})
 
 		if err != nil {
@@ -129,7 +158,7 @@ func (h *ChatHandler) CreateChat(c *gin.Context) {
 
 		chatID = chat.ID
 
-		for _, memberID := range req.MemberIds {
+		for _, memberID := range memberIds {
 			err := qtx.AddChatMember(c.Request.Context(), database.AddChatMemberParams{
 				ChatID: chatID,
 				UserID: memberID,
@@ -191,6 +220,7 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 				ID:        row.ChatID,
 				Name:      name,
 				IsGroup:   row.IsGroup,
+				CreatorID: row.CreatedBy,
 				Members:   []models.ChatMember{},
 				CreatedAt: row.ChatCreatedAt,
 				UpdatedAt: row.ChatUpdatedAt,
@@ -271,27 +301,20 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 }
 
 func (h *ChatHandler) GetChatById(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error: "User ID not found in context",
-		})
+	userID, ok := getUserIDFromContext(c)
+	if !ok {
 		return
 	}
 
-	chatIDStr := c.Param("id")
-	chatID, err := uuid.Parse(chatIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error: "Invalid chat ID",
-		})
+	chatID, ok := parseChatIDParam(c)
+	if !ok {
 		return
 	}
 
 	// Verify user is member of chat first (efficient EXISTS query)
 	isMember, err := h.dbService.Queries.IsChatMember(c.Request.Context(), database.IsChatMemberParams{
 		ChatID: chatID,
-		UserID: userID.(uuid.UUID),
+		UserID: userID,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
@@ -348,6 +371,7 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 		ID:        chatMembers[0].ChatID,
 		Name:      name,
 		IsGroup:   chatMembers[0].IsGroup,
+		CreatorID: chatMembers[0].CreatedBy,
 		Members:   members,
 		CreatedAt: chatMembers[0].ChatCreatedAt,
 		UpdatedAt: chatMembers[0].ChatUpdatedAt,

@@ -51,6 +51,7 @@ type ChatInfo struct {
 	ID          uuid.UUID    `json:"id"`
 	Name        *string      `json:"name,omitempty"`
 	IsGroup     bool         `json:"is_group"`
+	CreatorID   uuid.UUID    `json:"creator_id"`
 	Members     []ChatMember `json:"members"`
 	LastMessage *LastMessage `json:"last_message,omitempty"`
 	CreatedAt   time.Time    `json:"created_at"`
@@ -86,6 +87,7 @@ type GetChatByIdResponse struct {
 	ID        uuid.UUID    `json:"id"`
 	Name      *string      `json:"name,omitempty"`
 	IsGroup   bool         `json:"is_group"`
+	CreatorID uuid.UUID    `json:"creator_id"`
 	Members   []ChatMember `json:"members"`
 	CreatedAt time.Time    `json:"created_at"`
 	UpdatedAt time.Time    `json:"updated_at"`
@@ -123,4 +125,16 @@ type EditMessageRequest struct {
 
 type DeleteMessageRequest struct {
 	MessageID string `json:"message_id" binding:"required"`
+}
+
+type RenameChatRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type ModifyChatMemberRequest struct {
+	UserID string `json:"user_id" binding:"required"`
+}
+
+type ChangeChatAdminRequest struct {
+	UserID string `json:"user_id" binding:"required"`
 }

@@ -30,18 +30,19 @@ func (q *Queries) AddChatMember(ctx context.Context, arg AddChatMemberParams) er
 }
 
 const createChat = `-- name: CreateChat :one
-INSERT INTO chats (name, is_group)
-VALUES ($1, $2)
-RETURNING id, name, is_group, created_at, updated_at
+INSERT INTO chats (name, is_group, created_by)
+VALUES ($1, $2, $3)
+RETURNING id, name, is_group, created_at, updated_at, created_by
 `
 
 type CreateChatParams struct {
-	Name    sql.NullString `json:"name"`
-	IsGroup bool           `json:"is_group"`
+	Name      sql.NullString `json:"name"`
+	IsGroup   bool           `json:"is_group"`
+	CreatedBy uuid.UUID      `json:"created_by"`
 }
 
 func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (Chat, error) {
-	row := q.db.QueryRowContext(ctx, createChat, arg.Name, arg.IsGroup)
+	row := q.db.QueryRowContext(ctx, createChat, arg.Name, arg.IsGroup, arg.CreatedBy)
 	var i Chat
 	err := row.Scan(
 		&i.ID,
@@ -49,8 +50,19 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) (Chat, e
 		&i.IsGroup,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CreatedBy,
 	)
 	return i, err
+}
+
+const deleteChat = `-- name: DeleteChat :exec
+DELETE FROM chats
+WHERE id = $1
+`
+
+func (q *Queries) DeleteChat(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteChat, id)
+	return err
 }
 
 const getChatByIdWithMembers = `-- name: GetChatByIdWithMembers :many
@@ -58,6 +70,7 @@ SELECT
     c.id as chat_id,
     c.name as chat_name,
     c.is_group,
+    c.created_by,
     c.created_at as chat_created_at,
     c.updated_at as chat_updated_at,
     u.id as member_id,
@@ -74,6 +87,7 @@ type GetChatByIdWithMembersRow struct {
 	ChatID         uuid.UUID      `json:"chat_id"`
 	ChatName       sql.NullString `json:"chat_name"`
 	IsGroup        bool           `json:"is_group"`
+	CreatedBy      uuid.UUID      `json:"created_by"`
 	ChatCreatedAt  time.Time      `json:"chat_created_at"`
 	ChatUpdatedAt  time.Time      `json:"chat_updated_at"`
 	MemberID       uuid.UUID      `json:"member_id"`
@@ -94,6 +108,7 @@ func (q *Queries) GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]G
 			&i.ChatID,
 			&i.ChatName,
 			&i.IsGroup,
+			&i.CreatedBy,
 			&i.ChatCreatedAt,
 			&i.ChatUpdatedAt,
 			&i.MemberID,
@@ -114,7 +129,7 @@ func (q *Queries) GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]G
 }
 
 const getChatByMembers = `-- name: GetChatByMembers :one
-SELECT c.id, c.name, c.is_group, c.created_at, c.updated_at
+SELECT c.id, c.name, c.is_group, c.created_by, c.created_at, c.updated_at
 FROM chats c
 WHERE c.is_group = false
 AND c.id IN (
@@ -133,13 +148,97 @@ type GetChatByMembersParams struct {
 	MemberCount int64       `json:"member_count"`
 }
 
-func (q *Queries) GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (Chat, error) {
+type GetChatByMembersRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      sql.NullString `json:"name"`
+	IsGroup   bool           `json:"is_group"`
+	CreatedBy uuid.UUID      `json:"created_by"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) GetChatByMembers(ctx context.Context, arg GetChatByMembersParams) (GetChatByMembersRow, error) {
 	row := q.db.QueryRowContext(ctx, getChatByMembers, pq.Array(arg.MemberIds), arg.MemberCount)
-	var i Chat
+	var i GetChatByMembersRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.IsGroup,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getChatDeletionStats = `-- name: GetChatDeletionStats :one
+SELECT
+    COUNT(*)::int AS member_count,
+    COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END), 0)::int AS deleted_count
+FROM chat_members
+WHERE chat_id = $1
+`
+
+type GetChatDeletionStatsRow struct {
+	MemberCount  int32 `json:"member_count"`
+	DeletedCount int32 `json:"deleted_count"`
+}
+
+func (q *Queries) GetChatDeletionStats(ctx context.Context, chatID uuid.UUID) (GetChatDeletionStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getChatDeletionStats, chatID)
+	var i GetChatDeletionStatsRow
+	err := row.Scan(&i.MemberCount, &i.DeletedCount)
+	return i, err
+}
+
+const getChatMember = `-- name: GetChatMember :one
+SELECT id, chat_id, user_id, joined_at, cleared_at, deleted_at
+FROM chat_members
+WHERE chat_id = $1 AND user_id = $2
+`
+
+type GetChatMemberParams struct {
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetChatMember(ctx context.Context, arg GetChatMemberParams) (ChatMember, error) {
+	row := q.db.QueryRowContext(ctx, getChatMember, arg.ChatID, arg.UserID)
+	var i ChatMember
+	err := row.Scan(
+		&i.ID,
+		&i.ChatID,
+		&i.UserID,
+		&i.JoinedAt,
+		&i.ClearedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getChatMetadata = `-- name: GetChatMetadata :one
+SELECT id, name, is_group, created_by, created_at, updated_at
+FROM chats
+WHERE id = $1
+`
+
+type GetChatMetadataRow struct {
+	ID        uuid.UUID      `json:"id"`
+	Name      sql.NullString `json:"name"`
+	IsGroup   bool           `json:"is_group"`
+	CreatedBy uuid.UUID      `json:"created_by"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+func (q *Queries) GetChatMetadata(ctx context.Context, id uuid.UUID) (GetChatMetadataRow, error) {
+	row := q.db.QueryRowContext(ctx, getChatMetadata, id)
+	var i GetChatMetadataRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.IsGroup,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -147,28 +246,16 @@ func (q *Queries) GetChatByMembers(ctx context.Context, arg GetChatByMembersPara
 }
 
 const getChatsWithMembers = `-- name: GetChatsWithMembers :many
-SELECT
-    c.id as chat_id,
-    c.name as chat_name,
-    c.is_group,
-    c.created_at as chat_created_at,
-    c.updated_at as chat_updated_at,
-    u.id as member_id,
-    u.username as member_username,
-    u.email as member_email,
-    COALESCE(c.msg_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_id,
-    c.msg_content as last_message_content,
-    COALESCE(c.msg_sender_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_sender_id,
-    COALESCE(c.msg_is_deleted, false) as last_message_is_deleted,
-    COALESCE(c.msg_created_at, c.created_at) as last_message_created_at,
-    c.msg_sender_username as last_message_sender_username
-FROM (
+WITH user_chats AS (
     SELECT
         c.id,
         c.name,
         c.is_group,
+        c.created_by,
         c.created_at,
         c.updated_at,
+        cm_user.deleted_at as user_deleted_at,
+        cm_user.cleared_at as user_cleared_at,
         lm.id as msg_id,
         lm.content as msg_content,
         lm.sender_id as msg_sender_id,
@@ -177,30 +264,46 @@ FROM (
         sender.username as msg_sender_username,
         ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY COALESCE(lm.created_at, c.created_at) DESC) as rn
     FROM chats c
+    INNER JOIN chat_members cm_user ON c.id = cm_user.chat_id AND cm_user.user_id = $1
     LEFT JOIN LATERAL (
         SELECT id, chat_id, sender_id, content, is_deleted, created_at
         FROM messages
         WHERE chat_id = c.id
+          AND (cm_user.cleared_at IS NULL OR created_at > cm_user.cleared_at)
         ORDER BY created_at DESC
         LIMIT 1
     ) lm ON true
     LEFT JOIN users sender ON lm.sender_id = sender.id
-    WHERE c.id IN (
-        SELECT DISTINCT cm2.chat_id
-        FROM chat_members cm2
-        WHERE cm2.user_id = $1
-    )
-) c
-INNER JOIN chat_members cm ON c.id = cm.chat_id
+)
+SELECT
+    uc.id as chat_id,
+    uc.name as chat_name,
+    uc.is_group,
+    uc.created_by,
+    uc.created_at as chat_created_at,
+    uc.updated_at as chat_updated_at,
+    u.id as member_id,
+    u.username as member_username,
+    u.email as member_email,
+    COALESCE(uc.msg_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_id,
+    uc.msg_content as last_message_content,
+    COALESCE(uc.msg_sender_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_sender_id,
+    COALESCE(uc.msg_is_deleted, false) as last_message_is_deleted,
+    COALESCE(uc.msg_created_at, uc.created_at) as last_message_created_at,
+    uc.msg_sender_username as last_message_sender_username
+FROM user_chats uc
+INNER JOIN chat_members cm ON uc.id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
-WHERE c.rn = 1
-ORDER BY COALESCE(c.msg_created_at, c.created_at) DESC, u.username ASC
+WHERE uc.rn = 1
+  AND (uc.user_deleted_at IS NULL OR COALESCE(uc.msg_created_at, uc.created_at) > uc.user_deleted_at)
+ORDER BY COALESCE(uc.msg_created_at, uc.created_at) DESC, u.username ASC
 `
 
 type GetChatsWithMembersRow struct {
 	ChatID                    uuid.UUID      `json:"chat_id"`
 	ChatName                  sql.NullString `json:"chat_name"`
 	IsGroup                   bool           `json:"is_group"`
+	CreatedBy                 uuid.UUID      `json:"created_by"`
 	ChatCreatedAt             time.Time      `json:"chat_created_at"`
 	ChatUpdatedAt             time.Time      `json:"chat_updated_at"`
 	MemberID                  uuid.UUID      `json:"member_id"`
@@ -227,6 +330,7 @@ func (q *Queries) GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]
 			&i.ChatID,
 			&i.ChatName,
 			&i.IsGroup,
+			&i.CreatedBy,
 			&i.ChatCreatedAt,
 			&i.ChatUpdatedAt,
 			&i.MemberID,
@@ -286,6 +390,21 @@ func (q *Queries) GetLastMessageImages(ctx context.Context, dollar_1 []uuid.UUID
 	return items, nil
 }
 
+const removeChatMember = `-- name: RemoveChatMember :exec
+DELETE FROM chat_members
+WHERE chat_id = $1 AND user_id = $2
+`
+
+type RemoveChatMemberParams struct {
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) RemoveChatMember(ctx context.Context, arg RemoveChatMemberParams) error {
+	_, err := q.db.ExecContext(ctx, removeChatMember, arg.ChatID, arg.UserID)
+	return err
+}
+
 const searchUsers = `-- name: SearchUsers :many
 SELECT id, username, email, created_at, updated_at
 FROM users
@@ -334,4 +453,71 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Sea
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateChatCreator = `-- name: UpdateChatCreator :exec
+UPDATE chats
+SET created_by = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateChatCreatorParams struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedBy uuid.UUID `json:"created_by"`
+}
+
+func (q *Queries) UpdateChatCreator(ctx context.Context, arg UpdateChatCreatorParams) error {
+	_, err := q.db.ExecContext(ctx, updateChatCreator, arg.ID, arg.CreatedBy)
+	return err
+}
+
+const updateChatMemberClearedAt = `-- name: UpdateChatMemberClearedAt :exec
+UPDATE chat_members
+SET cleared_at = CURRENT_TIMESTAMP
+WHERE chat_id = $1 AND user_id = $2
+`
+
+type UpdateChatMemberClearedAtParams struct {
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) UpdateChatMemberClearedAt(ctx context.Context, arg UpdateChatMemberClearedAtParams) error {
+	_, err := q.db.ExecContext(ctx, updateChatMemberClearedAt, arg.ChatID, arg.UserID)
+	return err
+}
+
+const updateChatMemberDeletedAt = `-- name: UpdateChatMemberDeletedAt :exec
+UPDATE chat_members
+SET deleted_at = $3
+WHERE chat_id = $1 AND user_id = $2
+`
+
+type UpdateChatMemberDeletedAtParams struct {
+	ChatID    uuid.UUID    `json:"chat_id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	DeletedAt sql.NullTime `json:"deleted_at"`
+}
+
+func (q *Queries) UpdateChatMemberDeletedAt(ctx context.Context, arg UpdateChatMemberDeletedAtParams) error {
+	_, err := q.db.ExecContext(ctx, updateChatMemberDeletedAt, arg.ChatID, arg.UserID, arg.DeletedAt)
+	return err
+}
+
+const updateChatName = `-- name: UpdateChatName :exec
+UPDATE chats
+SET name = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+type UpdateChatNameParams struct {
+	ID   uuid.UUID      `json:"id"`
+	Name sql.NullString `json:"name"`
+}
+
+func (q *Queries) UpdateChatName(ctx context.Context, arg UpdateChatNameParams) error {
+	_, err := q.db.ExecContext(ctx, updateChatName, arg.ID, arg.Name)
+	return err
 }

@@ -43,6 +43,7 @@ export type ChatInfo = {
   id: string
   name?: string
   is_group: boolean
+  creator_id: string
   members: ChatMember[]
   last_message?: LastMessage
   created_at: string
@@ -78,6 +79,7 @@ export type GetChatByIdResponse = {
   id: string
   name?: string
   is_group: boolean
+  creator_id: string
   members: ChatMember[]
   created_at: string
   updated_at: string
@@ -115,4 +117,19 @@ export type EditMessageRequest = {
 
 export type DeleteMessageRequest = {
   message_id: string
+}
+
+export type RenameChatRequest = {
+  chat_id: string
+  name: string
+}
+
+export type ModifyChatMemberRequest = {
+  chat_id: string
+  user_id: string
+}
+
+export type ChangeChatAdminRequest = {
+  chat_id: string
+  user_id: string
 }

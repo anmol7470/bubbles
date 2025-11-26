@@ -2,6 +2,7 @@ import { redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import type { ErrorResponse } from '../types/auth'
 import type {
+  ChangeChatAdminRequest,
   ChatUser,
   CreateChatRequest,
   CreateChatResponse,
@@ -11,6 +12,8 @@ import type {
   GetChatMessagesRequest,
   GetChatMessagesResponse,
   GetChatsResponse,
+  ModifyChatMemberRequest,
+  RenameChatRequest,
   SearchUsersRequest,
   SendMessageRequest,
 } from '../types/chat'
@@ -289,4 +292,112 @@ export const deleteMessageFn = createServerFn({ method: 'POST' })
         error: 'Failed to connect to server',
       }
     }
+  })
+
+type ChatIdPayload = {
+  chatId: string
+}
+
+const authenticatedFetch = async (path: string, options: RequestInit, errorFallback: string) => {
+  const session = await useAppSession()
+  const token = session.data.token
+
+  if (!token) {
+    throw redirect({ to: '/auth' })
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      body: options.body,
+    })
+
+    if (!response.ok) {
+      const error: ErrorResponse = await response.json()
+      return { success: false, error: error.error }
+    }
+
+    if (response.headers.get('content-length') === '0') {
+      return { success: true }
+    }
+
+    const data = await response.json()
+    return { success: true, data }
+  } catch (error) {
+    return {
+      success: false,
+      error: errorFallback,
+    }
+  }
+}
+
+export const clearChatFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ChatIdPayload) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(`/chat/${data.chatId}/clear`, {}, 'Failed to clear chat')
+  })
+
+export const deleteChatFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ChatIdPayload) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(`/chat/${data.chatId}/delete`, {}, 'Failed to delete chat')
+  })
+
+export const leaveChatFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ChatIdPayload) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(`/chat/${data.chatId}/leave`, {}, 'Failed to leave chat')
+  })
+
+export const renameChatFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: RenameChatRequest) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(
+      `/chat/${data.chat_id}/rename`,
+      {
+        body: JSON.stringify({ name: data.name }),
+      },
+      'Failed to rename chat'
+    )
+  })
+
+export const addChatMemberFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ModifyChatMemberRequest) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(
+      `/chat/${data.chat_id}/members/add`,
+      {
+        body: JSON.stringify({ user_id: data.user_id }),
+      },
+      'Failed to add member'
+    )
+  })
+
+export const removeChatMemberFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ModifyChatMemberRequest) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(
+      `/chat/${data.chat_id}/members/remove`,
+      {
+        body: JSON.stringify({ user_id: data.user_id }),
+      },
+      'Failed to remove member'
+    )
+  })
+
+export const changeChatAdminFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: ChangeChatAdminRequest) => data)
+  .handler(async ({ data }) => {
+    return authenticatedFetch(
+      `/chat/${data.chat_id}/change-admin`,
+      {
+        body: JSON.stringify({ user_id: data.user_id }),
+      },
+      'Failed to change admin'
+    )
   })

@@ -116,6 +116,36 @@ func (q *Queries) EditMessage(ctx context.Context, arg EditMessageParams) error 
 	return err
 }
 
+const getChatImageUrls = `-- name: GetChatImageUrls :many
+SELECT i.url
+FROM images i
+INNER JOIN messages m ON i.message_id = m.id
+WHERE m.chat_id = $1
+`
+
+func (q *Queries) GetChatImageUrls(ctx context.Context, chatID uuid.UUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getChatImageUrls, chatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		items = append(items, url)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMessageById = `-- name: GetMessageById :one
 SELECT
     m.id,
@@ -291,24 +321,27 @@ SELECT
     rm.sender_id AS reply_sender_id,
     ru.username AS reply_sender_username
 FROM messages m
+INNER JOIN chat_members cm_filter ON cm_filter.chat_id = m.chat_id AND cm_filter.user_id = $1::uuid
 INNER JOIN users u ON m.sender_id = u.id
 LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
 LEFT JOIN users ru ON rm.sender_id = ru.id
-WHERE m.chat_id = $1
+WHERE m.chat_id = $2::uuid
+  AND (cm_filter.cleared_at IS NULL OR m.created_at > cm_filter.cleared_at)
   AND (
     $3::timestamp IS NULL OR
     m.created_at < $3::timestamp OR
     (m.created_at = $3::timestamp AND m.id < $4::uuid)
   )
 ORDER BY m.created_at DESC, m.id DESC
-LIMIT $2
+LIMIT $5
 `
 
 type GetMessagesByChatPaginatedParams struct {
+	UserID     uuid.UUID     `json:"user_id"`
 	ChatID     uuid.UUID     `json:"chat_id"`
-	Limit      int32         `json:"limit"`
 	CursorTime sql.NullTime  `json:"cursor_time"`
 	CursorID   uuid.NullUUID `json:"cursor_id"`
+	PageLimit  int32         `json:"page_limit"`
 }
 
 type GetMessagesByChatPaginatedRow struct {
@@ -330,10 +363,11 @@ type GetMessagesByChatPaginatedRow struct {
 
 func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessagesByChatPaginatedParams) ([]GetMessagesByChatPaginatedRow, error) {
 	rows, err := q.db.QueryContext(ctx, getMessagesByChatPaginated,
+		arg.UserID,
 		arg.ChatID,
-		arg.Limit,
 		arg.CursorTime,
 		arg.CursorID,
+		arg.PageLimit,
 	)
 	if err != nil {
 		return nil, err
