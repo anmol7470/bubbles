@@ -195,7 +195,7 @@ export function Chat({ chatId }: ChatProps) {
             <ArrowLeftIcon className="size-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <UserAvatar className="size-8" username={displayName} />
+            <UserAvatar className="size-9" username={displayName} />
             <div className="font-medium">{displayName}</div>
           </div>
         </div>

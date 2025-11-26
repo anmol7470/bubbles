@@ -164,7 +164,7 @@ export function ChatsList() {
 
   return (
     <div className={cn(chatId ? 'hidden lg:block' : 'block', 'w-full shrink-0 lg:w-1/4')}>
-      <div className="flex h-full flex-col gap-4 border-b border-border/50 bg-background p-4 lg:border-b-0 lg:border-r">
+      <div className="flex h-full flex-col gap-4 border-b border-border bg-background px-4 py-2 lg:border-b-0 lg:border-r">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <Link to="/chats" className="cursor-pointer text-lg font-medium">
@@ -266,7 +266,7 @@ export function ChatsList() {
                         to="/chats/$chatId"
                         params={{ chatId: chat.id }}
                         className={cn(
-                          'block rounded-xl px-3 py-2 transition-colors hover:bg-primary/5',
+                          'block rounded-xs px-3 py-2 transition-colors hover:bg-primary/5',
                           chat.id === chatId && 'bg-primary/10 hover:bg-primary/10'
                         )}
                       >

@@ -12,7 +12,7 @@ export function UserAvatar({ username, image, className }: { username: string; i
   return (
     <Avatar className={className}>
       {image && <AvatarImage src={image} alt={username} />}
-      <AvatarFallback>{getInitials(username)}</AvatarFallback>
+      <AvatarFallback className="bg-accent dark:bg-accent-foreground/15">{getInitials(username)}</AvatarFallback>
     </Avatar>
   )
 }

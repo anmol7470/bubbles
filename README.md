@@ -14,4 +14,3 @@
 - [x] Message reply to feature
 - [ ] Add mentions in group chats
 - [ ] Add email verification on sign up
-- [ ] Maybe change themes later

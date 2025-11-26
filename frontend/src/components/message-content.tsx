@@ -224,7 +224,7 @@ export function MessageContent({
     <div
       className={cn(
         'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
-        isOwn ? 'self-end bg-primary text-primary-foreground' : 'self-start bg-secondary text-secondary-foreground',
+        isOwn ? 'self-end bg-primary/80 text-primary-foreground' : 'self-start bg-secondary text-secondary-foreground',
         isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
       )}
     >

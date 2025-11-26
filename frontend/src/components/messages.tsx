@@ -239,8 +239,12 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
                       ) : (
                         <div className="flex max-w-[75%] items-end gap-2.5">
                           {isGroupChat && (
-                            <div className="h-10 w-10 shrink-0">
-                              {showHeader && <UserAvatar username={m.sender_username} />}
+                            <div className="flex w-10 shrink-0 flex-col justify-end self-stretch">
+                              {showHeader && (
+                                <div className="flex justify-center">
+                                  <UserAvatar username={m.sender_username} className="h-9 w-9" />
+                                </div>
+                              )}
                             </div>
                           )}
                           <div className="flex min-w-0 flex-1 flex-col gap-1">
