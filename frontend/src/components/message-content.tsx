@@ -163,7 +163,7 @@ export function MessageContent({
         className={cn(
           'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
           isOwn ? 'self-end bg-primary/20 text-muted-foreground' : 'self-start bg-secondary/50 text-muted-foreground',
-          isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
+          isHighlighted ? (isOwn ? 'ring-2 ring-secondary-foreground' : 'ring-2 ring-primary/60') : undefined
         )}
       >
         <div className="flex items-center gap-1 italic">
@@ -225,7 +225,7 @@ export function MessageContent({
       className={cn(
         'flex w-fit max-w-full flex-col gap-1 rounded-2xl px-3 py-2 text-sm transition-colors',
         isOwn ? 'self-end bg-primary/80 text-primary-foreground' : 'self-start bg-secondary text-secondary-foreground',
-        isHighlighted ? (isOwn ? 'ring-2 ring-accent-foreground' : 'ring-2 ring-primary/60') : undefined
+        isHighlighted ? (isOwn ? 'ring-2 ring-secondary-foreground' : 'ring-2 ring-primary/60') : undefined
       )}
     >
       {renderReplyPreview()}

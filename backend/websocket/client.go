@@ -76,18 +76,20 @@ func (c *Client) ReadPump() {
 		case EventTypingStart:
 			if c.hub.ValidateMembership(c.userID, clientMsg.Payload.ChatID) {
 				c.hub.BroadcastTyping(clientMsg.Payload.ChatID, EventTypingStart, TypingPayload{
-					ChatID:   clientMsg.Payload.ChatID,
-					UserID:   c.userID,
-					Username: c.username,
+					ChatID:          clientMsg.Payload.ChatID,
+					UserID:          c.userID,
+					Username:        c.username,
+					ProfileImageURL: clientMsg.Payload.ProfileImageURL,
 				})
 			}
 
 		case EventTypingStop:
 			if c.hub.ValidateMembership(c.userID, clientMsg.Payload.ChatID) {
 				c.hub.BroadcastTyping(clientMsg.Payload.ChatID, EventTypingStop, TypingPayload{
-					ChatID:   clientMsg.Payload.ChatID,
-					UserID:   c.userID,
-					Username: c.username,
+					ChatID:          clientMsg.Payload.ChatID,
+					UserID:          c.userID,
+					Username:        c.username,
+					ProfileImageURL: clientMsg.Payload.ProfileImageURL,
 				})
 			}
 		}

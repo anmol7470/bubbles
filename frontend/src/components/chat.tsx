@@ -43,7 +43,12 @@ export function Chat({ chatId }: ChatProps) {
   const sendMessageQuery = useServerFn(sendMessageFn)
   const { selectedImages, setSelectedImages, handleFileChange, removeImage, clearImages, uploadImages, isUploading } =
     useImageUpload()
-  const { typingUsers, handleTyping, stopTyping } = useTypingIndicator(chatId, user?.id || '', user?.username || '')
+  const { typingUsers, handleTyping, stopTyping } = useTypingIndicator(
+    chatId,
+    user?.id || '',
+    user?.username || '',
+    user?.profile_image_url
+  )
 
   const {
     data: chat,
@@ -195,7 +200,11 @@ export function Chat({ chatId }: ChatProps) {
             <ArrowLeftIcon className="size-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <UserAvatar className="size-9" username={displayName} />
+            <UserAvatar
+              className="size-9"
+              username={displayName}
+              image={chat?.is_group ? undefined : otherParticipant?.profile_image_url}
+            />
             <div className="font-medium">{displayName}</div>
           </div>
         </div>

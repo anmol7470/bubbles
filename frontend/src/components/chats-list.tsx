@@ -39,6 +39,7 @@ import {
 import { Input } from './ui/input'
 import { Skeleton } from './ui/skeleton'
 import { UserAvatar } from './user-avatar'
+import { UserSettingsDialog } from './user-settings-dialog'
 
 const THEME_OPTIONS = [
   { label: 'Light', value: 'light', icon: SunIcon },
@@ -49,6 +50,7 @@ const THEME_OPTIONS = [
 export function ChatsList() {
   const [search, setSearch] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const navigate = useNavigate()
   const params = useParams({ strict: false })
   const chatId = 'chatId' in params ? params.chatId : null
@@ -197,7 +199,12 @@ export function ChatsList() {
                       </DropdownMenuRadioGroup>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      setIsSettingsOpen(true)
+                    }}
+                  >
                     <UserIcon className="size-4" />
                     <span>User settings</span>
                   </DropdownMenuItem>
@@ -224,7 +231,7 @@ export function ChatsList() {
             <SearchIcon className="absolute left-2 top-2 h-5 w-5 text-gray-400" />
             <Input
               placeholder="Search"
-              className="w-full rounded-xl pl-9"
+              className="w-full pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -274,7 +281,11 @@ export function ChatsList() {
                           {chat.is_group ? (
                             <UserAvatar username={displayName} className="size-10" />
                           ) : (
-                            <UserAvatar username={otherParticipant?.username || 'Unknown'} className="size-10" />
+                            <UserAvatar
+                              username={otherParticipant?.username || 'Unknown'}
+                              image={otherParticipant?.profile_image_url}
+                              className="size-10"
+                            />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between">
@@ -297,6 +308,7 @@ export function ChatsList() {
       </div>
 
       <NewChatDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      {user && <UserSettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} user={user} />}
     </div>
   )
 }

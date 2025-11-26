@@ -1,6 +1,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
-export function UserAvatar({ username, image, className }: { username: string; image?: string; className?: string }) {
+type UserAvatarProps = {
+  username: string
+  image?: string | null
+  className?: string
+}
+
+export function UserAvatar({ username, image, className }: UserAvatarProps) {
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/)
     if (parts.length === 1) {
@@ -10,7 +16,7 @@ export function UserAvatar({ username, image, className }: { username: string; i
   }
 
   return (
-    <Avatar className={className}>
+    <Avatar className={className} key={image || 'no-image'}>
       {image && <AvatarImage src={image} alt={username} />}
       <AvatarFallback className="bg-accent dark:bg-accent-foreground/15">{getInitials(username)}</AvatarFallback>
     </Avatar>

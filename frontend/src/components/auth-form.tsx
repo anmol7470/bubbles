@@ -2,51 +2,103 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useImageUpload } from '@/hooks/use-image-upload'
 import { formatRetryAfter } from '@/lib/utils'
+import { updateUserProfileFn } from '@/server/user'
+import type { SignInData, SignUpData } from '@/types/auth'
 import { useForm } from '@tanstack/react-form'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { MessageCircle } from 'lucide-react'
-import { useState } from 'react'
+import { ImagePlusIcon, Loader2Icon, MessageCircle, TrashIcon } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { signInFn, signUpFn } from '../server/auth'
+import { UserAvatar } from './user-avatar'
 
 export function AuthForm() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
   const [error, setError] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
+  const router = useRouter()
+  const navigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const { selectedImages, handleFileChange, clearImages, uploadImages, isUploading } = useImageUpload({
+    maxImages: 1,
+    replaceExisting: true,
+  })
 
   const signUpMutation = useServerFn(signUpFn)
   const signInMutation = useServerFn(signInFn)
+  const updateProfileServer = useServerFn(updateUserProfileFn)
 
   const signUp = useMutation({
-    mutationFn: signUpMutation,
-    onSuccess: (result) => {
-      if (result && 'error' in result) {
-        setError(result.error)
-        setRetryAfter(result.retry_after || null)
+    mutationFn: async ({ formData, imageFiles }: { formData: SignUpData; imageFiles: File[] }) => {
+      const result = await signUpMutation({ data: formData })
+      if (!result?.success || !result.data) {
+        const mutationError = new Error(result?.error || 'Failed to create account') as Error & { retryAfter?: number }
+        if (result?.retry_after) {
+          mutationError.retryAfter = result.retry_after
+        }
+        throw mutationError
       }
+      return { auth: result.data, imageFiles }
     },
-    onError: (err) => {
-      if (!(err instanceof Response)) {
-        setError('An unexpected error occurred')
+    onSuccess: async ({ auth, imageFiles }) => {
+      if (imageFiles.length > 0) {
+        try {
+          const uploadedUrls = await uploadImages(imageFiles)
+          const imageUrl = uploadedUrls[0]
+          if (imageUrl) {
+            const response = await updateProfileServer({
+              data: { username: auth.user.username, profile_image_url: imageUrl },
+            })
+            if (!response.success) {
+              toast.error(response.error || 'Failed to save profile image')
+            }
+          }
+        } catch (uploadError) {
+          toast.error(uploadError instanceof Error ? uploadError.message : 'Failed to upload profile image')
+        }
       }
+
+      clearImages()
+      setError(null)
+      setRetryAfter(null)
+      await router.invalidate()
+      navigate({ to: '/' })
+    },
+    onError: (mutationError: Error & { retryAfter?: number }) => {
+      setError(mutationError.message || 'An unexpected error occurred')
+      setRetryAfter(mutationError.retryAfter ?? null)
     },
   })
 
   const signIn = useMutation({
-    mutationFn: signInMutation,
-    onSuccess: (result) => {
-      if (result && 'error' in result) {
-        setError(result.error)
-        setRetryAfter(result.retry_after || null)
+    mutationFn: async ({ formData }: { formData: SignInData }) => {
+      const result = await signInMutation({ data: formData })
+      if (!result?.success || !result.data) {
+        const mutationError = new Error(result?.error || 'Failed to sign in') as Error & { retryAfter?: number }
+        if (result?.retry_after) {
+          mutationError.retryAfter = result.retry_after
+        }
+        throw mutationError
       }
+      return result.data
     },
-    onError: (err) => {
-      if (!(err instanceof Response)) {
-        setError('An unexpected error occurred')
-      }
+    onSuccess: async () => {
+      setError(null)
+      setRetryAfter(null)
+      await router.invalidate()
+      navigate({ to: '/' })
+    },
+    onError: (mutationError: Error & { retryAfter?: number }) => {
+      setError(mutationError.message || 'An unexpected error occurred')
+      setRetryAfter(mutationError.retryAfter ?? null)
     },
   })
+
+  const isSignUpBusy = signUp.isPending || isUploading
 
   const signUpForm = useForm({
     defaultValues: {
@@ -57,7 +109,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setError(null)
       setRetryAfter(null)
-      await signUp.mutateAsync({ data: value })
+      await signUp.mutateAsync({ formData: value, imageFiles: selectedImages.map((img) => img.file) })
     },
   })
 
@@ -69,7 +121,7 @@ export function AuthForm() {
     onSubmit: async ({ value }) => {
       setError(null)
       setRetryAfter(null)
-      await signIn.mutateAsync({ data: value })
+      await signIn.mutateAsync({ formData: value })
     },
   })
 
@@ -84,7 +136,7 @@ export function AuthForm() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">Connect and chat in real-time</p>
       </div>
-      <Card className="shadow-xl">
+      <Card>
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-2xl font-semibold">
             {mode === 'sign-in' ? 'Welcome Back' : 'Create Account'}
@@ -155,7 +207,14 @@ export function AuthForm() {
               </signInForm.Field>
 
               <Button type="submit" className="w-full shadow-lg" size="lg" disabled={signIn.isPending}>
-                {signIn.isPending ? 'Signing in...' : 'Sign In'}
+                {signIn.isPending ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
 
               <div className="text-center text-sm text-muted-foreground pt-2">
@@ -166,6 +225,7 @@ export function AuthForm() {
                     setMode('sign-up')
                     setError(null)
                     setRetryAfter(null)
+                    clearImages()
                   }}
                   className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >
@@ -245,8 +305,57 @@ export function AuthForm() {
                 )}
               </signUpForm.Field>
 
-              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={signUp.isPending}>
-                {signUp.isPending ? 'Creating account...' : 'Sign Up'}
+              <div className="space-y-2">
+                <Label>Profile picture (optional)</Label>
+                <div className="flex items-center gap-4">
+                  {selectedImages[0]?.previewUrl && (
+                    <UserAvatar
+                      username={signUpForm.state.values.username || 'New user'}
+                      image={selectedImages[0].previewUrl}
+                      className="size-12"
+                    />
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileChange(e)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSignUpBusy}
+                    >
+                      <ImagePlusIcon className="mr-2 size-4" /> Choose photo
+                    </Button>
+                    {selectedImages.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => clearImages()}
+                        disabled={isSignUpBusy}
+                      >
+                        <TrashIcon className="mr-2 size-4" /> Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full shadow-lg" size="lg" disabled={isSignUpBusy}>
+                {isSignUpBusy ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Sign Up'
+                )}
               </Button>
 
               <div className="text-center text-sm text-muted-foreground pt-2">
@@ -257,6 +366,7 @@ export function AuthForm() {
                     setMode('sign-in')
                     setError(null)
                     setRetryAfter(null)
+                    clearImages()
                   }}
                   className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
                 >

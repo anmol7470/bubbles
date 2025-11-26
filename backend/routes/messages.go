@@ -155,6 +155,11 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 			images = []string{}
 		}
 
+		var senderProfileImageUrl *string
+		if msg.SenderProfileImageUrl.Valid {
+			senderProfileImageUrl = &msg.SenderProfileImageUrl.String
+		}
+
 		var replyTo *models.ReplyToMessage
 		if msg.ReplyToMessageID.Valid && msg.ReplySenderID.Valid {
 			replyImages := imagesByMessage[msg.ReplyToMessageID.UUID]
@@ -172,26 +177,33 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 				replyUsername = msg.ReplySenderUsername.String
 			}
 
+			var replySenderProfileImageUrl *string
+			if msg.ReplySenderProfileImageUrl.Valid {
+				replySenderProfileImageUrl = &msg.ReplySenderProfileImageUrl.String
+			}
+
 			replyTo = &models.ReplyToMessage{
-				ID:             msg.ReplyToMessageID.UUID,
-				SenderID:       msg.ReplySenderID.UUID,
-				SenderUsername: replyUsername,
-				Content:        replyContent,
-				Images:         replyImages,
-				IsDeleted:      msg.ReplyIsDeleted.Valid && msg.ReplyIsDeleted.Bool,
+				ID:                    msg.ReplyToMessageID.UUID,
+				SenderID:              msg.ReplySenderID.UUID,
+				SenderUsername:        replyUsername,
+				SenderProfileImageUrl: replySenderProfileImageUrl,
+				Content:               replyContent,
+				Images:                replyImages,
+				IsDeleted:             msg.ReplyIsDeleted.Valid && msg.ReplyIsDeleted.Bool,
 			}
 		}
 
 		messages[i] = models.Message{
-			ID:             msg.ID,
-			Content:        content,
-			SenderID:       msg.SenderID,
-			SenderUsername: msg.SenderUsername,
-			IsDeleted:      msg.IsDeleted,
-			IsEdited:       msg.IsEdited,
-			Images:         images,
-			CreatedAt:      msg.CreatedAt,
-			ReplyTo:        replyTo,
+			ID:                    msg.ID,
+			Content:               content,
+			SenderID:              msg.SenderID,
+			SenderUsername:        msg.SenderUsername,
+			SenderProfileImageUrl: senderProfileImageUrl,
+			IsDeleted:             msg.IsDeleted,
+			IsEdited:              msg.IsEdited,
+			Images:                images,
+			CreatedAt:             msg.CreatedAt,
+			ReplyTo:               replyTo,
 		}
 	}
 

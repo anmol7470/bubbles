@@ -44,7 +44,7 @@ func main() {
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{frontendURL},
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
 		AllowCredentials: true,
@@ -148,6 +148,14 @@ func main() {
 				upload.POST("/image", uploadHandler.UploadImage)
 			}
 		}
+	}
+
+	// User routes (with authentication)
+	userHandler := routes.NewUserHandler(dbService)
+	user := router.Group("/user")
+	user.Use(middleware.AuthMiddleware())
+	{
+		user.PUT("/profile", userHandler.UpdateProfile)
 	}
 
 	// WebSocket endpoint (with authentication)

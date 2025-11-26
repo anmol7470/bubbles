@@ -2,17 +2,20 @@ export type ChatUser = {
   id: string
   username: string
   email: string
+  profile_image_url?: string | null
 }
 
 export type ChatMember = {
   id: string
   username: string
   email: string
+  profile_image_url?: string | null
 }
 
 export type MessageSender = {
   id: string
   username: string
+  profile_image_url?: string | null
 }
 
 export type LastMessage = {
@@ -59,6 +62,7 @@ export type Message = {
   content?: string
   sender_id: string
   sender_username: string
+  sender_profile_image_url?: string | null
   is_deleted: boolean
   is_edited: boolean
   images: string[]
@@ -70,6 +74,7 @@ export type ReplyToMessage = {
   id: string
   sender_id: string
   sender_username: string
+  sender_profile_image_url?: string | null
   content?: string
   images: string[]
   is_deleted: boolean

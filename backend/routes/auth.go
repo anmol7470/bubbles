@@ -170,10 +170,11 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	c.JSON(http.StatusCreated, models.AuthResponse{
 		Token: token,
 		User: models.UserInfo{
-			ID:        user.ID,
-			Username:  user.Username,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt,
+			ID:              user.ID,
+			Username:        user.Username,
+			Email:           user.Email,
+			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			CreatedAt:       user.CreatedAt,
 		},
 	})
 }
@@ -251,10 +252,11 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 	c.JSON(http.StatusOK, models.AuthResponse{
 		Token: token,
 		User: models.UserInfo{
-			ID:        user.ID,
-			Username:  user.Username,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt,
+			ID:              user.ID,
+			Username:        user.Username,
+			Email:           user.Email,
+			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			CreatedAt:       user.CreatedAt,
 		},
 	})
 }
@@ -283,10 +285,11 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 	c.JSON(http.StatusOK, models.VerifyResponse{
 		Success: true,
 		User: &models.UserInfo{
-			ID:        user.ID,
-			Username:  user.Username,
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt,
+			ID:              user.ID,
+			Username:        user.Username,
+			Email:           user.Email,
+			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			CreatedAt:       user.CreatedAt,
 		},
 	})
 }

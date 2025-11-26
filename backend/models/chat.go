@@ -12,9 +12,10 @@ type SearchUsersRequest struct {
 }
 
 type SearchUsersResponse struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	ProfileImageURL *string   `json:"profile_image_url,omitempty"`
 }
 
 type CreateChatRequest struct {
@@ -28,14 +29,16 @@ type CreateChatResponse struct {
 }
 
 type ChatMember struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	ProfileImageURL *string   `json:"profile_image_url,omitempty"`
 }
 
 type MessageSender struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
+	ID              uuid.UUID `json:"id"`
+	Username        string    `json:"username"`
+	ProfileImageURL *string   `json:"profile_image_url,omitempty"`
 }
 
 type LastMessage struct {
@@ -63,24 +66,26 @@ type GetChatsResponse struct {
 }
 
 type Message struct {
-	ID             uuid.UUID       `json:"id"`
-	Content        *string         `json:"content,omitempty"`
-	SenderID       uuid.UUID       `json:"sender_id"`
-	SenderUsername string          `json:"sender_username"`
-	IsDeleted      bool            `json:"is_deleted"`
-	IsEdited       bool            `json:"is_edited"`
-	Images         []string        `json:"images"`
-	CreatedAt      time.Time       `json:"created_at"`
-	ReplyTo        *ReplyToMessage `json:"reply_to,omitempty"`
+	ID                    uuid.UUID       `json:"id"`
+	Content               *string         `json:"content,omitempty"`
+	SenderID              uuid.UUID       `json:"sender_id"`
+	SenderUsername        string          `json:"sender_username"`
+	SenderProfileImageUrl *string         `json:"sender_profile_image_url,omitempty"`
+	IsDeleted             bool            `json:"is_deleted"`
+	IsEdited              bool            `json:"is_edited"`
+	Images                []string        `json:"images"`
+	CreatedAt             time.Time       `json:"created_at"`
+	ReplyTo               *ReplyToMessage `json:"reply_to,omitempty"`
 }
 
 type ReplyToMessage struct {
-	ID             uuid.UUID `json:"id"`
-	SenderID       uuid.UUID `json:"sender_id"`
-	SenderUsername string    `json:"sender_username"`
-	Content        *string   `json:"content,omitempty"`
-	Images         []string  `json:"images"`
-	IsDeleted      bool      `json:"is_deleted"`
+	ID                    uuid.UUID `json:"id"`
+	SenderID              uuid.UUID `json:"sender_id"`
+	SenderUsername        string    `json:"sender_username"`
+	SenderProfileImageUrl *string   `json:"sender_profile_image_url,omitempty"`
+	Content               *string   `json:"content,omitempty"`
+	Images                []string  `json:"images"`
+	IsDeleted             bool      `json:"is_deleted"`
 }
 
 type GetChatByIdResponse struct {

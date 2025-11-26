@@ -2,6 +2,7 @@ export type User = {
   id: string
   username: string
   email: string
+  profile_image_url?: string | null
   created_at: string
 }
 

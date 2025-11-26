@@ -44,6 +44,7 @@ type Querier interface {
 	UpdateChatMemberDeletedAt(ctx context.Context, arg UpdateChatMemberDeletedAtParams) error
 	UpdateChatName(ctx context.Context, arg UpdateChatNameParams) error
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

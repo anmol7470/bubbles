@@ -236,10 +236,12 @@ SELECT
     m.created_at,
     m.updated_at,
     u.username as sender_username,
+    u.profile_image_url as sender_profile_image_url,
     rm.content AS reply_content,
     rm.is_deleted AS reply_is_deleted,
     rm.sender_id AS reply_sender_id,
-    ru.username AS reply_sender_username
+    ru.username AS reply_sender_username,
+    ru.profile_image_url AS reply_sender_profile_image_url
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
@@ -250,20 +252,22 @@ LIMIT 50
 `
 
 type GetMessagesByChatRow struct {
-	ID                  uuid.UUID      `json:"id"`
-	ChatID              uuid.UUID      `json:"chat_id"`
-	SenderID            uuid.UUID      `json:"sender_id"`
-	Content             sql.NullString `json:"content"`
-	IsDeleted           bool           `json:"is_deleted"`
-	IsEdited            bool           `json:"is_edited"`
-	ReplyToMessageID    uuid.NullUUID  `json:"reply_to_message_id"`
-	CreatedAt           time.Time      `json:"created_at"`
-	UpdatedAt           time.Time      `json:"updated_at"`
-	SenderUsername      string         `json:"sender_username"`
-	ReplyContent        sql.NullString `json:"reply_content"`
-	ReplyIsDeleted      sql.NullBool   `json:"reply_is_deleted"`
-	ReplySenderID       uuid.NullUUID  `json:"reply_sender_id"`
-	ReplySenderUsername sql.NullString `json:"reply_sender_username"`
+	ID                         uuid.UUID      `json:"id"`
+	ChatID                     uuid.UUID      `json:"chat_id"`
+	SenderID                   uuid.UUID      `json:"sender_id"`
+	Content                    sql.NullString `json:"content"`
+	IsDeleted                  bool           `json:"is_deleted"`
+	IsEdited                   bool           `json:"is_edited"`
+	ReplyToMessageID           uuid.NullUUID  `json:"reply_to_message_id"`
+	CreatedAt                  time.Time      `json:"created_at"`
+	UpdatedAt                  time.Time      `json:"updated_at"`
+	SenderUsername             string         `json:"sender_username"`
+	SenderProfileImageUrl      sql.NullString `json:"sender_profile_image_url"`
+	ReplyContent               sql.NullString `json:"reply_content"`
+	ReplyIsDeleted             sql.NullBool   `json:"reply_is_deleted"`
+	ReplySenderID              uuid.NullUUID  `json:"reply_sender_id"`
+	ReplySenderUsername        sql.NullString `json:"reply_sender_username"`
+	ReplySenderProfileImageUrl sql.NullString `json:"reply_sender_profile_image_url"`
 }
 
 func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]GetMessagesByChatRow, error) {
@@ -286,10 +290,12 @@ func (q *Queries) GetMessagesByChat(ctx context.Context, chatID uuid.UUID) ([]Ge
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
+			&i.SenderProfileImageUrl,
 			&i.ReplyContent,
 			&i.ReplyIsDeleted,
 			&i.ReplySenderID,
 			&i.ReplySenderUsername,
+			&i.ReplySenderProfileImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -316,10 +322,12 @@ SELECT
     m.created_at,
     m.updated_at,
     u.username as sender_username,
+    u.profile_image_url as sender_profile_image_url,
     rm.content AS reply_content,
     rm.is_deleted AS reply_is_deleted,
     rm.sender_id AS reply_sender_id,
-    ru.username AS reply_sender_username
+    ru.username AS reply_sender_username,
+    ru.profile_image_url AS reply_sender_profile_image_url
 FROM messages m
 INNER JOIN chat_members cm_filter ON cm_filter.chat_id = m.chat_id AND cm_filter.user_id = $1::uuid
 INNER JOIN users u ON m.sender_id = u.id
@@ -345,20 +353,22 @@ type GetMessagesByChatPaginatedParams struct {
 }
 
 type GetMessagesByChatPaginatedRow struct {
-	ID                  uuid.UUID      `json:"id"`
-	ChatID              uuid.UUID      `json:"chat_id"`
-	SenderID            uuid.UUID      `json:"sender_id"`
-	Content             sql.NullString `json:"content"`
-	IsDeleted           bool           `json:"is_deleted"`
-	IsEdited            bool           `json:"is_edited"`
-	ReplyToMessageID    uuid.NullUUID  `json:"reply_to_message_id"`
-	CreatedAt           time.Time      `json:"created_at"`
-	UpdatedAt           time.Time      `json:"updated_at"`
-	SenderUsername      string         `json:"sender_username"`
-	ReplyContent        sql.NullString `json:"reply_content"`
-	ReplyIsDeleted      sql.NullBool   `json:"reply_is_deleted"`
-	ReplySenderID       uuid.NullUUID  `json:"reply_sender_id"`
-	ReplySenderUsername sql.NullString `json:"reply_sender_username"`
+	ID                         uuid.UUID      `json:"id"`
+	ChatID                     uuid.UUID      `json:"chat_id"`
+	SenderID                   uuid.UUID      `json:"sender_id"`
+	Content                    sql.NullString `json:"content"`
+	IsDeleted                  bool           `json:"is_deleted"`
+	IsEdited                   bool           `json:"is_edited"`
+	ReplyToMessageID           uuid.NullUUID  `json:"reply_to_message_id"`
+	CreatedAt                  time.Time      `json:"created_at"`
+	UpdatedAt                  time.Time      `json:"updated_at"`
+	SenderUsername             string         `json:"sender_username"`
+	SenderProfileImageUrl      sql.NullString `json:"sender_profile_image_url"`
+	ReplyContent               sql.NullString `json:"reply_content"`
+	ReplyIsDeleted             sql.NullBool   `json:"reply_is_deleted"`
+	ReplySenderID              uuid.NullUUID  `json:"reply_sender_id"`
+	ReplySenderUsername        sql.NullString `json:"reply_sender_username"`
+	ReplySenderProfileImageUrl sql.NullString `json:"reply_sender_profile_image_url"`
 }
 
 func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessagesByChatPaginatedParams) ([]GetMessagesByChatPaginatedRow, error) {
@@ -387,10 +397,12 @@ func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessage
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SenderUsername,
+			&i.SenderProfileImageUrl,
 			&i.ReplyContent,
 			&i.ReplyIsDeleted,
 			&i.ReplySenderID,
 			&i.ReplySenderUsername,
+			&i.ReplySenderProfileImageUrl,
 		); err != nil {
 			return nil, err
 		}

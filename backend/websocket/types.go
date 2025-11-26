@@ -57,9 +57,10 @@ type ReplyMessage struct {
 }
 
 type TypingPayload struct {
-	ChatID   string `json:"chat_id"`
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
+	ChatID          string  `json:"chat_id"`
+	UserID          string  `json:"user_id"`
+	Username        string  `json:"username"`
+	ProfileImageURL *string `json:"profile_image_url,omitempty"`
 }
 
 type JoinChatPayload struct {
@@ -73,8 +74,9 @@ type LeaveChatPayload struct {
 type ClientMessage struct {
 	Type    EventType `json:"type"`
 	Payload struct {
-		ChatID   string `json:"chat_id"`
-		UserID   string `json:"user_id,omitempty"`
-		Username string `json:"username,omitempty"`
+		ChatID          string  `json:"chat_id"`
+		UserID          string  `json:"user_id,omitempty"`
+		Username        string  `json:"username,omitempty"`
+		ProfileImageURL *string `json:"profile_image_url,omitempty"`
 	} `json:"payload"`
 }

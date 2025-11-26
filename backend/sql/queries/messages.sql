@@ -19,10 +19,12 @@ SELECT
     m.created_at,
     m.updated_at,
     u.username as sender_username,
+    u.profile_image_url as sender_profile_image_url,
     rm.content AS reply_content,
     rm.is_deleted AS reply_is_deleted,
     rm.sender_id AS reply_sender_id,
-    ru.username AS reply_sender_username
+    ru.username AS reply_sender_username,
+    ru.profile_image_url AS reply_sender_profile_image_url
 FROM messages m
 INNER JOIN users u ON m.sender_id = u.id
 LEFT JOIN messages rm ON m.reply_to_message_id = rm.id
@@ -43,10 +45,12 @@ SELECT
     m.created_at,
     m.updated_at,
     u.username as sender_username,
+    u.profile_image_url as sender_profile_image_url,
     rm.content AS reply_content,
     rm.is_deleted AS reply_is_deleted,
     rm.sender_id AS reply_sender_id,
-    ru.username AS reply_sender_username
+    ru.username AS reply_sender_username,
+    ru.profile_image_url AS reply_sender_profile_image_url
 FROM messages m
 INNER JOIN chat_members cm_filter ON cm_filter.chat_id = m.chat_id AND cm_filter.user_id = sqlc.arg(user_id)::uuid
 INNER JOIN users u ON m.sender_id = u.id

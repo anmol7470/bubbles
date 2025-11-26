@@ -173,7 +173,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                         className="hover:bg-muted flex w-full justify-start rounded-md px-2 transition-colors"
                         size="lg"
                       >
-                        <UserAvatar username={user.username} className="size-8" />
+                        <UserAvatar username={user.username} image={user.profile_image_url} className="size-8" />
                         <span className="text-sm font-medium">{user.username}</span>
                       </Button>
                     ))

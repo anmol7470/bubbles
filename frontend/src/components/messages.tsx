@@ -242,7 +242,11 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
                             <div className="flex w-10 shrink-0 flex-col justify-end self-stretch">
                               {showHeader && (
                                 <div className="flex justify-center">
-                                  <UserAvatar username={m.sender_username} className="h-9 w-9" />
+                                  <UserAvatar
+                                    username={m.sender_username}
+                                    image={m.sender_profile_image_url}
+                                    className="h-9 w-9"
+                                  />
                                 </div>
                               )}
                             </div>
@@ -277,11 +281,22 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
           <div className="flex w-full justify-start">
             <div className="flex max-w-[75%] items-end gap-2.5">
               {isGroupChat && (
-                <div className="h-10 w-10 shrink-0">
-                  <UserAvatar username={typingUsers[0]?.username ?? 'Typing'} />
+                <div className="flex w-10 shrink-0 flex-col justify-end self-stretch">
+                  <div className="flex justify-center">
+                    <UserAvatar
+                      username={typingUsers[0]?.username ?? 'Typing'}
+                      image={typingUsers[0]?.profile_image_url}
+                      className="h-9 w-9"
+                    />
+                  </div>
                 </div>
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-1">
+                {isGroupChat && (
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-sm font-medium">{typingUsers[0]?.username ?? 'Someone'}</span>
+                  </div>
+                )}
                 <div className="flex w-fit flex-wrap items-center gap-3 rounded-2xl bg-secondary px-3 py-2 text-sm text-secondary-foreground">
                   <span className="leading-tight">{typingLabel}</span>
                   <div className="flex items-center gap-1">

@@ -13,10 +13,16 @@ const MAX_IMAGE_SIZE = 4 * 1024 * 1024 // 4MB
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpeg', 'jpg', 'png', 'webp'])
 
-export function useImageUpload() {
+type UseImageUploadOptions = {
+  maxImages?: number
+  replaceExisting?: boolean
+}
+
+export function useImageUpload(options: UseImageUploadOptions = {}) {
   const [selectedImages, setSelectedImages] = useState<ImagePreview[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const getAuthToken = useServerFn(getAuthTokenFn)
+  const { maxImages = 5, replaceExisting = false } = options
 
   // Cleanup Object URLs on component unmount to prevent memory leaks
   useEffect(() => {
@@ -67,19 +73,29 @@ export function useImageUpload() {
     })
 
     // Check max count
-    const availableSlots = 5 - selectedImages.length
+    const existingCount = replaceExisting ? 0 : selectedImages.length
+    const availableSlots = Math.max(maxImages - existingCount, 0)
+
     if (validFiles.length > availableSlots) {
-      errors.push(`Can only select ${availableSlots} more image(s)`)
-      validFiles.splice(availableSlots)
+      const extraCount = validFiles.length - availableSlots
+      errors.push(`Can only select ${availableSlots} more image${availableSlots === 1 ? '' : 's'}`)
+      validFiles.splice(validFiles.length - extraCount, extraCount)
     }
 
     // Create preview URLs
-    const newPreviews: ImagePreview[] = validFiles.map((file) => ({
+    const newPreviews: ImagePreview[] = validFiles.slice(0, maxImages).map((file) => ({
       file,
       previewUrl: URL.createObjectURL(file),
     }))
 
-    setSelectedImages((prev) => [...prev, ...newPreviews])
+    setSelectedImages((prev) => {
+      if (replaceExisting) {
+        prev.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+        return newPreviews.slice(0, maxImages)
+      }
+      const combined = [...prev, ...newPreviews]
+      return combined.slice(0, maxImages)
+    })
 
     // Show errors if any
     if (errors.length > 0) {

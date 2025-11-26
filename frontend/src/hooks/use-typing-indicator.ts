@@ -5,9 +5,15 @@ import { useDebounceCallback } from 'usehooks-ts'
 export type TypingUser = {
   user_id: string
   username: string
+  profile_image_url?: string | null
 }
 
-export function useTypingIndicator(chatId: string, currentUserId: string, currentUsername: string) {
+export function useTypingIndicator(
+  chatId: string,
+  currentUserId: string,
+  currentUsername: string,
+  currentUserProfileImageUrl?: string | null
+) {
   const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map())
   const { send, on } = useWebSocket()
   const isTypingRef = useRef(false)
@@ -18,10 +24,11 @@ export function useTypingIndicator(chatId: string, currentUserId: string, curren
         chat_id: chatId,
         user_id: currentUserId,
         username: currentUsername,
+        profile_image_url: currentUserProfileImageUrl,
       })
       isTypingRef.current = true
     }
-  }, [send, chatId, currentUserId, currentUsername])
+  }, [send, chatId, currentUserId, currentUsername, currentUserProfileImageUrl])
 
   const sendTypingStop = useCallback(() => {
     if (isTypingRef.current) {
@@ -29,10 +36,11 @@ export function useTypingIndicator(chatId: string, currentUserId: string, curren
         chat_id: chatId,
         user_id: currentUserId,
         username: currentUsername,
+        profile_image_url: currentUserProfileImageUrl,
       })
       isTypingRef.current = false
     }
-  }, [send, chatId, currentUserId, currentUsername])
+  }, [send, chatId, currentUserId, currentUsername, currentUserProfileImageUrl])
 
   const debouncedTypingStop = useDebounceCallback(sendTypingStop, 2000)
 
@@ -52,7 +60,11 @@ export function useTypingIndicator(chatId: string, currentUserId: string, curren
 
       setTypingUsers((prev) => {
         const next = new Map(prev)
-        next.set(payload.user_id, { user_id: payload.user_id, username: payload.username })
+        next.set(payload.user_id, {
+          user_id: payload.user_id,
+          username: payload.username,
+          profile_image_url: payload.profile_image_url,
+        })
         return next
       })
     })

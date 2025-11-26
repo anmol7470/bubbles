@@ -475,31 +475,35 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
           <div className="space-y-4">
             <div>
               <p className="mb-2 text-sm font-medium">Existing members</p>
-              <ScrollArea className="max-h-48 rounded-md border">
-                <div className="divide-y">
-                  {members.map((member) => (
-                    <div key={member.id} className="flex items-center gap-3 px-3 py-2">
-                      <UserAvatar username={member.username} className="size-8" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{member.username}</p>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
+              <div className="rounded-md border">
+                <ScrollArea className="h-48">
+                  <div className="divide-y">
+                    {members.map((member) => (
+                      <div key={member.id} className="flex items-center gap-3 px-3 py-2">
+                        <UserAvatar username={member.username} className="size-8" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{member.username}</p>
+                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {member.id === chat.creator_id ? 'Admin' : null}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={
+                            member.id === chat.creator_id || removeMemberMutation.isPending || !canManageMembers
+                          }
+                          onClick={() => removeMemberMutation.mutate(member)}
+                        >
+                          <UserMinusIcon className="mr-1 size-4" />
+                          Remove
+                        </Button>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {member.id === chat.creator_id ? 'Admin' : null}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={member.id === chat.creator_id || removeMemberMutation.isPending || !canManageMembers}
-                        onClick={() => removeMemberMutation.mutate(member)}
-                      >
-                        <UserMinusIcon className="mr-1 size-4" />
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -554,31 +558,33 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
             <DialogTitle>Change admin</DialogTitle>
             <DialogDescription>Select a new admin for this group.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            {members
-              .filter((member) => member.id !== chat.creator_id)
-              .map((member) => (
-                <div key={member.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
-                  <UserAvatar username={member.username} className="size-8" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{member.username}</p>
-                    <p className="text-xs text-muted-foreground">{member.email}</p>
+          <ScrollArea className="max-h-96">
+            <div className="space-y-3">
+              {members
+                .filter((member) => member.id !== chat.creator_id)
+                .map((member) => (
+                  <div key={member.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                    <UserAvatar username={member.username} className="size-8" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{member.username}</p>
+                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={changeAdminMutation.isPending}
+                      onClick={() => changeAdminMutation.mutate(member)}
+                    >
+                      <ShieldIcon className="mr-1 size-4" />
+                      Make admin
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={changeAdminMutation.isPending}
-                    onClick={() => changeAdminMutation.mutate(member)}
-                  >
-                    <ShieldIcon className="mr-1 size-4" />
-                    Make admin
-                  </Button>
-                </div>
-              ))}
-            {members.filter((member) => member.id !== chat.creator_id).length === 0 && (
-              <p className="text-sm text-muted-foreground">No eligible members available.</p>
-            )}
-          </div>
+                ))}
+              {members.filter((member) => member.id !== chat.creator_id).length === 0 && (
+                <p className="text-sm text-muted-foreground">No eligible members available.</p>
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </>

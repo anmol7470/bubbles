@@ -31,12 +31,8 @@ export const signUpFn = createServerFn({ method: 'POST' })
         user: authResponse.user,
       })
 
-      // Redirect to home
-      throw redirect({ to: '/' })
+      return { success: true, data: authResponse }
     } catch (error) {
-      if (error instanceof Response) {
-        throw error // Re-throw redirect
-      }
       return {
         success: false,
         error: 'Failed to connect to server',
@@ -70,12 +66,8 @@ export const signInFn = createServerFn({ method: 'POST' })
         user: authResponse.user,
       })
 
-      // Redirect to home
-      throw redirect({ to: '/' })
+      return { success: true, data: authResponse }
     } catch (error) {
-      if (error instanceof Response) {
-        throw error // Re-throw redirect
-      }
       return {
         success: false,
         error: 'Failed to connect to server',

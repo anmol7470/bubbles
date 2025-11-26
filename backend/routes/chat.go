@@ -51,9 +51,10 @@ func (h *ChatHandler) SearchUsers(c *gin.Context) {
 	result := make([]models.SearchUsersResponse, len(users))
 	for i, user := range users {
 		result[i] = models.SearchUsersResponse{
-			ID:       user.ID,
-			Username: user.Username,
-			Email:    user.Email,
+			ID:              user.ID,
+			Username:        user.Username,
+			Email:           user.Email,
+			ProfileImageURL: nullableString(user.ProfileImageUrl),
 		}
 	}
 
@@ -236,8 +237,9 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 				var sender *models.MessageSender
 				if row.LastMessageSenderID != uuid.Nil && row.LastMessageSenderUsername.Valid {
 					sender = &models.MessageSender{
-						ID:       row.LastMessageSenderID,
-						Username: row.LastMessageSenderUsername.String,
+						ID:              row.LastMessageSenderID,
+						Username:        row.LastMessageSenderUsername.String,
+						ProfileImageURL: nullableString(row.LastMessageSenderProfileImageUrl),
 					}
 				}
 
@@ -262,9 +264,10 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 		}
 
 		chatsMap[row.ChatID].Members = append(chatsMap[row.ChatID].Members, models.ChatMember{
-			ID:       row.MemberID,
-			Username: row.MemberUsername,
-			Email:    row.MemberEmail,
+			ID:              row.MemberID,
+			Username:        row.MemberUsername,
+			Email:           row.MemberEmail,
+			ProfileImageURL: nullableString(row.MemberProfileImageUrl),
 		})
 	}
 
@@ -350,9 +353,10 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 	membersMap := make(map[uuid.UUID]models.ChatMember)
 	for _, member := range chatMembers {
 		membersMap[member.MemberID] = models.ChatMember{
-			ID:       member.MemberID,
-			Username: member.MemberUsername,
-			Email:    member.MemberEmail,
+			ID:              member.MemberID,
+			Username:        member.MemberUsername,
+			Email:           member.MemberEmail,
+			ProfileImageURL: nullableString(member.MemberProfileImageUrl),
 		}
 	}
 

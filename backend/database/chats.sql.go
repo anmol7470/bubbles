@@ -75,7 +75,8 @@ SELECT
     c.updated_at as chat_updated_at,
     u.id as member_id,
     u.username as member_username,
-    u.email as member_email
+    u.email as member_email,
+    u.profile_image_url as member_profile_image_url
 FROM chats c
 INNER JOIN chat_members cm ON c.id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
@@ -84,15 +85,16 @@ ORDER BY u.username ASC
 `
 
 type GetChatByIdWithMembersRow struct {
-	ChatID         uuid.UUID      `json:"chat_id"`
-	ChatName       sql.NullString `json:"chat_name"`
-	IsGroup        bool           `json:"is_group"`
-	CreatedBy      uuid.UUID      `json:"created_by"`
-	ChatCreatedAt  time.Time      `json:"chat_created_at"`
-	ChatUpdatedAt  time.Time      `json:"chat_updated_at"`
-	MemberID       uuid.UUID      `json:"member_id"`
-	MemberUsername string         `json:"member_username"`
-	MemberEmail    string         `json:"member_email"`
+	ChatID                uuid.UUID      `json:"chat_id"`
+	ChatName              sql.NullString `json:"chat_name"`
+	IsGroup               bool           `json:"is_group"`
+	CreatedBy             uuid.UUID      `json:"created_by"`
+	ChatCreatedAt         time.Time      `json:"chat_created_at"`
+	ChatUpdatedAt         time.Time      `json:"chat_updated_at"`
+	MemberID              uuid.UUID      `json:"member_id"`
+	MemberUsername        string         `json:"member_username"`
+	MemberEmail           string         `json:"member_email"`
+	MemberProfileImageUrl sql.NullString `json:"member_profile_image_url"`
 }
 
 func (q *Queries) GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]GetChatByIdWithMembersRow, error) {
@@ -114,6 +116,7 @@ func (q *Queries) GetChatByIdWithMembers(ctx context.Context, id uuid.UUID) ([]G
 			&i.MemberID,
 			&i.MemberUsername,
 			&i.MemberEmail,
+			&i.MemberProfileImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -262,6 +265,7 @@ WITH user_chats AS (
         lm.is_deleted as msg_is_deleted,
         lm.created_at as msg_created_at,
         sender.username as msg_sender_username,
+        sender.profile_image_url as msg_sender_profile_image_url,
         ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY COALESCE(lm.created_at, c.created_at) DESC) as rn
     FROM chats c
     INNER JOIN chat_members cm_user ON c.id = cm_user.chat_id AND cm_user.user_id = $1
@@ -285,12 +289,14 @@ SELECT
     u.id as member_id,
     u.username as member_username,
     u.email as member_email,
+    u.profile_image_url as member_profile_image_url,
     COALESCE(uc.msg_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_id,
     uc.msg_content as last_message_content,
     COALESCE(uc.msg_sender_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_sender_id,
     COALESCE(uc.msg_is_deleted, false) as last_message_is_deleted,
     COALESCE(uc.msg_created_at, uc.created_at) as last_message_created_at,
-    uc.msg_sender_username as last_message_sender_username
+    uc.msg_sender_username as last_message_sender_username,
+    uc.msg_sender_profile_image_url as last_message_sender_profile_image_url
 FROM user_chats uc
 INNER JOIN chat_members cm ON uc.id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
@@ -300,21 +306,23 @@ ORDER BY COALESCE(uc.msg_created_at, uc.created_at) DESC, u.username ASC
 `
 
 type GetChatsWithMembersRow struct {
-	ChatID                    uuid.UUID      `json:"chat_id"`
-	ChatName                  sql.NullString `json:"chat_name"`
-	IsGroup                   bool           `json:"is_group"`
-	CreatedBy                 uuid.UUID      `json:"created_by"`
-	ChatCreatedAt             time.Time      `json:"chat_created_at"`
-	ChatUpdatedAt             time.Time      `json:"chat_updated_at"`
-	MemberID                  uuid.UUID      `json:"member_id"`
-	MemberUsername            string         `json:"member_username"`
-	MemberEmail               string         `json:"member_email"`
-	LastMessageID             uuid.UUID      `json:"last_message_id"`
-	LastMessageContent        sql.NullString `json:"last_message_content"`
-	LastMessageSenderID       uuid.UUID      `json:"last_message_sender_id"`
-	LastMessageIsDeleted      bool           `json:"last_message_is_deleted"`
-	LastMessageCreatedAt      time.Time      `json:"last_message_created_at"`
-	LastMessageSenderUsername sql.NullString `json:"last_message_sender_username"`
+	ChatID                           uuid.UUID      `json:"chat_id"`
+	ChatName                         sql.NullString `json:"chat_name"`
+	IsGroup                          bool           `json:"is_group"`
+	CreatedBy                        uuid.UUID      `json:"created_by"`
+	ChatCreatedAt                    time.Time      `json:"chat_created_at"`
+	ChatUpdatedAt                    time.Time      `json:"chat_updated_at"`
+	MemberID                         uuid.UUID      `json:"member_id"`
+	MemberUsername                   string         `json:"member_username"`
+	MemberEmail                      string         `json:"member_email"`
+	MemberProfileImageUrl            sql.NullString `json:"member_profile_image_url"`
+	LastMessageID                    uuid.UUID      `json:"last_message_id"`
+	LastMessageContent               sql.NullString `json:"last_message_content"`
+	LastMessageSenderID              uuid.UUID      `json:"last_message_sender_id"`
+	LastMessageIsDeleted             bool           `json:"last_message_is_deleted"`
+	LastMessageCreatedAt             time.Time      `json:"last_message_created_at"`
+	LastMessageSenderUsername        sql.NullString `json:"last_message_sender_username"`
+	LastMessageSenderProfileImageUrl sql.NullString `json:"last_message_sender_profile_image_url"`
 }
 
 func (q *Queries) GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]GetChatsWithMembersRow, error) {
@@ -336,12 +344,14 @@ func (q *Queries) GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]
 			&i.MemberID,
 			&i.MemberUsername,
 			&i.MemberEmail,
+			&i.MemberProfileImageUrl,
 			&i.LastMessageID,
 			&i.LastMessageContent,
 			&i.LastMessageSenderID,
 			&i.LastMessageIsDeleted,
 			&i.LastMessageCreatedAt,
 			&i.LastMessageSenderUsername,
+			&i.LastMessageSenderProfileImageUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -406,7 +416,7 @@ func (q *Queries) RemoveChatMember(ctx context.Context, arg RemoveChatMemberPara
 }
 
 const searchUsers = `-- name: SearchUsers :many
-SELECT id, username, email, created_at, updated_at
+SELECT id, username, email, profile_image_url, created_at, updated_at
 FROM users
 WHERE username ILIKE '%' || $1 || '%'
 AND id != ALL($2::uuid[])
@@ -419,11 +429,12 @@ type SearchUsersParams struct {
 }
 
 type SearchUsersRow struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              uuid.UUID      `json:"id"`
+	Username        string         `json:"username"`
+	Email           string         `json:"email"`
+	ProfileImageUrl sql.NullString `json:"profile_image_url"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]SearchUsersRow, error) {
@@ -439,6 +450,7 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Sea
 			&i.ID,
 			&i.Username,
 			&i.Email,
+			&i.ProfileImageUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

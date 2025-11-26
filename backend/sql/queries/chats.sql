@@ -1,5 +1,5 @@
 -- name: SearchUsers :many
-SELECT id, username, email, created_at, updated_at
+SELECT id, username, email, profile_image_url, created_at, updated_at
 FROM users
 WHERE username ILIKE '%' || sqlc.arg(query) || '%'
 AND id != ALL(sqlc.arg(excluded_ids)::uuid[])
@@ -38,7 +38,8 @@ SELECT
     c.updated_at as chat_updated_at,
     u.id as member_id,
     u.username as member_username,
-    u.email as member_email
+    u.email as member_email,
+    u.profile_image_url as member_profile_image_url
 FROM chats c
 INNER JOIN chat_members cm ON c.id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
@@ -62,6 +63,7 @@ WITH user_chats AS (
         lm.is_deleted as msg_is_deleted,
         lm.created_at as msg_created_at,
         sender.username as msg_sender_username,
+        sender.profile_image_url as msg_sender_profile_image_url,
         ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY COALESCE(lm.created_at, c.created_at) DESC) as rn
     FROM chats c
     INNER JOIN chat_members cm_user ON c.id = cm_user.chat_id AND cm_user.user_id = $1
@@ -85,12 +87,14 @@ SELECT
     u.id as member_id,
     u.username as member_username,
     u.email as member_email,
+    u.profile_image_url as member_profile_image_url,
     COALESCE(uc.msg_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_id,
     uc.msg_content as last_message_content,
     COALESCE(uc.msg_sender_id, '00000000-0000-0000-0000-000000000000'::uuid) as last_message_sender_id,
     COALESCE(uc.msg_is_deleted, false) as last_message_is_deleted,
     COALESCE(uc.msg_created_at, uc.created_at) as last_message_created_at,
-    uc.msg_sender_username as last_message_sender_username
+    uc.msg_sender_username as last_message_sender_username,
+    uc.msg_sender_profile_image_url as last_message_sender_profile_image_url
 FROM user_chats uc
 INNER JOIN chat_members cm ON uc.id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
