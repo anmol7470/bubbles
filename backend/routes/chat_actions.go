@@ -13,6 +13,7 @@ import (
 
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/anmol7470/bubbles/backend/models"
+	"github.com/anmol7470/bubbles/backend/utils"
 )
 
 type ChatActionsHandler struct {
@@ -28,12 +29,12 @@ func NewChatActionsHandler(dbService *database.Service, uploadHandler *UploadHan
 }
 
 func (h *ChatActionsHandler) ClearChat(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -71,12 +72,12 @@ func (h *ChatActionsHandler) ClearChat(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) DeleteChat(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -170,12 +171,12 @@ func (h *ChatActionsHandler) DeleteChat(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) LeaveChat(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -242,12 +243,12 @@ func (h *ChatActionsHandler) LeaveChat(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) RenameChat(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -312,12 +313,12 @@ func (h *ChatActionsHandler) RenameChat(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) AddChatMember(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -413,12 +414,12 @@ func (h *ChatActionsHandler) AddChatMember(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) RemoveChatMember(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -515,12 +516,12 @@ func (h *ChatActionsHandler) RemoveChatMember(c *gin.Context) {
 }
 
 func (h *ChatActionsHandler) ChangeChatAdmin(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}

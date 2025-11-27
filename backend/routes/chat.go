@@ -54,7 +54,7 @@ func (h *ChatHandler) SearchUsers(c *gin.Context) {
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
-			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			ProfileImageURL: utils.NullableString(user.ProfileImageUrl),
 		}
 	}
 
@@ -62,7 +62,7 @@ func (h *ChatHandler) SearchUsers(c *gin.Context) {
 }
 
 func (h *ChatHandler) CreateChat(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
@@ -239,7 +239,7 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 					sender = &models.MessageSender{
 						ID:              row.LastMessageSenderID,
 						Username:        row.LastMessageSenderUsername.String,
-						ProfileImageURL: nullableString(row.LastMessageSenderProfileImageUrl),
+						ProfileImageURL: utils.NullableString(row.LastMessageSenderProfileImageUrl),
 					}
 				}
 
@@ -267,7 +267,7 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 			ID:              row.MemberID,
 			Username:        row.MemberUsername,
 			Email:           row.MemberEmail,
-			ProfileImageURL: nullableString(row.MemberProfileImageUrl),
+			ProfileImageURL: utils.NullableString(row.MemberProfileImageUrl),
 		})
 	}
 
@@ -304,12 +304,12 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 }
 
 func (h *ChatHandler) GetChatById(c *gin.Context) {
-	userID, ok := getUserIDFromContext(c)
+	userID, ok := utils.GetUserIDFromContext(c)
 	if !ok {
 		return
 	}
 
-	chatID, ok := parseChatIDParam(c)
+	chatID, ok := utils.ParseChatIDParam(c)
 	if !ok {
 		return
 	}
@@ -356,7 +356,7 @@ func (h *ChatHandler) GetChatById(c *gin.Context) {
 			ID:              member.MemberID,
 			Username:        member.MemberUsername,
 			Email:           member.MemberEmail,
-			ProfileImageURL: nullableString(member.MemberProfileImageUrl),
+			ProfileImageURL: utils.NullableString(member.MemberProfileImageUrl),
 		}
 	}
 

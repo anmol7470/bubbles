@@ -173,7 +173,7 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
-			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			ProfileImageURL: utils.NullableString(user.ProfileImageUrl),
 			CreatedAt:       user.CreatedAt,
 		},
 	})
@@ -255,7 +255,7 @@ func (h *AuthHandler) SignIn(c *gin.Context) {
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
-			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			ProfileImageURL: utils.NullableString(user.ProfileImageUrl),
 			CreatedAt:       user.CreatedAt,
 		},
 	})
@@ -288,7 +288,7 @@ func (h *AuthHandler) Verify(c *gin.Context) {
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
-			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			ProfileImageURL: utils.NullableString(user.ProfileImageUrl),
 			CreatedAt:       user.CreatedAt,
 		},
 	})

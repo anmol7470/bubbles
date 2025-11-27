@@ -1,6 +1,7 @@
-package routes
+package utils
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +10,15 @@ import (
 	"github.com/anmol7470/bubbles/backend/models"
 )
 
-func getUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+func NullableString(value sql.NullString) *string {
+	if value.Valid {
+		v := value.String
+		return &v
+	}
+	return nil
+}
+
+func GetUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 	userIDValue, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
@@ -21,7 +30,7 @@ func getUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
 	return userIDValue.(uuid.UUID), true
 }
 
-func parseChatIDParam(c *gin.Context) (uuid.UUID, bool) {
+func ParseChatIDParam(c *gin.Context) (uuid.UUID, bool) {
 	chatIDStr := c.Param("id")
 	chatID, err := uuid.Parse(chatIDStr)
 	if err != nil {

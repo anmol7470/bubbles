@@ -11,6 +11,7 @@ import (
 
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/anmol7470/bubbles/backend/models"
+	"github.com/anmol7470/bubbles/backend/utils"
 )
 
 type UserHandler struct {
@@ -79,7 +80,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 			ID:              user.ID,
 			Username:        user.Username,
 			Email:           user.Email,
-			ProfileImageURL: nullableString(user.ProfileImageUrl),
+			ProfileImageURL: utils.NullableString(user.ProfileImageUrl),
 			CreatedAt:       user.CreatedAt,
 		},
 	})
