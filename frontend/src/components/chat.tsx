@@ -213,6 +213,7 @@ export function Chat({ chatId }: ChatProps) {
           chatId={chatId}
           isGroupChat={chat.is_group}
           currentUserId={user.id}
+          members={chat.members}
           typingUsers={typingUsers}
           onReplySelect={handleReplySelect}
         />

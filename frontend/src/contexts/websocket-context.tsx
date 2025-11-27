@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
 
-type EventType = 'message_sent' | 'message_edited' | 'message_deleted' | 'typing_start' | 'typing_stop'
+type EventType = 'message_sent' | 'message_edited' | 'message_deleted' | 'message_read' | 'typing_start' | 'typing_stop'
 
 type WSMessage = {
   type: EventType

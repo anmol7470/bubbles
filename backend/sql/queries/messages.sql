@@ -108,3 +108,19 @@ SELECT i.url
 FROM images i
 INNER JOIN messages m ON i.message_id = m.id
 WHERE m.chat_id = $1;
+
+-- name: UpsertChatReadReceipt :exec
+INSERT INTO chat_read_receipts (chat_id, user_id, last_read_message_id, last_read_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (chat_id, user_id) DO UPDATE
+SET
+    last_read_message_id = CASE
+        WHEN chat_read_receipts.last_read_at <= excluded.last_read_at THEN excluded.last_read_message_id
+        ELSE chat_read_receipts.last_read_message_id
+    END,
+    last_read_at = GREATEST(chat_read_receipts.last_read_at, excluded.last_read_at);
+
+-- name: GetChatReadReceipts :many
+SELECT chat_id, user_id, last_read_message_id, last_read_at
+FROM chat_read_receipts
+WHERE chat_id = $1;

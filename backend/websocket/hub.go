@@ -154,3 +154,60 @@ func (h *Hub) BroadcastTyping(chatID string, eventType EventType, payload Typing
 
 	h.BroadcastToChat(chatID, message)
 }
+
+func (h *Hub) HandleReadReceipt(userID, chatID, messageID string) {
+	if !h.ValidateMembership(userID, chatID) {
+		log.Printf("Unauthorized read receipt attempt: user_id=%s, chat_id=%s", userID, chatID)
+		return
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		log.Printf("Invalid user ID for read receipt: %s", userID)
+		return
+	}
+
+	chatUUID, err := uuid.Parse(chatID)
+	if err != nil {
+		log.Printf("Invalid chat ID for read receipt: %s", chatID)
+		return
+	}
+
+	messageUUID, err := uuid.Parse(messageID)
+	if err != nil {
+		log.Printf("Invalid message ID for read receipt: %s", messageID)
+		return
+	}
+
+	message, err := h.dbService.Queries.GetMessageById(context.Background(), messageUUID)
+	if err != nil {
+		log.Printf("Failed to fetch message for read receipt: %v", err)
+		return
+	}
+
+	if message.ChatID != chatUUID {
+		log.Printf("Read receipt message chat mismatch: chat_id=%s, message_chat_id=%s", chatID, message.ChatID)
+		return
+	}
+
+	err = h.dbService.Queries.UpsertChatReadReceipt(context.Background(), database.UpsertChatReadReceiptParams{
+		ChatID:            chatUUID,
+		UserID:            userUUID,
+		LastReadMessageID: messageUUID,
+		LastReadAt:        message.CreatedAt,
+	})
+	if err != nil {
+		log.Printf("Failed to upsert read receipt: %v", err)
+		return
+	}
+
+	h.BroadcastToChat(chatID, WSMessage{
+		Type: EventMessageRead,
+		Payload: MessageReadPayload{
+			ChatID:            chatID,
+			UserID:            userID,
+			LastReadMessageID: messageID,
+			LastReadAt:        message.CreatedAt,
+		},
+	})
+}

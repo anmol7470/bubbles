@@ -27,6 +27,7 @@ type Querier interface {
 	GetChatImageUrls(ctx context.Context, chatID uuid.UUID) ([]string, error)
 	GetChatMember(ctx context.Context, arg GetChatMemberParams) (ChatMember, error)
 	GetChatMetadata(ctx context.Context, id uuid.UUID) (GetChatMetadataRow, error)
+	GetChatReadReceipts(ctx context.Context, chatID uuid.UUID) ([]ChatReadReceipt, error)
 	GetChatsWithMembers(ctx context.Context, userID uuid.UUID) ([]GetChatsWithMembersRow, error)
 	GetLastMessageImages(ctx context.Context, dollar_1 []uuid.UUID) ([]GetLastMessageImagesRow, error)
 	GetMessageById(ctx context.Context, id uuid.UUID) (GetMessageByIdRow, error)
@@ -45,6 +46,7 @@ type Querier interface {
 	UpdateChatName(ctx context.Context, arg UpdateChatNameParams) error
 	UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpsertChatReadReceipt(ctx context.Context, arg UpsertChatReadReceiptParams) error
 }
 
 var _ Querier = (*Queries)(nil)

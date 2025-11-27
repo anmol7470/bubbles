@@ -218,13 +218,14 @@ func (h *ChatHandler) GetUserChats(c *gin.Context) {
 			}
 
 			chatInfo := &models.ChatInfo{
-				ID:        row.ChatID,
-				Name:      name,
-				IsGroup:   row.IsGroup,
-				CreatorID: row.CreatedBy,
-				Members:   []models.ChatMember{},
-				CreatedAt: row.ChatCreatedAt,
-				UpdatedAt: row.ChatUpdatedAt,
+				ID:          row.ChatID,
+				Name:        name,
+				IsGroup:     row.IsGroup,
+				CreatorID:   row.CreatedBy,
+				Members:     []models.ChatMember{},
+				UnreadCount: int32(row.UnreadCount),
+				CreatedAt:   row.ChatCreatedAt,
+				UpdatedAt:   row.ChatUpdatedAt,
 			}
 
 			// Add last message if exists (check if ID is not zero UUID)

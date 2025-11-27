@@ -8,6 +8,7 @@ const (
 	EventMessageSent    EventType = "message_sent"
 	EventMessageEdited  EventType = "message_edited"
 	EventMessageDeleted EventType = "message_deleted"
+	EventMessageRead    EventType = "message_read"
 	EventTypingStart    EventType = "typing_start"
 	EventTypingStop     EventType = "typing_stop"
 	EventJoinChat       EventType = "join_chat"
@@ -47,6 +48,13 @@ type MessageDeletedPayload struct {
 	IsDeleted bool   `json:"is_deleted"`
 }
 
+type MessageReadPayload struct {
+	ChatID            string    `json:"chat_id"`
+	UserID            string    `json:"user_id"`
+	LastReadMessageID string    `json:"last_read_message_id"`
+	LastReadAt        time.Time `json:"last_read_at"`
+}
+
 type ReplyMessage struct {
 	ID             string   `json:"id"`
 	SenderID       string   `json:"sender_id"`
@@ -78,5 +86,6 @@ type ClientMessage struct {
 		UserID          string  `json:"user_id,omitempty"`
 		Username        string  `json:"username,omitempty"`
 		ProfileImageURL *string `json:"profile_image_url,omitempty"`
+		MessageID       string  `json:"message_id,omitempty"`
 	} `json:"payload"`
 }

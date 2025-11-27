@@ -49,8 +49,8 @@ ORDER BY u.username ASC;
 -- name: GetChatsWithMembers :many
 WITH user_chats AS (
     SELECT
-        c.id,
-        c.name,
+        c.id as chat_id,
+        c.name as chat_name,
         c.is_group,
         c.created_by,
         c.created_at,
@@ -64,6 +64,7 @@ WITH user_chats AS (
         lm.created_at as msg_created_at,
         sender.username as msg_sender_username,
         sender.profile_image_url as msg_sender_profile_image_url,
+        COALESCE(unread_counts.unread_count, 0) as unread_count,
         ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY COALESCE(lm.created_at, c.created_at) DESC) as rn
     FROM chats c
     INNER JOIN chat_members cm_user ON c.id = cm_user.chat_id AND cm_user.user_id = $1
@@ -76,10 +77,22 @@ WITH user_chats AS (
         LIMIT 1
     ) lm ON true
     LEFT JOIN users sender ON lm.sender_id = sender.id
+    LEFT JOIN chat_read_receipts cr ON cr.chat_id = c.id AND cr.user_id = $1
+    LEFT JOIN LATERAL (
+        SELECT COUNT(*) as unread_count
+        FROM messages m
+        WHERE m.chat_id = c.id
+          AND m.sender_id <> $1
+          AND (
+            cr.last_read_at IS NULL
+            OR m.created_at > cr.last_read_at
+            OR (m.created_at = cr.last_read_at AND m.id <> cr.last_read_message_id)
+          )
+    ) unread_counts ON true
 )
 SELECT
-    uc.id as chat_id,
-    uc.name as chat_name,
+    uc.chat_id,
+    uc.chat_name,
     uc.is_group,
     uc.created_by,
     uc.created_at as chat_created_at,
@@ -94,9 +107,10 @@ SELECT
     COALESCE(uc.msg_is_deleted, false) as last_message_is_deleted,
     COALESCE(uc.msg_created_at, uc.created_at) as last_message_created_at,
     uc.msg_sender_username as last_message_sender_username,
-    uc.msg_sender_profile_image_url as last_message_sender_profile_image_url
+    uc.msg_sender_profile_image_url as last_message_sender_profile_image_url,
+    uc.unread_count
 FROM user_chats uc
-INNER JOIN chat_members cm ON uc.id = cm.chat_id
+INNER JOIN chat_members cm ON uc.chat_id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
 WHERE uc.rn = 1
   AND (uc.user_deleted_at IS NULL OR COALESCE(uc.msg_created_at, uc.created_at) > uc.user_deleted_at)

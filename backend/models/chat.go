@@ -56,6 +56,7 @@ type ChatInfo struct {
 	IsGroup     bool         `json:"is_group"`
 	CreatorID   uuid.UUID    `json:"creator_id"`
 	Members     []ChatMember `json:"members"`
+	UnreadCount int32        `json:"unread_count"`
 	LastMessage *LastMessage `json:"last_message,omitempty"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
@@ -76,6 +77,12 @@ type Message struct {
 	Images                []string        `json:"images"`
 	CreatedAt             time.Time       `json:"created_at"`
 	ReplyTo               *ReplyToMessage `json:"reply_to,omitempty"`
+}
+
+type ChatReadReceipt struct {
+	UserID            uuid.UUID `json:"user_id"`
+	LastReadMessageID uuid.UUID `json:"last_read_message_id"`
+	LastReadAt        time.Time `json:"last_read_at"`
 }
 
 type ReplyToMessage struct {
@@ -108,8 +115,9 @@ type GetChatMessagesRequest struct {
 }
 
 type GetChatMessagesResponse struct {
-	Items      []Message `json:"items"`
-	NextCursor *struct {
+	Items        []Message         `json:"items"`
+	ReadReceipts []ChatReadReceipt `json:"read_receipts"`
+	NextCursor   *struct {
 		SentAt time.Time `json:"sent_at"`
 		ID     uuid.UUID `json:"id"`
 	} `json:"next_cursor,omitempty"`

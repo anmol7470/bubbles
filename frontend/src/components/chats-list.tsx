@@ -63,7 +63,7 @@ export function ChatsList() {
   const logoutMutation = useServerFn(logoutFn)
   const getUserChatsQuery = useServerFn(getUserChatsFn)
 
-  useChatListWebSocket()
+  useChatListWebSocket(user?.id)
 
   const logout = useMutation({
     mutationFn: async () => {
@@ -256,6 +256,8 @@ export function ChatsList() {
               : filteredChats.map((chat) => {
                   const otherParticipant = getOtherParticipant(chat)
                   const displayName = getChatDisplayName(chat)
+                  const hasUnread = chat.unread_count > 0
+                  const timestamp = formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))
 
                   return (
                     <ChatActions
@@ -288,13 +290,23 @@ export function ChatsList() {
                             />
                           )}
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
                               <div className="line-clamp-1 truncate font-medium">{displayName}</div>
-                              <div className="ml-2 shrink-0 text-xs text-muted-foreground">
-                                {formatDate(new Date(chat.last_message?.created_at ?? chat.updated_at))}
+                              <div className="ml-auto flex items-center gap-2">
+                                <div className="shrink-0 text-xs text-muted-foreground">{timestamp}</div>
+                                {hasUnread && (
+                                  <span className="inline-flex min-w-[1.75rem] justify-center rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                                    {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <div className="truncate text-sm text-muted-foreground">
+                            <div
+                              className={cn(
+                                'truncate text-sm',
+                                hasUnread ? 'font-semibold text-foreground' : 'text-muted-foreground'
+                              )}
+                            >
                               {displayLastMessage(chat, user.id)}
                             </div>
                           </div>

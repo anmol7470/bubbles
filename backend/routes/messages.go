@@ -207,9 +207,28 @@ func (h *MessageHandler) GetChatMessages(c *gin.Context) {
 		}
 	}
 
+	// Fetch read receipts for the chat
+	readReceiptsData, err := h.dbService.Queries.GetChatReadReceipts(c.Request.Context(), chatID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: "Failed to get read receipts",
+		})
+		return
+	}
+
+	readReceipts := make([]models.ChatReadReceipt, len(readReceiptsData))
+	for i, receipt := range readReceiptsData {
+		readReceipts[i] = models.ChatReadReceipt{
+			UserID:            receipt.UserID,
+			LastReadMessageID: receipt.LastReadMessageID,
+			LastReadAt:        receipt.LastReadAt,
+		}
+	}
+
 	// Build response
 	response := models.GetChatMessagesResponse{
-		Items: messages,
+		Items:        messages,
+		ReadReceipts: readReceipts,
 	}
 
 	if hasMore && len(messages) > 0 {

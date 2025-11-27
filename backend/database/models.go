@@ -29,6 +29,13 @@ type ChatMember struct {
 	DeletedAt sql.NullTime `json:"deleted_at"`
 }
 
+type ChatReadReceipt struct {
+	ChatID            uuid.UUID `json:"chat_id"`
+	UserID            uuid.UUID `json:"user_id"`
+	LastReadMessageID uuid.UUID `json:"last_read_message_id"`
+	LastReadAt        time.Time `json:"last_read_at"`
+}
+
 type Image struct {
 	ID        uuid.UUID `json:"id"`
 	MessageID uuid.UUID `json:"message_id"`

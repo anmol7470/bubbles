@@ -92,6 +92,13 @@ func (c *Client) ReadPump() {
 					ProfileImageURL: clientMsg.Payload.ProfileImageURL,
 				})
 			}
+
+		case EventMessageRead:
+			if clientMsg.Payload.MessageID == "" || clientMsg.Payload.ChatID == "" {
+				log.Printf("Invalid read receipt payload from user_id=%s", c.userID)
+				continue
+			}
+			go c.hub.HandleReadReceipt(c.userID, clientMsg.Payload.ChatID, clientMsg.Payload.MessageID)
 		}
 	}
 }

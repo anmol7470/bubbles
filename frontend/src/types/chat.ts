@@ -48,6 +48,7 @@ export type ChatInfo = {
   is_group: boolean
   creator_id: string
   members: ChatMember[]
+  unread_count: number
   last_message?: LastMessage
   created_at: string
   updated_at: string
@@ -68,6 +69,12 @@ export type Message = {
   images: string[]
   created_at: string
   reply_to?: ReplyToMessage
+}
+
+export type ChatReadReceipt = {
+  user_id: string
+  last_read_message_id: string
+  last_read_at: string
 }
 
 export type ReplyToMessage = {
@@ -101,6 +108,7 @@ export type GetChatMessagesRequest = {
 
 export type GetChatMessagesResponse = {
   items: Message[]
+  read_receipts: ChatReadReceipt[]
   next_cursor?: {
     sent_at: string
     id: string

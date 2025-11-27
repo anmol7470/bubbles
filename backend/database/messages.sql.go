@@ -146,6 +146,40 @@ func (q *Queries) GetChatImageUrls(ctx context.Context, chatID uuid.UUID) ([]str
 	return items, nil
 }
 
+const getChatReadReceipts = `-- name: GetChatReadReceipts :many
+SELECT chat_id, user_id, last_read_message_id, last_read_at
+FROM chat_read_receipts
+WHERE chat_id = $1
+`
+
+func (q *Queries) GetChatReadReceipts(ctx context.Context, chatID uuid.UUID) ([]ChatReadReceipt, error) {
+	rows, err := q.db.QueryContext(ctx, getChatReadReceipts, chatID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChatReadReceipt{}
+	for rows.Next() {
+		var i ChatReadReceipt
+		if err := rows.Scan(
+			&i.ChatID,
+			&i.UserID,
+			&i.LastReadMessageID,
+			&i.LastReadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMessageById = `-- name: GetMessageById :one
 SELECT
     m.id,
@@ -415,4 +449,33 @@ func (q *Queries) GetMessagesByChatPaginated(ctx context.Context, arg GetMessage
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertChatReadReceipt = `-- name: UpsertChatReadReceipt :exec
+INSERT INTO chat_read_receipts (chat_id, user_id, last_read_message_id, last_read_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (chat_id, user_id) DO UPDATE
+SET
+    last_read_message_id = CASE
+        WHEN chat_read_receipts.last_read_at <= excluded.last_read_at THEN excluded.last_read_message_id
+        ELSE chat_read_receipts.last_read_message_id
+    END,
+    last_read_at = GREATEST(chat_read_receipts.last_read_at, excluded.last_read_at)
+`
+
+type UpsertChatReadReceiptParams struct {
+	ChatID            uuid.UUID `json:"chat_id"`
+	UserID            uuid.UUID `json:"user_id"`
+	LastReadMessageID uuid.UUID `json:"last_read_message_id"`
+	LastReadAt        time.Time `json:"last_read_at"`
+}
+
+func (q *Queries) UpsertChatReadReceipt(ctx context.Context, arg UpsertChatReadReceiptParams) error {
+	_, err := q.db.ExecContext(ctx, upsertChatReadReceipt,
+		arg.ChatID,
+		arg.UserID,
+		arg.LastReadMessageID,
+		arg.LastReadAt,
+	)
+	return err
 }

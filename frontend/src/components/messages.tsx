@@ -1,13 +1,14 @@
+import { useWebSocket } from '@/contexts/websocket-context'
 import { useChatWebSocket } from '@/hooks/use-chat-websocket'
 import { useScroll } from '@/hooks/use-scroll'
 import type { TypingUser } from '@/hooks/use-typing-indicator'
 import { cn, formatDate } from '@/lib/utils'
 import { getChatMessagesFn } from '@/server/chat'
-import type { Message } from '@/types/chat'
+import type { ChatMember, ChatReadReceipt, Message } from '@/types/chat'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowDownIcon, Loader2Icon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { MessageContent } from './message-content'
 import { Button } from './ui/button'
@@ -18,13 +19,17 @@ type MessagesProps = {
   chatId: string
   isGroupChat: boolean
   currentUserId: string
+  members: ChatMember[]
   typingUsers: TypingUser[]
   onReplySelect: (message: Message) => void
 }
 
-export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onReplySelect }: MessagesProps) {
+type ReadReceiptState = 'read' | 'unread'
+
+export function Messages({ chatId, isGroupChat, currentUserId, members, typingUsers, onReplySelect }: MessagesProps) {
   const getChatMessagesQuery = useServerFn(getChatMessagesFn)
   const observerTarget = useRef<HTMLDivElement>(null)
+  const { send } = useWebSocket()
 
   useChatWebSocket(chatId)
 
@@ -90,6 +95,89 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
     return groups
   }, [messages])
 
+  const readReceipts = useMemo<ChatReadReceipt[]>(() => {
+    if (!data?.pages?.length) return []
+    return data.pages[0]?.read_receipts ?? []
+  }, [data?.pages])
+
+  const readReceiptsMap = useMemo(() => {
+    const receiptMap = new Map<string, ChatReadReceipt>()
+    readReceipts.forEach((receipt) => {
+      receiptMap.set(receipt.user_id, receipt)
+    })
+    return receiptMap
+  }, [readReceipts])
+
+  const messageOrderMap = useMemo(() => {
+    const map = new Map<string, number>()
+    messages.forEach((message, index) => {
+      map.set(message.id, index)
+    })
+    return map
+  }, [messages])
+
+  const otherMemberIds = useMemo(() => {
+    return members.filter((member) => member.id !== currentUserId).map((member) => member.id)
+  }, [members, currentUserId])
+
+  const { scrollToBottom, scrollAreaRef, isAtBottom } = useScroll(messages, typingUsers)
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const readObserverRef = useRef<IntersectionObserver | null>(null)
+  const latestAckedMessageIdRef = useRef<string | null>(null)
+  const latestAckedOrderRef = useRef(-1)
+
+  const sendReadReceipt = useCallback(
+    (messageId: string) => {
+      send('message_read', {
+        chat_id: chatId,
+        message_id: messageId,
+      })
+    },
+    [chatId, send]
+  )
+
+  const maybeMarkMessageRead = useCallback(
+    (messageId: string) => {
+      const candidateIndex = messageOrderMap.get(messageId)
+      if (candidateIndex === undefined) return
+      if (latestAckedMessageIdRef.current === messageId) return
+      if (candidateIndex <= latestAckedOrderRef.current) return
+
+      latestAckedMessageIdRef.current = messageId
+      latestAckedOrderRef.current = candidateIndex
+      sendReadReceipt(messageId)
+    },
+    [messageOrderMap, sendReadReceipt]
+  )
+
+  const getReceiptState = useCallback(
+    (message: Message): ReadReceiptState | undefined => {
+      if (message.sender_id !== currentUserId) return undefined
+      if (otherMemberIds.length === 0) return undefined
+
+      const messageTimestamp = new Date(message.created_at).getTime()
+      const isRead = otherMemberIds.every((memberId) => {
+        const receipt = readReceiptsMap.get(memberId)
+        if (!receipt) return false
+
+        const lastReadTimestamp = new Date(receipt.last_read_at).getTime()
+        if (lastReadTimestamp > messageTimestamp) return true
+        if (lastReadTimestamp === messageTimestamp) {
+          return receipt.last_read_message_id === message.id
+        }
+        return false
+      })
+
+      return isRead ? 'read' : 'unread'
+    },
+    [currentUserId, otherMemberIds, readReceiptsMap]
+  )
+
+  useEffect(() => {
+    latestAckedMessageIdRef.current = null
+    latestAckedOrderRef.current = -1
+  }, [chatId])
+
   // Intersection observer for infinite scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -108,8 +196,46 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const { scrollToBottom, scrollAreaRef, isAtBottom } = useScroll(messages, typingUsers)
-  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!viewport) return
+
+    if (readObserverRef.current) {
+      readObserverRef.current.disconnect()
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          const target = entry.target as HTMLElement
+          const messageId = target.dataset.messageId
+          if (messageId) {
+            maybeMarkMessageRead(messageId)
+          }
+        })
+      },
+      { root: viewport, threshold: 0.75 }
+    )
+
+    readObserverRef.current = observer
+
+    Object.values(messageRefs.current).forEach((node) => {
+      if (node) {
+        observer.observe(node)
+      }
+    })
+
+    return () => observer.disconnect()
+  }, [messages, maybeMarkMessageRead, scrollAreaRef])
+
+  useEffect(() => {
+    if (!isAtBottom) return
+    const latestMessage = messages[messages.length - 1]
+    if (latestMessage) {
+      maybeMarkMessageRead(latestMessage.id)
+    }
+  }, [isAtBottom, messages, maybeMarkMessageRead])
 
   const handleReplyJump = (messageId: string) => {
     const targetRef = messageRefs.current[messageId]
@@ -216,13 +342,19 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
                 const showHeader = shouldShowHeader(index)
                 const isChained = isChainedWithPrevious(index)
                 const marginTopClass = itemIndex === 0 ? 'mt-2' : isChained ? 'mt-1' : 'mt-3'
+                const receiptState = getReceiptState(m)
 
                 return (
                   <div
                     key={m.id}
                     className={marginTopClass}
+                    data-message-id={m.id}
                     ref={(node) => {
-                      messageRefs.current[m.id] = node
+                      if (node) {
+                        messageRefs.current[m.id] = node
+                      } else {
+                        delete messageRefs.current[m.id]
+                      }
                     }}
                   >
                     <div className={cn('flex w-full', isOwn ? 'justify-end' : 'justify-start')}>
@@ -231,6 +363,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
                           <MessageContent
                             message={m}
                             isOwn={true}
+                            readReceiptState={receiptState}
                             onReply={onReplySelect}
                             onReplyJump={handleReplyJump}
                             isHighlighted={highlightedMessageId === m.id}
@@ -261,6 +394,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, typingUsers, onRe
                               <MessageContent
                                 message={m}
                                 isOwn={false}
+                                readReceiptState={receiptState}
                                 onReply={onReplySelect}
                                 onReplyJump={handleReplyJump}
                                 isHighlighted={highlightedMessageId === m.id}

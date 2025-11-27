@@ -14,12 +14,14 @@ import { useCopyToClipboard } from 'usehooks-ts'
 export function MessageContent({
   message,
   isOwn,
+  readReceiptState,
   onReply,
   onReplyJump,
   isHighlighted,
 }: {
   message: Message
   isOwn: boolean
+  readReceiptState?: 'read' | 'unread'
   onReply: (message: Message) => void
   onReplyJump?: (messageId: string) => void
   isHighlighted?: boolean
@@ -101,14 +103,20 @@ export function MessageContent({
     isOwn ? 'text-primary-foreground/80' : 'text-muted-foreground'
   )
 
+  const effectiveReceiptState = isOwn ? readReceiptState : undefined
+
   const renderMetadata = ({
     inline = false,
     showEdited = true,
     tone = 'default',
-  }: { inline?: boolean; showEdited?: boolean; tone?: 'default' | 'muted' } = {}) => (
+    readState,
+  }: { inline?: boolean; showEdited?: boolean; tone?: 'default' | 'muted'; readState?: 'read' | 'unread' } = {}) => (
     <div className={cn(metadataClasses, inline && 'ml-2 shrink-0', tone === 'muted' && 'text-muted-foreground')}>
       {showEdited && message.is_edited && <span className="font-semibold">Edited</span>}
       <time dateTime={message.created_at}>{timestampLabel}</time>
+      {readState && (
+        <CheckIcon className={cn('size-3', readState === 'read' ? 'text-sky-500' : undefined)} aria-hidden />
+      )}
     </div>
   )
 
@@ -170,7 +178,7 @@ export function MessageContent({
           <TrashIcon className="size-4 shrink-0" />
           <span>{isOwn ? 'You deleted this message' : 'This message was deleted'}</span>
         </div>
-        {renderMetadata({ showEdited: false, tone: 'muted' })}
+        {renderMetadata({ showEdited: false, tone: 'muted', readState: effectiveReceiptState })}
       </div>
     )
   }
@@ -265,12 +273,12 @@ export function MessageContent({
                   {message.content}
                 </Linkify>
               </div>
-              {canInlineMetadata && renderMetadata({ inline: true })}
+              {canInlineMetadata && renderMetadata({ inline: true, readState: effectiveReceiptState })}
             </div>
           )}
         </div>
       )}
-      {!canInlineMetadata && renderMetadata()}
+      {!canInlineMetadata && renderMetadata({ readState: effectiveReceiptState })}
     </div>
   )
 
