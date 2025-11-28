@@ -43,7 +43,6 @@ A real-time chat application with support for direct messages and group chats, b
 ### Prerequisites
 
 - [Node.js](https://nodejs.org)
-- [Bun](https://bun.sh) or any other package manager like npm, yarn, pnpm
 - [Go](https://go.dev)
 - [Docker](https://www.docker.com)
 
@@ -59,7 +58,7 @@ A real-time chat application with support for direct messages and group chats, b
 2. **Install dependencies**
 
    ```bash
-   bun install
+   npm install
    ```
 
 3. **Set up environment variables**
@@ -96,7 +95,7 @@ A real-time chat application with support for direct messages and group chats, b
 
    ```bash
    cd ../ # go back to root directory
-   bun run dev
+   npm run dev
    ```
 
 This uses [mprocs](https://github.com/pvolok/mprocs) to run both frontend (port 3000) and backend (port 8080) concurrently.
