@@ -1,21 +1,26 @@
 .PHONY: help build run dev test sqlc-gen migrate-up migrate-down migrate-status docker-up docker-down docker-logs docker-reset install-tools tidy
 
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
+
 help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
-docker-up: ## Start PostgreSQL database in Docker
+docker-up: ## Start PostgreSQL and Redis database in Docker
 	docker compose up -d
 
-docker-down: ## Stop PostgreSQL database
+docker-down: ## Stop PostgreSQL and Redis database
 	docker compose down
 
-docker-logs: ## View PostgreSQL logs
-	docker compose logs -f postgres
+docker-logs: ## View PostgreSQL and Redis logs
+	docker compose logs -f postgres redis
 
-docker-reset: ## Reset database (removes all data)
+docker-reset: ## Reset databases (removes all data)
 	docker compose down -v
 	docker compose up -d
 

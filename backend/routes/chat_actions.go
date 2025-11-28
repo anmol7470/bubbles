@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -115,9 +114,8 @@ func (h *ChatActionsHandler) DeleteChat(c *gin.Context) {
 		}
 
 		if err := h.dbService.Queries.UpdateChatMemberDeletedAt(c.Request.Context(), database.UpdateChatMemberDeletedAtParams{
-			ChatID:    chatID,
-			UserID:    userID,
-			DeletedAt: sql.NullTime{Time: time.Now(), Valid: true},
+			ChatID: chatID,
+			UserID: userID,
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 				Error: "Failed to delete chat",

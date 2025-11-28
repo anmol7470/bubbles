@@ -4,7 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
 
-type EventType = 'message_sent' | 'message_edited' | 'message_deleted' | 'message_read' | 'typing_start' | 'typing_stop'
+type EventType =
+  | 'message_sent'
+  | 'message_edited'
+  | 'message_deleted'
+  | 'message_read'
+  | 'typing_start'
+  | 'typing_stop'
+  | 'join_chat'
+  | 'leave_chat'
 
 type WSMessage = {
   type: EventType
@@ -16,6 +24,7 @@ type EventHandler = (payload: any) => void
 type WebSocketContextType = {
   send: (type: EventType, payload: any) => void
   on: (type: EventType, handler: EventHandler) => () => void
+  joinChat: (chatId: string) => void
   isConnected: boolean
 }
 
@@ -28,7 +37,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const eventHandlersRef = useRef<Map<EventType, Set<EventHandler>>>(new Map())
   const shouldReconnectRef = useRef(true)
   const isConnectedRef = useRef(false)
-  const pendingMessagesRef = useRef<Array<{ type: string; payload: any }>>([])
+  const pendingMessagesRef = useRef<Array<{ type: string; payload: any; timestamp?: number }>>([])
   const joinedChatsRef = useRef<Set<string>>(new Set())
 
   const queryClient = useQueryClient()
@@ -76,13 +85,21 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         })
       }
 
-      // Send any pending messages
-      while (pendingMessagesRef.current.length > 0) {
-        const msg = pendingMessagesRef.current.shift()
-        if (msg) {
-          ws.send(JSON.stringify(msg))
+      // Send any pending messages, filtering out stale read receipts
+      const MAX_READ_RECEIPT_AGE = 60000 // 1 minute
+      const now = Date.now()
+      const messagesToSend = pendingMessagesRef.current.filter((msg) => {
+        if (msg.type === 'message_read') {
+          return now - (msg.timestamp || 0) < MAX_READ_RECEIPT_AGE
         }
-      }
+        return true
+      })
+
+      pendingMessagesRef.current = []
+      messagesToSend.forEach((msg) => {
+        const { timestamp, ...msgWithoutTimestamp } = msg
+        ws.send(JSON.stringify(msgWithoutTimestamp))
+      })
     }
 
     ws.onmessage = (event) => {
@@ -140,7 +157,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type, payload }))
     } else {
-      pendingMessagesRef.current.push({ type, payload })
+      const MAX_PENDING = 50
+      pendingMessagesRef.current.push({ type, payload, timestamp: Date.now() })
+      if (pendingMessagesRef.current.length > MAX_PENDING) {
+        pendingMessagesRef.current = pendingMessagesRef.current.slice(-MAX_PENDING)
+      }
     }
   }, [])
 
@@ -161,6 +182,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const joinChat = useCallback(
+    (chatId: string) => {
+      joinedChatsRef.current.add(chatId)
+      send('join_chat', { chat_id: chatId })
+    },
+    [send]
+  )
+
   useEffect(() => {
     shouldReconnectRef.current = true
     connect()
@@ -173,6 +202,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const value: WebSocketContextType = {
     send,
     on,
+    joinChat,
     isConnected: isConnectedRef.current,
   }
 

@@ -82,10 +82,11 @@ type LeaveChatPayload struct {
 type ClientMessage struct {
 	Type    EventType `json:"type"`
 	Payload struct {
-		ChatID          string  `json:"chat_id"`
-		UserID          string  `json:"user_id,omitempty"`
-		Username        string  `json:"username,omitempty"`
-		ProfileImageURL *string `json:"profile_image_url,omitempty"`
-		MessageID       string  `json:"message_id,omitempty"`
+		ChatID           string     `json:"chat_id"`
+		UserID           string     `json:"user_id,omitempty"`
+		Username         string     `json:"username,omitempty"`
+		ProfileImageURL  *string    `json:"profile_image_url,omitempty"`
+		MessageID        string     `json:"message_id,omitempty"`
+		MessageCreatedAt *time.Time `json:"message_created_at,omitempty"`
 	} `json:"payload"`
 }

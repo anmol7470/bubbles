@@ -10,6 +10,7 @@ import {
 } from '@/server/chat'
 import type { ChatInfo, ChatMember, ChatUser } from '@/types/chat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { EraserIcon, LogOutIcon, PencilIcon, ShieldIcon, Trash2Icon, UserMinusIcon, UserPlusIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -49,6 +50,7 @@ type ChatActionsProps = {
 }
 
 export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, children }: ChatActionsProps) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [confirmAction, setConfirmAction] = useState<ConfirmableAction>(null)
   const [isRenameOpen, setIsRenameOpen] = useState(false)
@@ -110,29 +112,18 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
     },
   })
 
-  const invalidateChatData = () => {
-    queryClient.invalidateQueries({ queryKey: ['chats'] })
-    queryClient.invalidateQueries({ queryKey: ['chat', chat.id] })
+  const invalidateChatData = async (options?: { removeChat?: boolean }) => {
+    await queryClient.invalidateQueries({ queryKey: ['chats'] })
+    if (options?.removeChat) {
+      queryClient.removeQueries({ queryKey: ['chat', chat.id] })
+      queryClient.removeQueries({ queryKey: ['messages', chat.id] })
+      return
+    }
+    await queryClient.invalidateQueries({ queryKey: ['chat', chat.id] })
   }
 
   const clearMessagesCache = () => {
     queryClient.invalidateQueries({ queryKey: ['messages', chat.id] })
-  }
-
-  const handleLocalRemoval = () => {
-    queryClient.setQueryData<ChatInfo[]>(['chats'], (oldChats) => {
-      if (!oldChats) return oldChats
-      return oldChats.filter((existingChat) => existingChat.id !== chat.id)
-    })
-  }
-
-  const handlePostRemoval = () => {
-    handleLocalRemoval()
-    queryClient.removeQueries({ queryKey: ['messages', chat.id] })
-    invalidateChatData()
-    if (isActive) {
-      onChatRemoved?.()
-    }
   }
 
   const clearChatMutation = useMutation({
@@ -143,10 +134,10 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return result
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Chat cleared')
       clearMessagesCache()
-      invalidateChatData()
+      await invalidateChatData()
       setConfirmAction(null)
     },
     onError: (error) => {
@@ -162,11 +153,15 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return result.data as { fully_deleted?: boolean }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const fullyDeleted = data?.fully_deleted ?? false
       toast.success(fullyDeleted ? 'Chat permanently deleted' : 'Chat removed')
       setConfirmAction(null)
-      handlePostRemoval()
+      await invalidateChatData({ removeChat: fullyDeleted })
+      if (isActive) {
+        void navigate({ to: '/chats' })
+        onChatRemoved?.()
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to delete chat')
@@ -181,10 +176,14 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return result
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('You left the chat')
       setConfirmAction(null)
-      handlePostRemoval()
+      await invalidateChatData({ removeChat: true })
+      if (isActive) {
+        void navigate({ to: '/chats' })
+        onChatRemoved?.()
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to leave chat')
@@ -204,9 +203,9 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return result
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Chat renamed')
-      invalidateChatData()
+      await invalidateChatData()
       setIsRenameOpen(false)
     },
     onError: (error) => {
@@ -227,10 +226,10 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return user
     },
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
       toast.success(`${user.username} added`)
       setMembers((prev) => [...prev, { id: user.id, username: user.username, email: user.email }])
-      invalidateChatData()
+      await invalidateChatData()
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to add member')
@@ -250,10 +249,10 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return member
     },
-    onSuccess: (member) => {
+    onSuccess: async (member) => {
       toast.success(`${member.username} removed`)
       setMembers((prev) => prev.filter((existing) => existing.id !== member.id))
-      invalidateChatData()
+      await invalidateChatData()
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to remove member')
@@ -273,10 +272,10 @@ export function ChatActions({ chat, currentUserId, isActive, onChatRemoved, chil
       }
       return member
     },
-    onSuccess: (member) => {
+    onSuccess: async (member) => {
       toast.success(`${member.username} is now the admin`)
       setIsChangeAdminOpen(false)
-      invalidateChatData()
+      await invalidateChatData()
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to change admin')

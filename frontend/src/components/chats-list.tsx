@@ -63,7 +63,7 @@ export function ChatsList() {
   const logoutMutation = useServerFn(logoutFn)
   const getUserChatsQuery = useServerFn(getUserChatsFn)
 
-  useChatListWebSocket(user?.id)
+  useChatListWebSocket(user?.id, chatId ?? undefined)
 
   const logout = useMutation({
     mutationFn: async () => {
@@ -295,7 +295,7 @@ export function ChatsList() {
                               <div className="ml-auto flex items-center gap-2">
                                 <div className="shrink-0 text-xs text-muted-foreground">{timestamp}</div>
                                 {hasUnread && (
-                                  <span className="inline-flex min-w-[1.75rem] justify-center rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
                                     {chat.unread_count > 99 ? '99+' : chat.unread_count}
                                   </span>
                                 )}

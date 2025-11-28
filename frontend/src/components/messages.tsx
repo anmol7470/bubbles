@@ -4,8 +4,8 @@ import { useScroll } from '@/hooks/use-scroll'
 import type { TypingUser } from '@/hooks/use-typing-indicator'
 import { cn, formatDate } from '@/lib/utils'
 import { getChatMessagesFn } from '@/server/chat'
-import type { ChatMember, ChatReadReceipt, Message } from '@/types/chat'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import type { ChatInfo, ChatMember, ChatReadReceipt, Message } from '@/types/chat'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { ArrowDownIcon, Loader2Icon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -30,6 +30,7 @@ export function Messages({ chatId, isGroupChat, currentUserId, members, typingUs
   const getChatMessagesQuery = useServerFn(getChatMessagesFn)
   const observerTarget = useRef<HTMLDivElement>(null)
   const { send } = useWebSocket()
+  const queryClient = useQueryClient()
 
   useChatWebSocket(chatId)
 
@@ -127,13 +128,28 @@ export function Messages({ chatId, isGroupChat, currentUserId, members, typingUs
   const latestAckedOrderRef = useRef(-1)
 
   const sendReadReceipt = useCallback(
-    (messageId: string) => {
+    (messageId: string, messageCreatedAt: string) => {
       send('message_read', {
         chat_id: chatId,
         message_id: messageId,
+        message_created_at: messageCreatedAt,
+      })
+
+      // Optimistically reset unread count in chat list
+      queryClient.setQueryData<ChatInfo[]>(['chats'], (oldChats) => {
+        if (!oldChats) return oldChats
+
+        return oldChats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                unread_count: 0,
+              }
+            : chat
+        )
       })
     },
-    [chatId, send]
+    [chatId, send, queryClient]
   )
 
   const maybeMarkMessageRead = useCallback(
@@ -143,11 +159,14 @@ export function Messages({ chatId, isGroupChat, currentUserId, members, typingUs
       if (latestAckedMessageIdRef.current === messageId) return
       if (candidateIndex <= latestAckedOrderRef.current) return
 
+      const message = messages[candidateIndex]
+      if (!message) return
+
       latestAckedMessageIdRef.current = messageId
       latestAckedOrderRef.current = candidateIndex
-      sendReadReceipt(messageId)
+      sendReadReceipt(messageId, message.created_at)
     },
-    [messageOrderMap, sendReadReceipt]
+    [messageOrderMap, messages, sendReadReceipt]
   )
 
   const getReceiptState = useCallback(

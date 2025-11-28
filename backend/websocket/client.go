@@ -94,11 +94,20 @@ func (c *Client) ReadPump() {
 			}
 
 		case EventMessageRead:
-			if clientMsg.Payload.MessageID == "" || clientMsg.Payload.ChatID == "" {
+			if clientMsg.Payload.MessageID == "" || clientMsg.Payload.ChatID == "" || clientMsg.Payload.MessageCreatedAt == nil {
 				log.Printf("Invalid read receipt payload from user_id=%s", c.userID)
 				continue
 			}
-			go c.hub.HandleReadReceipt(c.userID, clientMsg.Payload.ChatID, clientMsg.Payload.MessageID)
+
+			select {
+			case c.hub.readReceiptSem <- struct{}{}:
+				go func(uid, cid, mid string, createdAt time.Time) {
+					defer func() { <-c.hub.readReceiptSem }()
+					c.hub.HandleReadReceipt(uid, cid, mid, createdAt)
+				}(c.userID, clientMsg.Payload.ChatID, clientMsg.Payload.MessageID, *clientMsg.Payload.MessageCreatedAt)
+			default:
+				log.Printf("Read receipt queue full, dropping receipt: user_id=%s, chat_id=%s", c.userID, clientMsg.Payload.ChatID)
+			}
 		}
 	}
 }

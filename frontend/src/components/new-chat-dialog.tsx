@@ -1,3 +1,4 @@
+import { useWebSocket } from '@/contexts/websocket-context'
 import { createChatFn, searchUsersFn } from '@/server/chat'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
@@ -15,6 +16,7 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { user } = useRouteContext({ from: '__root__' })
+  const { joinChat } = useWebSocket()
   const searchUsersQuery = useServerFn(searchUsersFn)
   const createChatMutation = useServerFn(createChatFn)
 
@@ -70,6 +72,10 @@ export function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         }
 
         queryClient.invalidateQueries({ queryKey: ['chats'] })
+
+        // Join the chat via WebSocket (works for both new and existing chats)
+        joinChat(result.data.chat_id)
+
         navigate({ to: `/chats/${result.data.chat_id}` })
 
         setSelectedUsers([])

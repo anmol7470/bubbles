@@ -5,29 +5,32 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/anmol7470/bubbles/backend/database"
 	"github.com/google/uuid"
 )
 
 type Hub struct {
-	Clients    map[*Client]bool
-	Broadcast  chan []byte
-	Register   chan *Client
-	Unregister chan *Client
-	ChatRooms  map[string]map[*Client]bool
-	dbService  *database.Service
-	mu         sync.RWMutex
+	Clients        map[*Client]bool
+	Broadcast      chan []byte
+	Register       chan *Client
+	Unregister     chan *Client
+	ChatRooms      map[string]map[*Client]bool
+	dbService      *database.Service
+	mu             sync.RWMutex
+	readReceiptSem chan struct{}
 }
 
 func NewHub(dbService *database.Service) *Hub {
 	return &Hub{
-		Clients:    make(map[*Client]bool),
-		Broadcast:  make(chan []byte),
-		Register:   make(chan *Client),
-		Unregister: make(chan *Client),
-		ChatRooms:  make(map[string]map[*Client]bool),
-		dbService:  dbService,
+		Clients:        make(map[*Client]bool),
+		Broadcast:      make(chan []byte),
+		Register:       make(chan *Client),
+		Unregister:     make(chan *Client),
+		ChatRooms:      make(map[string]map[*Client]bool),
+		dbService:      dbService,
+		readReceiptSem: make(chan struct{}, 100),
 	}
 }
 
@@ -119,6 +122,10 @@ func (h *Hub) UnsubscribeFromChat(client *Client, chatID string) {
 }
 
 func (h *Hub) BroadcastToChat(chatID string, message WSMessage) {
+	h.BroadcastToChatExclude(chatID, message, "")
+}
+
+func (h *Hub) BroadcastToChatExclude(chatID string, message WSMessage, excludeUserID string) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -135,6 +142,9 @@ func (h *Hub) BroadcastToChat(chatID string, message WSMessage) {
 
 	sentCount := 0
 	for client := range clients {
+		if excludeUserID != "" && client.userID == excludeUserID {
+			continue
+		}
 		select {
 		case client.send <- data:
 			sentCount++
@@ -155,7 +165,7 @@ func (h *Hub) BroadcastTyping(chatID string, eventType EventType, payload Typing
 	h.BroadcastToChat(chatID, message)
 }
 
-func (h *Hub) HandleReadReceipt(userID, chatID, messageID string) {
+func (h *Hub) HandleReadReceipt(userID, chatID, messageID string, messageCreatedAt time.Time) {
 	if !h.ValidateMembership(userID, chatID) {
 		log.Printf("Unauthorized read receipt attempt: user_id=%s, chat_id=%s", userID, chatID)
 		return
@@ -179,35 +189,24 @@ func (h *Hub) HandleReadReceipt(userID, chatID, messageID string) {
 		return
 	}
 
-	message, err := h.dbService.Queries.GetMessageById(context.Background(), messageUUID)
-	if err != nil {
-		log.Printf("Failed to fetch message for read receipt: %v", err)
-		return
-	}
-
-	if message.ChatID != chatUUID {
-		log.Printf("Read receipt message chat mismatch: chat_id=%s, message_chat_id=%s", chatID, message.ChatID)
-		return
-	}
-
 	err = h.dbService.Queries.UpsertChatReadReceipt(context.Background(), database.UpsertChatReadReceiptParams{
 		ChatID:            chatUUID,
 		UserID:            userUUID,
 		LastReadMessageID: messageUUID,
-		LastReadAt:        message.CreatedAt,
+		LastReadAt:        messageCreatedAt,
 	})
 	if err != nil {
 		log.Printf("Failed to upsert read receipt: %v", err)
 		return
 	}
 
-	h.BroadcastToChat(chatID, WSMessage{
+	h.BroadcastToChatExclude(chatID, WSMessage{
 		Type: EventMessageRead,
 		Payload: MessageReadPayload{
 			ChatID:            chatID,
 			UserID:            userID,
 			LastReadMessageID: messageID,
-			LastReadAt:        message.CreatedAt,
+			LastReadAt:        messageCreatedAt,
 		},
-	})
+	}, userID)
 }

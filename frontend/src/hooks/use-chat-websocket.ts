@@ -163,45 +163,44 @@ export function useChatWebSocket(chatId?: string) {
       queryClient.setQueryData<{ pages: GetChatMessagesResponse[]; pageParams: any[] }>(
         ['messages', chatId],
         (oldData) => {
-          if (!oldData) return oldData
+          if (!oldData || !oldData.pages[0]) return oldData
 
-          const updatedPages = oldData.pages.map((page) => {
-            const existingReceipts = page.read_receipts ?? []
-            const receiptIndex = existingReceipts.findIndex((receipt) => receipt.user_id === payload.user_id)
-            const payloadTimestamp = new Date(payload.last_read_at).getTime()
+          const firstPage = oldData.pages[0]
+          const existingReceipts = firstPage.read_receipts ?? []
+          const receiptIndex = existingReceipts.findIndex((receipt) => receipt.user_id === payload.user_id)
+          const payloadTimestamp = new Date(payload.last_read_at).getTime()
 
-            if (receiptIndex === -1) {
-              return {
-                ...page,
-                read_receipts: [
-                  ...existingReceipts,
-                  {
-                    user_id: payload.user_id,
-                    last_read_message_id: payload.last_read_message_id,
-                    last_read_at: payload.last_read_at,
-                  } satisfies ChatReadReceipt,
-                ],
-              }
-            }
+          let updatedReceipts: ChatReadReceipt[]
 
+          if (receiptIndex === -1) {
+            updatedReceipts = [
+              ...existingReceipts,
+              {
+                user_id: payload.user_id,
+                last_read_message_id: payload.last_read_message_id,
+                last_read_at: payload.last_read_at,
+              } satisfies ChatReadReceipt,
+            ]
+          } else {
             const existing = existingReceipts[receiptIndex]
             const existingTimestamp = new Date(existing.last_read_at).getTime()
             if (existingTimestamp >= payloadTimestamp) {
-              return page
+              return oldData
             }
 
-            const updatedReceipts = [...existingReceipts]
+            updatedReceipts = [...existingReceipts]
             updatedReceipts[receiptIndex] = {
               user_id: payload.user_id,
               last_read_message_id: payload.last_read_message_id,
               last_read_at: payload.last_read_at,
             }
+          }
 
-            return {
-              ...page,
-              read_receipts: updatedReceipts,
-            }
-          })
+          const updatedPages = [...oldData.pages]
+          updatedPages[0] = {
+            ...firstPage,
+            read_receipts: updatedReceipts,
+          }
 
           return {
             ...oldData,
@@ -220,7 +219,7 @@ export function useChatWebSocket(chatId?: string) {
   }, [chatId, on, queryClient])
 }
 
-export function useChatListWebSocket(currentUserId?: string) {
+export function useChatListWebSocket(currentUserId?: string, currentlyViewedChatId?: string) {
   const queryClient = useQueryClient()
   const { on } = useWebSocket()
 
@@ -233,7 +232,9 @@ export function useChatListWebSocket(currentUserId?: string) {
         if (chatIndex === -1) return oldChats
 
         const existingChat = oldChats[chatIndex]
-        const shouldIncrementUnread = Boolean(currentUserId && payload.sender_id !== currentUserId)
+        const shouldIncrementUnread = Boolean(
+          currentUserId && payload.sender_id !== currentUserId && payload.chat_id !== currentlyViewedChatId
+        )
         const nextUnreadCount = shouldIncrementUnread
           ? (existingChat.unread_count ?? 0) + 1
           : (existingChat.unread_count ?? 0)
@@ -325,5 +326,5 @@ export function useChatListWebSocket(currentUserId?: string) {
       unsubscribeDeleted()
       unsubscribeRead()
     }
-  }, [currentUserId, on, queryClient])
+  }, [currentUserId, currentlyViewedChatId, on, queryClient])
 }

@@ -315,7 +315,7 @@ FROM user_chats uc
 INNER JOIN chat_members cm ON uc.chat_id = cm.chat_id
 INNER JOIN users u ON cm.user_id = u.id
 WHERE uc.rn = 1
-  AND (uc.user_deleted_at IS NULL OR COALESCE(uc.msg_created_at, uc.created_at) > uc.user_deleted_at)
+  AND (uc.user_deleted_at IS NULL OR (uc.msg_created_at IS NOT NULL AND uc.msg_created_at > uc.user_deleted_at))
 ORDER BY COALESCE(uc.msg_created_at, uc.created_at) DESC, u.username ASC
 `
 
@@ -518,18 +518,18 @@ func (q *Queries) UpdateChatMemberClearedAt(ctx context.Context, arg UpdateChatM
 
 const updateChatMemberDeletedAt = `-- name: UpdateChatMemberDeletedAt :exec
 UPDATE chat_members
-SET deleted_at = $3
+SET deleted_at = CURRENT_TIMESTAMP,
+    cleared_at = CURRENT_TIMESTAMP
 WHERE chat_id = $1 AND user_id = $2
 `
 
 type UpdateChatMemberDeletedAtParams struct {
-	ChatID    uuid.UUID    `json:"chat_id"`
-	UserID    uuid.UUID    `json:"user_id"`
-	DeletedAt sql.NullTime `json:"deleted_at"`
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UpdateChatMemberDeletedAt(ctx context.Context, arg UpdateChatMemberDeletedAtParams) error {
-	_, err := q.db.ExecContext(ctx, updateChatMemberDeletedAt, arg.ChatID, arg.UserID, arg.DeletedAt)
+	_, err := q.db.ExecContext(ctx, updateChatMemberDeletedAt, arg.ChatID, arg.UserID)
 	return err
 }
 
