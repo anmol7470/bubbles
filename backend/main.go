@@ -22,7 +22,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Warning: .env file not found")
+		log.Println("Warning: .env file not found, using environment variables")
 	}
 
 	// Initialize security logger

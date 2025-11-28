@@ -82,7 +82,7 @@ A real-time chat application with support for direct messages and group chats, b
 
    ```bash
    cd backend
-   docker-compose up -d
+   make docker-up
    ```
 
 5. **Run database migrations**
