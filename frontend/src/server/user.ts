@@ -1,9 +1,7 @@
-import type { ErrorResponse, User } from '@/types/auth'
-import { redirect } from '@tanstack/react-router'
+import type { User } from '@/types/auth'
 import { createServerFn } from '@tanstack/react-start'
 import { useAppSession } from './session'
-
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000'
+import { authenticatedFetch } from './utils'
 
 export type UpdateUserProfileInput = {
   username: string
@@ -14,39 +12,29 @@ export const updateUserProfileFn = createServerFn({ method: 'POST' })
   .inputValidator((data: UpdateUserProfileInput) => data)
   .handler(async ({ data }) => {
     const session = await useAppSession()
-    const token = session.data.token
 
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/user/profile`, {
+    const result = await authenticatedFetch<{ user: User }>(
+      '/user/profile',
+      {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(data),
-      })
+      },
+      'Failed to connect to server',
+      session
+    )
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      const result: { user: User } = await response.json()
-
-      await session.update({
-        token,
-        user: result.user,
-      })
-
-      return { success: true, user: result.user }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!result.success) {
+      return { success: false, error: result.error }
     }
+
+    if (!('data' in result) || !result.data) {
+      return { success: false, error: 'Invalid server response' }
+    }
+
+    await session.update({
+      token: session.data.token,
+      user: result.data.user,
+    })
+
+    return { success: true, user: result.data.user }
   })

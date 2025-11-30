@@ -1,6 +1,4 @@
-import { redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import type { ErrorResponse } from '../types/auth'
 import type {
   ChangeChatAdminRequest,
   ChatUser,
@@ -18,8 +16,7 @@ import type {
   SendMessageRequest,
 } from '../types/chat'
 import { useAppSession } from './session'
-
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000'
+import { authenticatedFetch } from './utils'
 
 export const getAuthTokenFn = createServerFn({ method: 'GET' }).handler(async () => {
   const session = await useAppSession()
@@ -29,311 +26,164 @@ export const getAuthTokenFn = createServerFn({ method: 'GET' }).handler(async ()
 export const searchUsersFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SearchUsersRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/chat/search-users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    const result = await authenticatedFetch<ChatUser[]>(
+      '/chat/search-users',
+      {
         body: JSON.stringify(data),
-      })
+      },
+      'Failed to connect to server'
+    )
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, retry_after: error.retry_after, users: [] }
-      }
-
-      const users: ChatUser[] = await response.json()
-      return { success: true, users }
-    } catch (error) {
+    if (!result.success) {
       return {
         success: false,
-        error: 'Failed to connect to server',
+        error: result.error,
+        retry_after: result.retry_after,
         users: [],
       }
     }
+
+    if (!('data' in result) || !result.data) {
+      return {
+        success: false,
+        error: 'Invalid server response',
+        users: [],
+      }
+    }
+
+    return { success: true, users: result.data }
   })
 
 export const createChatFn = createServerFn({ method: 'POST' })
   .inputValidator((data: CreateChatRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/chat/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    const result = await authenticatedFetch<CreateChatResponse>(
+      '/chat/create',
+      {
         body: JSON.stringify(data),
-      })
+      },
+      'Failed to connect to server'
+    )
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      const result: CreateChatResponse = await response.json()
-      return { success: true, data: result }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!result.success) {
+      return { success: false, error: result.error }
     }
+
+    if (!('data' in result) || !result.data) {
+      return { success: false, error: 'Invalid server response' }
+    }
+
+    return { success: true, data: result.data }
   })
 
 export const getUserChatsFn = createServerFn({ method: 'GET' }).handler(async () => {
-  const session = await useAppSession()
-  const token = session.data.token
+  const result = await authenticatedFetch<GetChatsResponse>(
+    '/chat/all',
+    { method: 'GET' },
+    'Failed to connect to server'
+  )
 
-  if (!token) {
-    throw redirect({ to: '/auth' })
+  if (!result.success) {
+    return { success: false, error: result.error, chats: [] }
   }
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/chat/all`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) {
-      const error: ErrorResponse = await response.json()
-      return { success: false, error: error.error, chats: [] }
-    }
-
-    const result: GetChatsResponse = await response.json()
-    return { success: true, chats: result.chats }
-  } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to connect to server',
-      chats: [],
-    }
+  if (!('data' in result) || !result.data) {
+    return { success: false, error: 'Invalid server response', chats: [] }
   }
+
+  return { success: true, chats: result.data.chats }
 })
 
 export const getChatByIdFn = createServerFn({ method: 'GET' })
   .inputValidator((chatId: string) => chatId)
   .handler(async ({ data: chatId }) => {
-    const session = await useAppSession()
-    const token = session.data.token
+    const result = await authenticatedFetch<GetChatByIdResponse>(
+      `/chat/${chatId}`,
+      { method: 'GET' },
+      'Failed to connect to server'
+    )
 
-    if (!token) {
-      throw redirect({ to: '/auth' })
+    if (!result.success) {
+      return { success: false, error: result.error }
     }
 
-    try {
-      const response = await fetch(`${BACKEND_URL}/chat/${chatId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      const result: GetChatByIdResponse = await response.json()
-      return { success: true, data: result }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
+    if (!('data' in result) || !result.data) {
+      return { success: false, error: 'Invalid server response' }
     }
+
+    return { success: true, data: result.data }
   })
 
 export const getChatMessagesFn = createServerFn({ method: 'POST' })
   .inputValidator((data: GetChatMessagesRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/get`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    const result = await authenticatedFetch<GetChatMessagesResponse>(
+      '/messages/get',
+      {
         body: JSON.stringify(data),
-      })
+      },
+      'Failed to connect to server'
+    )
 
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error, items: [] }
-      }
-
-      const result: GetChatMessagesResponse = await response.json()
-      return { success: true, ...result }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-        items: [],
-      }
+    if (!result.success) {
+      return { success: false, error: result.error, items: [] }
     }
+
+    if (!('data' in result) || !result.data) {
+      return { success: false, error: 'Invalid server response', items: [] }
+    }
+
+    return { success: true, ...result.data }
   })
 
 export const sendMessageFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SendMessageRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    const response = await fetch(`${BACKEND_URL}/messages/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const result = await authenticatedFetch<{ message_id: string }>(
+      '/messages/send',
+      {
+        body: JSON.stringify(data),
       },
-      body: JSON.stringify(data),
-    })
+      'Failed to connect to server'
+    )
 
-    if (!response.ok) {
-      const error: ErrorResponse = await response.json()
-      return { success: false, error: error.error, retry_after: error.retry_after }
+    if (!result.success) {
+      return { success: false, error: result.error, retry_after: result.retry_after }
     }
 
-    const result = await response.json()
-    return { success: true, message_id: result.message_id }
+    if (!('data' in result) || !result.data) {
+      return { success: false, error: 'Invalid server response' }
+    }
+
+    return { success: true, message_id: result.data.message_id }
   })
 
 export const editMessageFn = createServerFn({ method: 'POST' })
   .inputValidator((data: EditMessageRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/edit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    return authenticatedFetch(
+      '/messages/edit',
+      {
         body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
-    }
+      },
+      'Failed to connect to server'
+    )
   })
 
 export const deleteMessageFn = createServerFn({ method: 'POST' })
   .inputValidator((data: DeleteMessageRequest) => data)
   .handler(async ({ data }) => {
-    const session = await useAppSession()
-    const token = session.data.token
-
-    if (!token) {
-      throw redirect({ to: '/auth' })
-    }
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/messages/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    return authenticatedFetch(
+      '/messages/delete',
+      {
         body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        const error: ErrorResponse = await response.json()
-        return { success: false, error: error.error }
-      }
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to connect to server',
-      }
-    }
+      },
+      'Failed to connect to server'
+    )
   })
 
 type ChatIdPayload = {
   chatId: string
-}
-
-const authenticatedFetch = async (path: string, options: RequestInit, errorFallback: string) => {
-  const session = await useAppSession()
-  const token = session.data.token
-
-  if (!token) {
-    throw redirect({ to: '/auth' })
-  }
-
-  try {
-    const response = await fetch(`${BACKEND_URL}${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      body: options.body,
-    })
-
-    if (!response.ok) {
-      const error: ErrorResponse = await response.json()
-      return { success: false, error: error.error }
-    }
-
-    if (response.headers.get('content-length') === '0') {
-      return { success: true }
-    }
-
-    const data = await response.json()
-    return { success: true, data }
-  } catch (error) {
-    return {
-      success: false,
-      error: errorFallback,
-    }
-  }
 }
 
 export const clearChatFn = createServerFn({ method: 'POST' })

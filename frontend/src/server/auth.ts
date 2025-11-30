@@ -2,8 +2,7 @@ import { redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import type { AuthResponse, ErrorResponse, SignInData, SignUpData, VerifyResponse } from '../types/auth'
 import { useAppSession } from './session'
-
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8000'
+import { BACKEND_URL } from './utils'
 
 export const signUpFn = createServerFn({ method: 'POST' })
   .inputValidator((data: SignUpData) => data)

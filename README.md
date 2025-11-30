@@ -37,6 +37,7 @@ A real-time chat application with support for direct messages and group chats, b
 - [ulule/limiter](https://github.com/ulule/limiter) for rate limiting
 - [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) (S3-compatible) for image storage
 - [sqlc](https://sqlc.dev) for type-safe SQL queries
+- [goose](https://github.com/pressly/goose) for managing database migrations
 
 ## Getting Started
 
@@ -55,7 +56,7 @@ A real-time chat application with support for direct messages and group chats, b
    cd bubbles
    ```
 
-2. **Install dependencies**
+2. **Install project root dependencies**
 
    ```bash
    npm install
@@ -77,28 +78,35 @@ A real-time chat application with support for direct messages and group chats, b
    # Edit backend/.env with your configuration
    ```
 
-4. **Start PostgreSQL and Redis**
+4. **Install Go development tools (air, sqlc, goose) if not already installed**
+
+   ```bash
+   make install-tools
+   ```
+
+5. **Start PostgreSQL + Redis and run migrations**
 
    ```bash
    cd backend
    make docker-up
-   ```
-
-5. **Run database migrations**
-
-   ```bash
-   # while already in /backend
    make migrate-up
    ```
 
-6. **Start the development servers**
+6. **Install frontend dependencies**
+
+   ```bash
+   cd ../frontend
+   npm install
+   ```
+
+7. **Start the development servers**
 
    ```bash
    cd ../ # go back to root directory
    npm run dev
    ```
 
-This uses [mprocs](https://github.com/pvolok/mprocs) to run both frontend (port 3000) and backend (port 8080) concurrently.
+This uses [mprocs](https://github.com/pvolok/mprocs) to run both frontend (port 3000) and backend (port 8000) concurrently.
 
 ### Project Structure
 
